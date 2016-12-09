@@ -1,6 +1,7 @@
 # ESP8266-HTTP-IR-Blaster
-ESP8266 Compatible IR Blaster that accepts HTTP commands for use with services like Amazon Echo
 ==============
+ESP8266 Compatible IR Blaster that accepts HTTP commands for use with services like Amazon Echo
+
 
 The purpose of this project was to create a Wi-Fi enabled IR blaster that could be controlled with Amazon Alexa and IFTTT
 This program uses the ESP8266 board and the ESP8266Basic firmware to achieve these goals with minimal coding overhead
@@ -10,7 +11,7 @@ http://www.instructables.com/id/Easiest-ESP8266-Learning-IR-Remote-Control-Via-W
 Special thanks to him for his hard work on ESP8266Basic and the tutorial for the IR blaster
 
 See his readme for basic instructions
-==============
+
 Hardware
 --------------
 *This is just example hardware that I used in creation of this project, other hardware is likely to work*
