@@ -23,10 +23,10 @@ Setup
 1. Flash your ESP8266 board with the ESP8266Basic (for the board I used I had to make sure to set the baud rate to 9600)
 2. Add the full text of default.bas to your code
 3. Wire up the ESP8266 using this image as your guide
-![Wiring](https://cdn.instructables.com/FWD/YRHR/ITTD0OFG/FWDYRHRITTD0OFG.MEDIUM.jpg?width=614)
+![fwdyrhrittd0ofg](https://cloud.githubusercontent.com/assets/3608298/21053650/64b46402-bdf8-11e6-8198-a8f73761b194.png)
 4. Save your IR codes to button 1-6 as needed using the IR receiver
 5. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network
-6. Create an IFTTT trigger using the Maker channel using the URL format below
+6. Create an [IFTTT trigger](https://cloud.githubusercontent.com/assets/3608298/21053641/52b2131c-bdf8-11e6-931e-89e80e932d8a.PNG) using the Maker channel using the URL format below
 
 URL
 --------------
