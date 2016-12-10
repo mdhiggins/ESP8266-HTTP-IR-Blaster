@@ -12,6 +12,8 @@ Special thanks to him for his hard work on ESP8266Basic and the tutorial for the
 
 See his readme for basic instructions
 
+**There is a long step by step walkthrough on the wiki of this repository**
+
 Hardware
 --------------
 *This is just example hardware that I used in creation of this project, other hardware is likely to work*
@@ -31,9 +33,11 @@ Setup
 URL
 --------------
 Parameters
-- `code` - value can be 1-6 and corresponds to the slot you saved your remove code under
-- `pulse` - (optional) specifies repeating the signal a number of times (pulses). Some TVs require a few pulses for the signal to be picked up. 10ms delay between each signal
-- `repeat` - (optional) specifies longer repeats to simulate pressing the remote button multiple times. Useful for emulating things like the sleep timer. 1000ms delay between each signal
+- `code` - value can be 1-6 and corresponds to the slot you saved your remove code under or the raw IR code such as `a90:SONY:19`
+- `pulse` - (optional) specifies repeating the signal a number of times (pulses). Some TVs require a few pulses for the signal to be picked up
+- `pdelay` - (optional) pulse delay in milliseconds. Default 10ms
+- `repeat` - (optional) specifies longer repeats to simulate pressing the remote button multiple times. Useful for emulating things like the sleep timer
+- `rdelay` - (optional) time to delay sending the signal again. Default 1000ms
 Example I used to set a 30 minute sleep timer on my TV:
 `http://xxx.xxx.xxx.xxx/msg?code=2&pulse=3&repeat=5`
 
