@@ -22,7 +22,7 @@ Hardware
 
 Setup
 --------------
-1. Flash your ESP8266 board with the ESP8266Basic (for the board I used I had to make sure to set the baud rate to 9600)
+1. Flash your ESP8266 board with the ESP8266Basic 3.0 (for the board I used I had to make sure to set the baud rate to 9600)
 2. Add the full text of default.bas to your code
 3. Wire up the ESP8266 using this image as your guide
 ![fwdyrhrittd0ofg](https://cloud.githubusercontent.com/assets/3608298/21053650/64b46402-bdf8-11e6-8198-a8f73761b194.png)
@@ -44,7 +44,9 @@ Example I used to set a 30 minute sleep timer on my TV:
 Flashing your ESP8266
 ---------------
 A good starting resource is to look at the ESP8266Basic website https://www.esp8266basic.com/flashing-instructions.html
-I ran into some issues using the Windows application to flash the firmware (likely baud rate issue). I solved this by downloading the ESP8266Basic firmware from [Github](https://github.com/esp8266/Basic/tree/master/Flasher/Build/4M) and then flashing the board using the [NodeMCU-flasher software](https://github.com/nodemcu/nodemcu-flasher)
+I ran into some issues using the Windows application to flash the firmware (likely baud rate issue). I solved this by downloading the ESP8266Basic firmware from [Github](https://github.com/esp8266/Basic/tree/NewWebSockets/Flasher/Build/4M) and then flashing the board using the [NodeMCU-flasher software](https://github.com/nodemcu/nodemcu-flasher)
+
+Requires firmware version 3.0
 
 Notes
 ---------------
