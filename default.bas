@@ -1,5 +1,7 @@
 dim irButtons(6) as string
 dim irCodes(6) as string
+dim pword as string
+pass =  ""
 x = 0
 
 ir.recv.setup(5)
@@ -14,6 +16,22 @@ for x = 1 to 6
 next x
 
 [top]
+cls
+if pword == "" then
+    goto [load]
+    wait
+else
+    Print "Enter password"
+    passwordbox pass
+    button "Submit", [log]
+    wait
+end if
+
+[log]
+if pword == pass then goto [load]
+wait
+
+[load]
 cls
 cssclass "button", "background-color: powderblue;height: 20%;width: 30%;"
 Print "ESP8266 Basic Learning IR remote"
@@ -79,6 +97,8 @@ write("ircode" & str(x),irCodes(x))
 goto [top]
 
 [codebranch]
+pass = msgget("pass")
+if pass <> pword then wait
 codeVar = msgget("code")
 repeatVar = msgget("repeat")
 pulseVar = msgget("pulse")
