@@ -23,7 +23,7 @@ Hardware
 Setup
 --------------
 1. Flash your ESP8266 board with the ESP8266Basic 3.0 (for the board I used I had to make sure to set the baud rate to 9600)
-2. Add the full text of default.bas to your code
+2. Add the full text of default.bas to your code. Make sure to update line 4 to set your password `pword = "password"`
 3. Wire up the ESP8266 using this image as your guide
 ![fwdyrhrittd0ofg](https://cloud.githubusercontent.com/assets/3608298/21053650/64b46402-bdf8-11e6-8198-a8f73761b194.png)
 4. Save your IR codes to button 1-6 as needed using the IR receiver
@@ -33,6 +33,7 @@ Setup
 URL
 --------------
 Parameters
+- `pass` - password required to execute IR command sending
 - `code` - value can be 1-6 and corresponds to the slot you saved your remove code under or the raw IR code such as `a90:SONY:19`
 - `pulse` - (optional) specifies repeating the signal a number of times (pulses). Some TVs require a few pulses for the signal to be picked up
 - `pdelay` - (optional) pulse delay in milliseconds. Default 10ms
