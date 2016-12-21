@@ -1,6 +1,7 @@
 dim irButtons(6) as string
 dim irCodes(6) as string
 dim pword as string
+pword = "password"
 pass =  ""
 x = 0
 
