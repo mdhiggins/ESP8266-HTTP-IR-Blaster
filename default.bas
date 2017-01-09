@@ -105,6 +105,9 @@ repeatVar = msgget("repeat")
 pulseVar = msgget("pulse")
 pDelayVar = msgget("pdelay")
 rDelayVar = msgget("rdelay")
+
+if (len(codeVar) = 1) then codeVar = irCodes(val(codeVar))
+        
 let myReturnMsg = "Triggering code " & codeVar
 msgreturn myReturnMsg
 
@@ -112,7 +115,6 @@ if repeatVar == "" then repeatVar = "1"
 if pulseVar == "" then pulseVar = "1"
 if pDelayVar == "" then pDelayVar = "10"
 if rDelayVar == "" then rDelayVar = "1000"
-if (len(codeVar) = 1) then codeVar = irCodes(val(codeVar))
 
 for z = 1 to val(repeatVar)
     for y = 1 to val(pulseVar)
