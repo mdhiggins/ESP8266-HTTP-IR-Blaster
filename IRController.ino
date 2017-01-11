@@ -63,7 +63,7 @@ void setup() {
 
         if (pulse == 0) pulse = 1; // Make sure pulse isn't 0
         if (repeat == 0) repeat = 1; // Make sure repeat isn't 0
-        if (pdelay == 0) pdelay = 10; // Default pdelay
+        if (pdelay == 0) pdelay = 100; // Default pdelay
         if (rdelay == 0) rdelay = 1000; // Default rdelay
 
         if (type == "delay") {
@@ -96,7 +96,7 @@ void setup() {
       long address = (server.hasArg("address")) ? server.arg("address").toInt():0;
       int rdelay = (server.hasArg("delay")) ? server.arg("rdelay").toInt():1000;
       int pulse = (server.hasArg("pulse")) ? server.arg("pulse").toInt():1;
-      int pdelay = (server.hasArg("pdelay")) ? server.arg("pdelay").toInt():10;
+      int pdelay = (server.hasArg("pdelay")) ? server.arg("pdelay").toInt():100;
       int repeat = (server.hasArg("repeat")) ? server.arg("repeat").toInt():1;
       if (server.hasArg("code")) {
         String code = server.arg("code");
