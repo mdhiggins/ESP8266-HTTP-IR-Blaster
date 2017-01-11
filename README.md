@@ -30,7 +30,7 @@ Setup
 
 Capturing Codes
 ---------------
-While connected to the ESP via USB and monitoring via serial at 115200 baud, scan your remote code you wish to emulate. Most codes will be recognized and displayed in the format `A90:SONY:12`. Make a note of this code as you will need it for your maker channel URL. If your code is not recognized scroll down the JSON section of this readme.
+While connected to the ESP via USB and monitoring via serial at 115200 baud, scan your remote code you wish to emulate. Most codes will be recognized and displayed in the format `A90:SONY:12`. Make a note of the code displayed in the serial output as you will need it for your maker channel URL. If your code is not recognized scroll down the JSON section of this read me.
 
 Simple URL
 --------------
@@ -42,6 +42,7 @@ Parameters
 - `pdelay` - (optional) pulse delay in milliseconds. Default 100ms
 - `repeat` - (optional) specifies longer repeats to simulate pressing the remote button multiple times. Useful for emulating things like the sleep timer
 - `rdelay` - (optional) time to delay sending the signal again. Default 1000ms
+
 Example:
 `http://xxx.xxx.xxx.xxx/msg?code=A90:SONY:12&pulse=2&repeat=5`
 
