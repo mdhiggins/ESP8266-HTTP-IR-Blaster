@@ -44,7 +44,7 @@ Parameters
 - `rdelay` - (optional) time to delay sending the signal again. Default 1000ms
 
 Example:
-`http://xxx.xxx.xxx.xxx/msg?code=A90:SONY:12&pulse=2&repeat=5`
+`http://xxx.xxx.xxx.xxx/msg?code=A90:SONY:12&pulse=2&repeat=5&pass=yourpass`
 
 JSON
 --------------
@@ -102,7 +102,7 @@ JSON and IFTTT
 While the JSON functionality works fine with a command line based HTTP request using CURL, IFTTT's maker channel is not as robust.
 To send the signal using the IFTTT Maker channel, simply take your JSON payload and remove spaces and line breaks so that entire packet is on a single line, then added it to the URL using the `plain` argument.
 
-Sample URL
+Sample URL using the same 3 button JSON sequence as above
 ```
-http://xxx.xxx.xxx.xxx/msg?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800}]
+http://xxx.xxx.xxx.xxx/msg?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
 ```
