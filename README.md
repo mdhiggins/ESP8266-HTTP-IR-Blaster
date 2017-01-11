@@ -2,6 +2,7 @@
 ==============
 ESP8266 Compatible IR Blaster that accepts HTTP commands for use with services like Amazon Echo
 
+![img_0706](https://cloud.githubusercontent.com/assets/3608298/21854472/e2b3d824-d7e8-11e6-8439-a500b73fd57e.jpg)
 
 The purpose of this project was to create a Wi-Fi enabled IR blaster that could be controlled with Amazon Alexa and IFTTT
 This program uses the ESP8266 board and the ESP8266Basic firmware to achieve these goals with minimal coding overhead
@@ -55,14 +56,15 @@ Example:
 JSON
 --------------
 For more complicated sequences of buttons, such a multiple button presses or sending RAW IR commands, you may do an HTTP POST with a JSON object that contains an array of commands which the receiver will parse and transmit. Payload must be a JSON array of JSON objects.
+
 Parameters
 - `data` - IR code data, may be simple HEX code such as `"A90"` or an array of int values when transmitting a RAW sequence
-- `type` - Type of signal transmitted. Example `"SONY"`, `"RAW"`, `Delay` or `"Roomba"` (and many others)
+- `type` - Type of signal transmitted. Example `"SONY"`, `"RAW"`, `"Delay"` or `"Roomba"` (and many others)
 - `length` - Bit length, example `12`
-- `pulse` - Repeat a signal rapidly. Example `2`. Sony based codes will not be recognized unless pulsed at least twice.
-- `pdelay` - Delay between pulses in milliseconds. Default 100
-- `repeat` - Number of times to send the signal. Useful for emulating multiple button presses for functions like large volume adjustments or sleep timer
-- `rdelay` - Delay between repeats
+- `pulse` - Repeat a signal rapidly. Default `1`. Sony based codes will not be recognized unless pulsed at least twice.
+- `pdelay` - Delay between pulses in milliseconds. Default `100`
+- `repeat` - Number of times to send the signal. Default `1`. Useful for emulating multiple button presses for functions like large volume adjustments or sleep timer
+- `rdelay` - Delay between repeats in milliseconds. Default `1000`
 - `khz` - Transmission frequency in kilohertz. Only needed when transmitting RAW signal. Default `38`
 
 3 Button Sequence Example JSON
