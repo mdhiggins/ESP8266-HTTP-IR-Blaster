@@ -14,13 +14,13 @@ Hardware
 V2 of the hardware includes the 2N2222 transistor for increased current and pulls directly off the USB port via the VIN pin (5V supply) to increase the overall current delivery to the IR LED to improve brightness and range. Appropriate current limiting resistors are also shown. V1 hardware still works with the new code but V2 is recommended for better performance and prolonged lifespan of your ESP8266 and LED.
 
 ![irblaster](https://cloud.githubusercontent.com/assets/3608298/21850706/e52be61e-d7d9-11e6-8939-9e43d533ae8d.png)
-- ESP8266 NodeMCU Board https://www.amazon.com/gp/product/B01IK9GEQG/
-- IR Receiver https://www.amazon.com/gp/product/B00EFOQEUM/
-- Super bright IR Led https://www.amazon.com/gp/product/B00ULB0U44/
-- 2N2222 Transistor https://www.amazon.com/gp/product/B00R1M3DA4/
-- Resistors https://www.amazon.com/gp/product/B00YX75O5M/
+- [ESP8266 NodeMCU Board](https://www.amazon.com/gp/product/B01IK9GEQG/)
+- [IR Receiver](https://www.amazon.com/gp/product/B00EFOQEUM/)
+- [Super bright IR Led](https://www.amazon.com/gp/product/B00ULB0U44/)
+- [2N2222 Transistor](https://www.amazon.com/gp/product/B00R1M3DA4/)
+- [Resistors](https://www.amazon.com/gp/product/B00YX75O5M/)
 
-*These are just quick amazon references. Parts can likely be purchased cheaper elsewhere*
+*These are just quick Amazon references. Parts can likely be purchased cheaper elsewhere*
 
 Setup
 --------------
