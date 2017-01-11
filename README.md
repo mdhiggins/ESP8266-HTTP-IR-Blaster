@@ -48,7 +48,7 @@ Example:
 
 JSON
 --------------
-For more complicated sequences of buttons, such a multiple button presses or sending RAW IR commands, you pay do an HTTP POST with a JSON object that contains an array of commands which the receiver will parse and transmit. Payload must be a JSON array of JSON objects.
+For more complicated sequences of buttons, such a multiple button presses or sending RAW IR commands, you may do an HTTP POST with a JSON object that contains an array of commands which the receiver will parse and transmit. Payload must be a JSON array of JSON objects.
 Parameters
 - `data` - IR code data, may be simple HEX code such as `"A90"` or an array of int values when transmitting a RAW sequence
 - `type` - Type of signal transmitted. Example `"SONY"`, `"RAW"`, `Delay` or `"Roomba"` (and many others)
