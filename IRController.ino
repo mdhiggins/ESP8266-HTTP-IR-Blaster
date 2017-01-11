@@ -1,7 +1,5 @@
 #include <IRremoteESP8266.h>
-#include <IRremoteInt.h>
 #include <ArduinoJson.h>
-
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 
