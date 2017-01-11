@@ -11,10 +11,16 @@ Version 2 of the project aimed to increase the reliability and expand the functi
 
 Hardware
 --------------
-*This is just example hardware that I used in creation of this project, other hardware is likely to work*
+V2 of the hardware includes the 2N2222 transistor for increased current and pulls directly off the USB port via the VIN pin (5V supply) to increase the overall current delivery to the IR LED to improve brightness and range. Appropriate current limiting resistors are also shown. V1 hardware still works with the new code but V2 is recommended for better performance and prolonged lifespan of your ESP8266 and LED.
+
+![irblaster](https://cloud.githubusercontent.com/assets/3608298/21850706/e52be61e-d7d9-11e6-8939-9e43d533ae8d.png)
 - ESP8266 NodeMCU Board https://www.amazon.com/gp/product/B01IK9GEQG/
-- IR Led & Receiver https://www.amazon.com/gp/product/B00EFOQEUM/
-- 2N2222 Transistor
+- IR Receiver https://www.amazon.com/gp/product/B00EFOQEUM/
+- Super bright IR Led https://www.amazon.com/gp/product/B00ULB0U44/
+- 2N2222 Transistor https://www.amazon.com/gp/product/B00R1M3DA4/
+- Resistors https://www.amazon.com/gp/product/B00YX75O5M/
+
+*These are just quick amazon references. Parts can likely be purchased cheaper elsewhere*
 
 Setup
 --------------
@@ -99,7 +105,7 @@ Raw Example
 
 JSON and IFTTT
 --------------
-While the JSON functionality works fine with a command line based HTTP request using CURL, IFTTT's maker channel is not as robust.
+While the JSON functionality works fine with a command line based HTTP request like CURL, IFTTT's maker channel is not as robust.
 To send the signal using the IFTTT Maker channel, simply take your JSON payload and remove spaces and line breaks so that entire packet is on a single line, then added it to the URL using the `plain` argument.
 
 Sample URL using the same 3 button JSON sequence as above
