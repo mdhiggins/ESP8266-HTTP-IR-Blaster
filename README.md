@@ -50,9 +50,9 @@ Setup
 2. Install [ESP8266 Arduino Core](https://github.com/esp8266/Arduino)
 3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson`
 4. Manually install the [IRremoteESP8266 library](https://github.com/markszabo/IRremoteESP8266)
-5. Load the `IRController.ino` blueprint
+5. Load the `IRController.ino` blueprint from this repository
 6. Customize your WiFi settings, ports, IP address, and passcode at the top of the blueprint
-7. Load code on to your ESP8266. Monitor via serial at 115200 baud rate
+7. Upload blueprint to your ESP8266. Monitor via serial at 115200 baud rate
 8. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network
 9. Create an [IFTTT trigger](https://cloud.githubusercontent.com/assets/3608298/21918439/526b6ba0-d91f-11e6-9ef2-dcc8e41f7637.png) using the Maker channel using the URL format below
 
