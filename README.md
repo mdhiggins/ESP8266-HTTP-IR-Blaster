@@ -133,5 +133,5 @@ To send the signal using the IFTTT Maker channel, simply take your JSON payload 
 
 Sample URL using the same 3 button JSON sequence as above
 ```
-http://xxx.xxx.xxx.xxx/msg?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
+http://xxx.xxx.xxx.xxx/json?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
 ```
