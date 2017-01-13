@@ -1,55 +1,137 @@
-# ESP8266-HTTP-IR-Blaster
+# ESP8266-HTTP-IR-Blaster V2
 ==============
 ESP8266 Compatible IR Blaster that accepts HTTP commands for use with services like Amazon Echo
 
+![img_0706](https://cloud.githubusercontent.com/assets/3608298/21854472/e2b3d824-d7e8-11e6-8439-a500b73fd57e.jpg)
 
 The purpose of this project was to create a Wi-Fi enabled IR blaster that could be controlled with Amazon Alexa and IFTTT
 This program uses the ESP8266 board and the ESP8266Basic firmware to achieve these goals with minimal coding overhead
 
-This project is based off of the work by @mmiscool posted here
-http://www.instructables.com/id/Easiest-ESP8266-Learning-IR-Remote-Control-Via-WIF/
-Special thanks to him for his hard work on ESP8266Basic and the tutorial for the IR blaster
+Version 2 of the project aims to increase the reliability and expand the functionality to include many different types of devices
+ in addition to transmitting RAW formatted codes and more complex combination of codes
 
-See his readme for basic instructions
-
-**There is a long step by step walkthrough on the wiki of this repository**
+Supported Signals
+--------------
+- NEC
+- Sony
+- Panasonic
+- JVC
+- Samsung
+- Sharp
+- Coolix
+- Dish
+- Wynter
+- Roomba
+- RAW
 
 Hardware
 --------------
-*This is just example hardware that I used in creation of this project, other hardware is likely to work*
-- ESP8266 NodeMCU Board https://www.amazon.com/gp/product/B01IK9GEQG/
-- IR Led & Receiver https://www.amazon.com/gp/product/B00EFOQEUM/
+V2 of the hardware includes the 2N2222 transistor for increased current and pulls directly off the USB port via the VIN pin (5V supply) to increase the overall current delivery to the IR LED to improve brightness and range. Appropriate current limiting resistors are also shown. V1 hardware still works with the new code but V2 is recommended for better performance and prolonged lifespan of your ESP8266 and LED.
+
+![irblaster](https://cloud.githubusercontent.com/assets/3608298/21850706/e52be61e-d7d9-11e6-8939-9e43d533ae8d.png)
+
+- [ESP8266 NodeMCU Board](https://www.amazon.com/gp/product/B01IK9GEQG/)
+- [IR Receiver](https://www.amazon.com/gp/product/B00EFOQEUM/)
+- [Super bright IR Led](https://www.amazon.com/gp/product/B00ULB0U44/)
+- [2N2222 Transistor](https://www.amazon.com/gp/product/B00R1M3DA4/)
+- [Resistors](https://www.amazon.com/gp/product/B00YX75O5M/)
+
+*These are just quick Amazon references. Parts can likely be purchased cheaper elsewhere*
+
+Drivers
+--------------
+Install the NodeMCU drivers for your respective operating system if they are not autodetected
+
+https://www.silabs.com/products/mcu/Pages/USBtoUARTBridgeVCPDrivers.aspx
 
 Setup
 --------------
-1. Flash your ESP8266 board with the ESP8266Basic 3.0 (for the board I used I had to make sure to set the baud rate to 9600)
-2. Add the full text of default.bas to your code. Make sure to update line 4 to set your password `pword = "password"`
-3. Wire up the ESP8266 using this image as your guide
-![fwdyrhrittd0ofg](https://cloud.githubusercontent.com/assets/3608298/21053650/64b46402-bdf8-11e6-8198-a8f73761b194.png)
-4. Save your IR codes to button 1-6 as needed using the IR receiver
-5. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network
-6. Create an [IFTTT trigger](https://cloud.githubusercontent.com/assets/3608298/21053641/52b2131c-bdf8-11e6-931e-89e80e932d8a.PNG) using the Maker channel using the URL format below
+1. Install [Arduino IDE](https://www.arduino.cc/en/main/software)
+2. Install [ESP8266 Arduino Core](https://github.com/esp8266/Arduino)
+3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson`
+4. Manually install the [IRremoteESP8266 library](https://github.com/markszabo/IRremoteESP8266)
+5. Load the `IRController.ino` blueprint
+6. Customize your WiFi settings, ports, IP address, and passcode at the top of the blueprint
+7. Load code on to your ESP8266. Monitor via serial at 115200 baud rate
+8. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network
+9. Create an [IFTTT trigger](https://cloud.githubusercontent.com/assets/3608298/21918439/526b6ba0-d91f-11e6-9ef2-dcc8e41f7637.png) using the Maker channel using the URL format below
 
-URL
+Capturing Codes
+---------------
+While connected to the ESP via USB and monitoring via serial at 115200 baud, scan your remote code you wish to emulate. Most codes will be recognized and displayed in the format `A90:SONY:12`. Make a note of the code displayed in the serial output as you will need it for your maker channel URL. If your code is not recognized scroll down the JSON section of this read me.
+
+Simple URL
 --------------
+For sending simple commands such as a single button press, or a repeating sequence of the same button press, use the logic below. This is unchanged from version 1.
 Parameters
 - `pass` - password required to execute IR command sending
-- `code` - value can be 1-6 and corresponds to the slot you saved your remove code under or the raw IR code such as `a90:SONY:19`
+- `code` - IR code such as `A90:SONY:12`
 - `pulse` - (optional) specifies repeating the signal a number of times (pulses). Some TVs require a few pulses for the signal to be picked up
-- `pdelay` - (optional) pulse delay in milliseconds. Default 10ms
+- `pdelay` - (optional) pulse delay in milliseconds. Default 100ms
 - `repeat` - (optional) specifies longer repeats to simulate pressing the remote button multiple times. Useful for emulating things like the sleep timer
 - `rdelay` - (optional) time to delay sending the signal again. Default 1000ms
-Example I used to set a 30 minute sleep timer on my TV:
-`http://xxx.xxx.xxx.xxx/msg?code=2&pulse=3&repeat=5`
 
-Flashing your ESP8266
----------------
-A good starting resource is to look at the ESP8266Basic website https://www.esp8266basic.com/flashing-instructions.html
-I ran into some issues using the Windows application to flash the firmware (likely baud rate issue). I solved this by downloading the ESP8266Basic firmware from [Github](https://github.com/esp8266/Basic/tree/NewWebSockets/Flasher/Build/4M) and then flashing the board using the [NodeMCU-flasher software](https://github.com/nodemcu/nodemcu-flasher)
+Example:
+`http://xxx.xxx.xxx.xxx/msg?code=A90:SONY:12&pulse=2&repeat=5&pass=yourpass`
 
-Requires firmware version 3.0
+JSON
+--------------
+For more complicated sequences of buttons, such a multiple button presses or sending RAW IR commands, you may do an HTTP POST with a JSON object that contains an array of commands which the receiver will parse and transmit. Payload must be a JSON array of JSON objects.
 
-Notes
----------------
-If you're using an IR Led with high level of current you may want to add a resistor to the circuit so as to not damage your ESP8266 over time. The pins are only rated for 12mA of current
-The IR led I'm using in my setup draws 20mA of current but since its only on for small impulses rather than sustained like a typical LED I didn't bother with a resistor but its probably not the technically correct thing to do.
+Parameters
+- `data` - IR code data, may be simple HEX code such as `"A90"` or an array of int values when transmitting a RAW sequence
+- `type` - Type of signal transmitted. Example `"SONY"`, `"RAW"`, `"Delay"` or `"Roomba"` (and many others)
+- `length` - Bit length, example `12`
+- `pulse` - Repeat a signal rapidly. Default `1`. Sony based codes will not be recognized unless pulsed at least twice.
+- `pdelay` - Delay between pulses in milliseconds. Default `100`
+- `repeat` - Number of times to send the signal. Default `1`. Useful for emulating multiple button presses for functions like large volume adjustments or sleep timer
+- `rdelay` - Delay between repeats in milliseconds. Default `1000`
+- `khz` - Transmission frequency in kilohertz. Only needed when transmitting RAW signal. Default `38`
+
+3 Button Sequence Example JSON
+```
+[
+    {
+        "type":"nec",
+        "data":"FF827D",
+        "length":32,
+        "repeat":3,
+        "rdelay":800
+    },
+    {
+        "type":"nec",
+        "data":"FFA25D",
+        "length":32,
+        "repeat":3,
+        "rdelay":800
+    },
+    {
+        "type":"nec",
+        "data":"FF12ED",
+        "length":32,
+        "rdelay": 1000
+    }
+]
+```
+
+Raw Example
+```
+[
+    {
+    "type":"raw",
+    "data":[2450,600, 1300,600, 700,550, 1300,600, 700,550, 1300,550, 700,550, 700,600, 1300,600, 700,550, 700,550, 700,550, 700],
+    "khz":38,
+    "pulse":3
+    }
+]
+```
+
+JSON and IFTTT
+--------------
+While the JSON functionality works fine with a command line based HTTP request like CURL, IFTTT's maker channel is not as robust.
+To send the signal using the IFTTT Maker channel, simply take your JSON payload and remove spaces and line breaks so that entire packet is on a single line, then added it to the URL using the `plain` argument.
+
+Sample URL using the same 3 button JSON sequence as above
+```
+http://xxx.xxx.xxx.xxx/msg?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
+```
