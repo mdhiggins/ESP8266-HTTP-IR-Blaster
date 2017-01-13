@@ -3,19 +3,25 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 
+//+=============================================================================
+// Please customize the following settings
+//
 const char* ssid = "WiFi SSID"; // WiFi SSID
 const char* password = "WiFi pass"; // WiFi password
 const char* passcode = "pass"; // Access code to send IR commands
-const int port = 8081;
-IPAddress ip(10,0,1,10);
-IPAddress dns(10,0,1,1);
-IPAddress gw(10,0,1,1);
-IPAddress subnet(255,255,255,0);
+const int port = 8081; //  Receiving HTTP port
+IPAddress ip(10,0,1,10); // ESP8266 IP Address
+IPAddress dns(10,0,1,1); // DNS Server
+IPAddress gw(10,0,1,1); // Gateway
+IPAddress subnet(255,255,255,0); // Subnet
 
-ESP8266WebServer server(port); // Receiving HTTP port
+IRrecv irrecv(5); // Receiving pin
+IRsend irsend(4); // Transmitting pin
+//
+// End configuration area
+//+=============================================================================
 
-IRrecv irrecv(5); // GPIO5
-IRsend irsend(4); // GPIO4
+ESP8266WebServer server(port);
 
 //+=============================================================================
 // Setup web server and IR receiver/blaster

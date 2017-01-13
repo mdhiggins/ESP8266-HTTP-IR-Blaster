@@ -7,14 +7,29 @@ ESP8266 Compatible IR Blaster that accepts HTTP commands for use with services l
 The purpose of this project was to create a Wi-Fi enabled IR blaster that could be controlled with Amazon Alexa and IFTTT
 This program uses the ESP8266 board and the ESP8266Basic firmware to achieve these goals with minimal coding overhead
 
-Version 2 of the project aimed to increase the reliability and expand the functionality to include many different types of devices
- in addition to transmitting raw formatted codes and more complex combination of codes
+Version 2 of the project aims to increase the reliability and expand the functionality to include many different types of devices
+ in addition to transmitting RAW formatted codes and more complex combination of codes
+
+Supported Signals
+--------------
+- NEC
+- Sony
+- Panasonic
+- JVC
+- Samsung
+- Sharp
+- Coolix
+- Dish
+- Wynter
+- Roomba
+- RAW
 
 Hardware
 --------------
 V2 of the hardware includes the 2N2222 transistor for increased current and pulls directly off the USB port via the VIN pin (5V supply) to increase the overall current delivery to the IR LED to improve brightness and range. Appropriate current limiting resistors are also shown. V1 hardware still works with the new code but V2 is recommended for better performance and prolonged lifespan of your ESP8266 and LED.
 
 ![irblaster](https://cloud.githubusercontent.com/assets/3608298/21850706/e52be61e-d7d9-11e6-8939-9e43d533ae8d.png)
+
 - [ESP8266 NodeMCU Board](https://www.amazon.com/gp/product/B01IK9GEQG/)
 - [IR Receiver](https://www.amazon.com/gp/product/B00EFOQEUM/)
 - [Super bright IR Led](https://www.amazon.com/gp/product/B00ULB0U44/)
@@ -23,17 +38,23 @@ V2 of the hardware includes the 2N2222 transistor for increased current and pull
 
 *These are just quick Amazon references. Parts can likely be purchased cheaper elsewhere*
 
+Drivers
+--------------
+Install the NodeMCU drivers for your respective operating system if they are not autodetected
+
+https://www.silabs.com/products/mcu/Pages/USBtoUARTBridgeVCPDrivers.aspx
+
 Setup
 --------------
-1. Install Arduino IDE
-2. Install [Arduino Core](https://github.com/esp8266/Arduino)
-3. Install the following libraries from the Arduino IDE library manager: `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson`
+1. Install [Arduino IDE](https://www.arduino.cc/en/main/software)
+2. Install [ESP8266 Arduino Core](https://github.com/esp8266/Arduino)
+3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson`
 4. Manually install the [IRremoteESP8266 library](https://github.com/markszabo/IRremoteESP8266)
-5. Load the IRController.ino blueprint
+5. Load the `IRController.ino` blueprint
 6. Customize your WiFi settings, ports, IP address, and passcode at the top of the blueprint
 7. Load code on to your ESP8266. Monitor via serial at 115200 baud rate
 8. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network
-9. Create an [IFTTT trigger](https://cloud.githubusercontent.com/assets/3608298/21053641/52b2131c-bdf8-11e6-931e-89e80e932d8a.PNG) using the Maker channel using the URL format below
+9. Create an [IFTTT trigger](https://cloud.githubusercontent.com/assets/3608298/21918439/526b6ba0-d91f-11e6-9ef2-dcc8e41f7637.png) using the Maker channel using the URL format below
 
 Capturing Codes
 ---------------
