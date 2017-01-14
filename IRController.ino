@@ -16,7 +16,10 @@ IPAddress gw(10,0,1,1); // Gateway
 IPAddress subnet(255,255,255,0); // Subnet
 
 IRrecv irrecv(5); // Receiving pin
-IRsend irsend(4); // Transmitting pin
+IRsend irsend0(4); // Transmitting pin 0
+IRsend irsend1(0); // Transmitting pin 1
+IRsend irsend2(12); // Trasmitting pin 2
+IRsend irsend3(13); // Transmitting pin 3
 //
 // End configuration area
 //+=============================================================================
@@ -64,6 +67,7 @@ void setup() {
         int pulse = root[x]["pulse"];
         int pdelay = root[x]["pdelay"];
         int repeat = root[x]["repeat"];
+        int out = root[x]["out"];
 
         if (pulse == 0) pulse = 1; // Make sure pulse isn't 0
         if (repeat == 0) repeat = 1; // Make sure repeat isn't 0
@@ -76,12 +80,12 @@ void setup() {
           JsonArray &raw = root[x]["data"]; // Array of unsigned int values for the raw signal
           int khz = root[x]["khz"];
           if (khz == 0) khz = 38; // Default to 38khz if not set
-          rawblast(raw, khz, rdelay, pulse, pdelay, repeat);
+          rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(out));
         } else {
           String data = root[x]["data"];
           long address = root[x]["address"];
           int len = root[x]["length"];
-          irblast(type, data, len, rdelay, pulse, pdelay, repeat, address);
+          irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
         }
       }
     }
@@ -102,6 +106,7 @@ void setup() {
       int pulse = (server.hasArg("pulse")) ? server.arg("pulse").toInt():1;
       int pdelay = (server.hasArg("pdelay")) ? server.arg("pdelay").toInt():100;
       int repeat = (server.hasArg("repeat")) ? server.arg("repeat").toInt():1;
+      int out = (server.hasArg("out")) ? server.arg("out").toInt():0;
       if (server.hasArg("code")) {
         String code = server.arg("code");
         char separator = ':';
@@ -110,7 +115,7 @@ void setup() {
         len = getValue(code, separator, 2).toInt();
       }
 
-      irblast(type, data, len, rdelay, pulse, pdelay, repeat, address);
+      irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
       server.send(200, "text/html", "Sending code");
     }
   });
@@ -123,7 +128,10 @@ void setup() {
   server.begin();
   Serial.println("HTTP Server started on port " + String(port));
 
-  irsend.begin();
+  irsend0.begin();
+  irsend1.begin();
+  irsend2.begin();
+  irsend3.begin();
   irrecv.enableIRIn();
   Serial.println("Ready to send and receive IR signals");
 }
@@ -162,6 +170,20 @@ void  ircode (decode_results *results)
   // Print Code
   Serial.print(results->value, HEX);
 }
+
+//+
+// Return which IRsend object to act on
+//
+IRsend pickIRsend (int out) {
+  switch (out) {
+    case 0: return irsend0;
+    case 1: return irsend1;
+    case 2: return irsend2;
+    case 3: return irsend3;
+    default: return irsend0;
+  }
+}
+
 
 //+=============================================================================
 // Display encoding type
@@ -325,7 +347,7 @@ unsigned long HexToLongInt(String h)
 //+=============================================================================
 // Send IR codes to variety of sources
 //
-void irblast(String type, String dataStr, int len, int rdelay, int pulse, int pdelay, int repeat, long address) {
+void irblast(String type, String dataStr, int len, int rdelay, int pulse, int pdelay, int repeat, long address, IRsend irsend) {
   Serial.println("Blasting off");
   type.toLowerCase();
   long data = HexToLongInt(dataStr);
@@ -358,7 +380,7 @@ void irblast(String type, String dataStr, int len, int rdelay, int pulse, int pd
       } else if (type == "dish") {
         irsend.sendDISH(data, len);
       } else if (type == "roomba") {
-        roomba_send(atoi(dataStr.c_str()), pulse, pdelay);
+        roomba_send(atoi(dataStr.c_str()), pulse, pdelay, irsend);
       }
       delay(pdelay);
     }
@@ -366,7 +388,7 @@ void irblast(String type, String dataStr, int len, int rdelay, int pulse, int pd
   }
 }
 
-void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int repeat) {
+void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int repeat, IRsend irsend) {
   Serial.println("Raw transmit");
 
   // Repeat Loop
@@ -388,7 +410,7 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int re
   }
 }
 
-void roomba_send(int code, int pulse, int pdelay)
+void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
 {
   Serial.print("Sending Roomba code ");
   Serial.println(code);
@@ -419,7 +441,6 @@ void roomba_send(int code, int pulse, int pdelay)
 
 void loop() {
   server.handleClient();
-
   decode_results  results;        // Somewhere to store the results
 
   if (irrecv.decode(&results)) {  // Grab an IR code
