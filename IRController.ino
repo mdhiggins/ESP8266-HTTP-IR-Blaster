@@ -16,10 +16,10 @@ IPAddress gw(10,0,1,1); // Gateway
 IPAddress subnet(255,255,255,0); // Subnet
 
 IRrecv irrecv(5); // Receiving pin
-IRsend irsend0(4); // Transmitting pin 0
-IRsend irsend1(0); // Transmitting pin 1
-IRsend irsend2(12); // Trasmitting pin 2
-IRsend irsend3(13); // Transmitting pin 3
+IRsend irsend1(4); // Transmitting preset 1
+IRsend irsend2(0); // Transmitting preset 2
+IRsend irsend3(12); // Transmitting preset 3
+IRsend irsend4(13); // Transmitting preset 4
 //
 // End configuration area
 //+=============================================================================
@@ -128,10 +128,10 @@ void setup() {
   server.begin();
   Serial.println("HTTP Server started on port " + String(port));
 
-  irsend0.begin();
   irsend1.begin();
   irsend2.begin();
   irsend3.begin();
+  irsend4.begin();
   irrecv.enableIRIn();
   Serial.println("Ready to send and receive IR signals");
 }
@@ -176,11 +176,11 @@ void  ircode (decode_results *results)
 //
 IRsend pickIRsend (int out) {
   switch (out) {
-    case 0: return irsend0;
     case 1: return irsend1;
     case 2: return irsend2;
     case 3: return irsend3;
-    default: return irsend0;
+    case 4: return irsend4;
+    default: return irsend1;
   }
 }
 
