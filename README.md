@@ -66,27 +66,29 @@ For sending simple commands such as a single button press, or a repeating sequen
 Parameters
 - `pass` - password required to execute IR command sending
 - `code` - IR code such as `A90:SONY:12`
-- `pulse` - (optional) specifies repeating the signal a number of times (pulses). Some TVs require a few pulses for the signal to be picked up
-- `pdelay` - (optional) pulse delay in milliseconds. Default 100ms
-- `repeat` - (optional) specifies longer repeats to simulate pressing the remote button multiple times. Useful for emulating things like the sleep timer
-- `rdelay` - (optional) time to delay sending the signal again. Default 1000ms
+- `pulse` - (optional) Repeat a signal rapidly. Default `1`. Sony based codes will not be recognized unless pulsed at least twice
+- `pdelay` - (optional) Delay between pulses in milliseconds. Default `100`
+- `repeat` - (optional) Number of times to send the signal. Default `1`. Useful for emulating multiple button presses for functions like large volume adjustments or sleep timer
+- `rdelay` - (optional) Delay between repeats in milliseconds. Default `1000`
+- `out` - (optional) Set which IRsend present to transmit over. Default `1`. Choose between `1-4`. Corresponding output pins set in the blueprint. Useful for a single ESP8266 that needs multiple LEDs pointed in different directions to trigger different devices
 
 Example:
 `http://xxx.xxx.xxx.xxx/msg?code=A90:SONY:12&pulse=2&repeat=5&pass=yourpass`
 
 JSON
 --------------
-For more complicated sequences of buttons, such a multiple button presses or sending RAW IR commands, you may do an HTTP POST with a JSON object that contains an array of commands which the receiver will parse and transmit. Payload must be a JSON array of JSON objects.
+For more complicated sequences of buttons, such a multiple button presses or sending RAW IR commands, you may do an HTTP POST with a JSON object that contains an array of commands which the receiver will parse and transmit. Payload must be a JSON array of JSON objects. Password should still be specified as the URL parameter `pass`.
 
 Parameters
 - `data` - IR code data, may be simple HEX code such as `"A90"` or an array of int values when transmitting a RAW sequence
 - `type` - Type of signal transmitted. Example `"SONY"`, `"RAW"`, `"Delay"` or `"Roomba"` (and many others)
-- `length` - Bit length, example `12`
-- `pulse` - Repeat a signal rapidly. Default `1`. Sony based codes will not be recognized unless pulsed at least twice.
-- `pdelay` - Delay between pulses in milliseconds. Default `100`
-- `repeat` - Number of times to send the signal. Default `1`. Useful for emulating multiple button presses for functions like large volume adjustments or sleep timer
-- `rdelay` - Delay between repeats in milliseconds. Default `1000`
-- `khz` - Transmission frequency in kilohertz. Only needed when transmitting RAW signal. Default `38`
+- `length` - (conditional) Bit length, example `12`. *Parameter does not need to be specified for RAW or Roomba signals*
+- `pulse` - (optional) Repeat a signal rapidly. Default `1`. *Sony based codes will not be recognized unless pulsed at least twice*
+- `pdelay` - (optional) Delay between pulses in milliseconds. Default `100`
+- `repeat` - (optional) Number of times to send the signal. Default `1`. *Useful for emulating multiple button presses for functions like large volume adjustments or sleep timer*
+- `rdelay` - (optional) Delay between repeats in milliseconds. Default `1000`
+- `khz` - (conditional) Transmission frequency in kilohertz. Default `38`. *Only required when transmitting RAW signal*
+- `out` - (optional) Set which IRsend present to transmit over. Default `1`. Choose between `1-4`. Corresponding output pins set in the blueprint. Useful for a single ESP8266 that needs multiple LEDs pointed in different directions to trigger different devices.
 
 3 Button Sequence Example JSON
 ```
@@ -125,6 +127,10 @@ Raw Example
     }
 ]
 ```
+
+Multiple LED Setup
+--------------
+If  you are setting up your ESP8266 IR Controller to handle multiple devices, for example in a home theater setup, and the IR receivers are in different directions, you may use the `out` parameter to transmit codes with different LEDs which can be arranged to face different directions. Simply wire additional LEDs to a different GPIO pin on the ESP8266 in a similar fashion to the default transmitting pin and set the corresponding pin to the `irsend1-4` objects created at the top of the blueprint. For example if you wired an additional LED to the GPIO0 pin and you wanted to send a signal via that LED instead of the primary, you would modify irsend2 in the blueprint to `IRsend irsend2(0)` corresponding to the GPIO0 pin. Then when sending your signal via the url simply add `&out=2` and the signal will be sent via irsend2 instead of the primary irsend1.
 
 JSON and IFTTT
 --------------
