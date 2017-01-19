@@ -2,6 +2,7 @@
 #include <ArduinoJson.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
+#include <ESP8266HTTPClient.h>
 
 //+=============================================================================
 // Please customize the following settings
@@ -46,6 +47,9 @@ void setup() {
   Serial.println("WiFi connected");
   Serial.println(WiFi.localIP());
 
+  // Begin HTTP Client
+  HTTPClient http;
+
   // Configure the server
   server.on("/json", []() { // JSON handler for more complicated IR blaster routines
     Serial.println("Connection received - JSON");
@@ -63,6 +67,7 @@ void setup() {
       server.send(200, "text/json", "Valid JSON object received, sending sequence");
       for (int x = 0; x < root.size(); x++) {
         String type = root[x]["type"];
+        String ip = root[x]["ip"];
         int rdelay = root[x]["rdelay"];
         int pulse = root[x]["pulse"];
         int pdelay = root[x]["pdelay"];
@@ -81,6 +86,9 @@ void setup() {
           int khz = root[x]["khz"];
           if (khz == 0) khz = 38; // Default to 38khz if not set
           rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(out));
+        } else if (type == "roku") {
+          String data = root[x]["data"];
+          rokuCommand(ip, data);
         } else {
           String data = root[x]["data"];
           long address = root[x]["address"];
@@ -100,6 +108,7 @@ void setup() {
     } else {
       String type = server.arg("type");
       String data = server.arg("data");
+      String ip = server.arg("ip");
       int len = server.arg("length").toInt();
       long address = (server.hasArg("address")) ? server.arg("address").toInt():0;
       int rdelay = (server.hasArg("delay")) ? server.arg("rdelay").toInt():1000;
@@ -115,7 +124,11 @@ void setup() {
         len = getValue(code, separator, 2).toInt();
       }
 
-      irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
+      if (type == "roku") {
+        rokuCommand(ip, data);
+      } else {
+        irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
+      }
       server.send(200, "text/html", "Sending code");
     }
   });
@@ -134,6 +147,18 @@ void setup() {
   irsend4.begin();
   irrecv.enableIRIn();
   Serial.println("Ready to send and receive IR signals");
+}
+
+//+=============================================================================
+// Send command to local roku
+//
+int rokuCommand(String ip, String data) {
+  String url = "http://" + ip + ":8060/keypress/" + data;
+  http.begin(url);
+  Serial.println(url);
+  Serial.println("Sending roku command");
+  return http.POST("");
+  http.end();
 }
 
 //+=============================================================================
@@ -380,9 +405,9 @@ void irblast(String type, String dataStr, int len, int rdelay, int pulse, int pd
       } else if (type == "dish") {
         irsend.sendDISH(data, len);
       } else if (type == "rc5") {
-          irsend.sendRC5(data, len);
+        irsend.sendRC5(data, len);
       } else if (type == "rc6") {
-          irsend.sendRC6(data, len);
+        irsend.sendRC6(data, len);
       } else if (type == "roomba") {
         roomba_send(atoi(dataStr.c_str()), pulse, pdelay, irsend);
       }
