@@ -380,9 +380,9 @@ void irblast(String type, String dataStr, int len, int rdelay, int pulse, int pd
       } else if (type == "dish") {
         irsend.sendDISH(data, len);
       } else if (type == "rc5") {
-          irsend.rc5(data, len);
+          irsend.sendRC5(data, len);
       } else if (type == "rc6") {
-          irsend.rc6(data, len);
+          irsend.sendRC6(data, len);
       } else if (type == "roomba") {
         roomba_send(atoi(dataStr.c_str()), pulse, pdelay, irsend);
       }
