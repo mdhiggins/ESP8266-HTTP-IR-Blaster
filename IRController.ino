@@ -26,6 +26,7 @@ IRsend irsend4(13); // Transmitting preset 4
 //+=============================================================================
 
 ESP8266WebServer server(port);
+HTTPClient http;
 
 //+=============================================================================
 // Setup web server and IR receiver/blaster
@@ -46,9 +47,6 @@ void setup() {
 
   Serial.println("WiFi connected");
   Serial.println(WiFi.localIP());
-
-  // Begin HTTP Client
-  HTTPClient http;
 
   // Configure the server
   server.on("/json", []() { // JSON handler for more complicated IR blaster routines
