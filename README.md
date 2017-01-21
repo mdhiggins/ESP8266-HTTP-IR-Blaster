@@ -22,6 +22,7 @@ Supported Signals
 - Dish
 - Wynter
 - Roomba
+- RC5/RC6
 - RAW
 
 Hardware
