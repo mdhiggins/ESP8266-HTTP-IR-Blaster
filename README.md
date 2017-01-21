@@ -148,6 +148,11 @@ Roku
 The Roku device supports sending commands via an API to simulate remote button presses over HTTP, but only allows connections via a local IP address. This blueprint supports sending these commands and acts as a bridge between IFTTT/Alexa to control the Roku with basic commands
 
 Roku commands require 3 parameters that can be sent as a Simple URL or part of a JSON collection. Parameters include:
-- `data` - (Roku code)[https://sdkdocs.roku.com/display/sdkdoc/External+Control+Guide#ExternalControlGuide-KeypressKeyValues]
+- `data` - (Roku code)[https://sdkdocs.roku.com/display/sdkdoc/External+Control+Guide]
 - `type` - Type of signal transmitted. Must be set to `roku`
 - `ip` - Local IP address of your Roku device
+
+Example Roku command to simulate pressing play button on a Roku with local IP `10.0.1.3`
+```
+http://xxx.xxx.xxx.xxx/msg?pass=yourpass&type=roku&data=keypress/play&ip=10.0.1.3
+```

@@ -151,7 +151,7 @@ void setup() {
 // Send command to local roku
 //
 int rokuCommand(String ip, String data) {
-  String url = "http://" + ip + ":8060/keypress/" + data;
+  String url = "http://" + ip + ":8060/" + data;
   http.begin(url);
   Serial.println(url);
   Serial.println("Sending roku command");
