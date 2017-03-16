@@ -80,12 +80,12 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 // If return true, the Wifi is well connected.
 // Should not return false if Wifi cannot be connected, it will loop
 bool setupWifi(bool resetConf) {
-  
+
   //set led pin as output
   pinMode(BUILTIN_LED, OUTPUT);
   // start ticker with 0.5 because we start in AP mode and try to connect
   ticker.attach(0.6, tick);
-  
+
   //WiFiManager
   //Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
@@ -97,7 +97,7 @@ bool setupWifi(bool resetConf) {
   wifiManager.setAPCallback(configModeCallback);
   //set config save notify callback
   wifiManager.setSaveConfigCallback(saveConfigCallback);
-  
+
   if (SPIFFS.begin()) {
     Serial.println("mounted file system");
     if (SPIFFS.exists("/config.json")) {
@@ -150,7 +150,7 @@ bool setupWifi(bool resetConf) {
   strncpy(host_name, custom_hostname.getValue(), 40);
   strncpy(passcode, custom_passcode.getValue(), 40);
   Serial.println("WiFi connected! User chose hostname '" + String(host_name) + String("' and passcode '") + String(passcode) + "'");
-  
+
   //save the custom parameters to FS
   if (shouldSaveConfig) {
     Serial.println(" config...");
@@ -171,7 +171,7 @@ bool setupWifi(bool resetConf) {
     //end save
   }
   ticker.detach();
-  
+
   //keep LED on
   digitalWrite(BUILTIN_LED, LOW);
   return true;
@@ -206,10 +206,10 @@ void setup() {
   if (MDNS.begin(host_name)) {
     Serial.println("mDNS started. Hostname is set to " + String(host_name) + ".local");
   }
-  MDNS.addService("http", "tcp", port); // Anounce the ESP as an HTTP service 
+  MDNS.addService("http", "tcp", port); // Anounce the ESP as an HTTP service
   String port_str((port == 80)? String("") : String(port));
   Serial.println("URL to send commands: http://" + String(host_name) + ".local" + port_str);
-  
+
   // Configure the server
   server.on("/json", []() { // JSON handler for more complicated IR blaster routines
     Serial.println("Connection received - JSON");
