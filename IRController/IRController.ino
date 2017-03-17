@@ -658,4 +658,5 @@ void loop() {
     last_code_idx = (last_code_idx + 1) % 5;
     irrecv.resume();              // Prepare for the next value
   }
+  delay(200);
 }
