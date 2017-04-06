@@ -1,5 +1,6 @@
 # ESP8266-HTTP-IR-Blaster V2
-==============
+================
+
 ESP8266 Compatible IR Blaster that accepts HTTP commands for use with services like Amazon Echo
 
 ![img_0706](https://cloud.githubusercontent.com/assets/3608298/21854472/e2b3d824-d7e8-11e6-8439-a500b73fd57e.jpg)
@@ -9,6 +10,8 @@ This program uses the ESP8266 board and the ESP8266Basic firmware to achieve the
 
 Version 2 of the project aims to increase the reliability and expand the functionality to include many different types of devices
  in addition to transmitting RAW formatted codes and more complex combination of codes
+
+Bonjour service configured on port 80
 
 Supported Signals
 --------------
@@ -52,9 +55,9 @@ Setup
 3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson`
 4. Manually install the [IRremoteESP8266 library](https://github.com/markszabo/IRremoteESP8266)
 5. Load the `IRController.ino` blueprint from this repository
-6. Customize your WiFi settings, ports, IP address, and passcode at the top of the blueprint
-7. Upload blueprint to your ESP8266. Monitor via serial at 115200 baud rate
-8. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network
+6. Upload blueprint to your ESP8266. Monitor via serial at 115200 baud rate
+7. Device will boot into WiFi access point mode initially with SSID `IRBlaster Configuration`, IP address `192.168.4.1`. Connect to this and configure your access point settings using WiFi Manager
+8. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network (port changed in blueprint)
 9. Create an [IFTTT trigger](https://cloud.githubusercontent.com/assets/3608298/21918439/526b6ba0-d91f-11e6-9ef2-dcc8e41f7637.png) using the Maker channel using the URL format below
 
 Capturing Codes
@@ -132,6 +135,10 @@ Raw Example
 Multiple LED Setup
 --------------
 If  you are setting up your ESP8266 IR Controller to handle multiple devices, for example in a home theater setup, and the IR receivers are in different directions, you may use the `out` parameter to transmit codes with different LEDs which can be arranged to face different directions. Simply wire additional LEDs to a different GPIO pin on the ESP8266 in a similar fashion to the default transmitting pin and set the corresponding pin to the `irsend1-4` objects created at the top of the blueprint. For example if you wired an additional LED to the GPIO0 pin and you wanted to send a signal via that LED instead of the primary, you would modify irsend2 in the blueprint to `IRsend irsend2(0)` corresponding to the GPIO0 pin. Then when sending your signal via the url simply add `&out=2` and the signal will be sent via irsend2 instead of the primary irsend1.
+
+Force WiFi Reconfiguration
+---------------
+Set GPIO13 to ground for force a WiFi configuration reset
 
 JSON and IFTTT
 --------------
