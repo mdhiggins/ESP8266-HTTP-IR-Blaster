@@ -52,12 +52,12 @@ Setup
 --------------
 1. Install [Arduino IDE](https://www.arduino.cc/en/main/software)
 2. Install [ESP8266 Arduino Core](https://github.com/esp8266/Arduino)
-3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson`
+3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson` `WiFiManager`
 4. Manually install the [IRremoteESP8266 library](https://github.com/markszabo/IRremoteESP8266)
 5. Load the `IRController.ino` blueprint from this repository
 6. Upload blueprint to your ESP8266. Monitor via serial at 115200 baud rate
 7. Device will boot into WiFi access point mode initially with SSID `IRBlaster Configuration`, IP address `192.168.4.1`. Connect to this and configure your access point settings using WiFi Manager
-8. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network (port changed in blueprint)
+8. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network
 9. Create an [IFTTT trigger](https://cloud.githubusercontent.com/assets/3608298/21918439/526b6ba0-d91f-11e6-9ef2-dcc8e41f7637.png) using the Maker channel using the URL format below
 
 Capturing Codes
