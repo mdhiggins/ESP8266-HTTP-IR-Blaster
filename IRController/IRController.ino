@@ -19,7 +19,7 @@
 // configure the wifi settings.
 const int configpin = 13; // GPIO13 (D7 on D1 Mini)
 const char *wifi_config_name = "IRBlaster Configuration";
-const int port = 80;
+int port = 80;
 char passcode[40] = "";
 char host_name[40] = "";
 char last_codes[5][20];
@@ -80,7 +80,6 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 // If return true, the Wifi is well connected.
 // Should not return false if Wifi cannot be connected, it will loop
 bool setupWifi(bool resetConf) {
-
   //set led pin as output
   pinMode(BUILTIN_LED, OUTPUT);
   // start ticker with 0.5 because we start in AP mode and try to connect
@@ -97,6 +96,8 @@ bool setupWifi(bool resetConf) {
   wifiManager.setAPCallback(configModeCallback);
   //set config save notify callback
   wifiManager.setSaveConfigCallback(saveConfigCallback);
+
+  char port_str[40] = "80";
 
   if (SPIFFS.begin()) {
     Serial.println("mounted file system");
@@ -119,7 +120,8 @@ bool setupWifi(bool resetConf) {
 
           strncpy(host_name, json["hostname"], 40);
           strncpy(passcode, json["passcode"], 40);
-
+          strncpy(port_str, json["port_str"], 40);
+          port = atoi(json["port_str"]);
         } else {
           Serial.println("failed to load json config");
         }
@@ -134,6 +136,8 @@ bool setupWifi(bool resetConf) {
   wifiManager.addParameter(&custom_hostname);
   WiFiManagerParameter custom_passcode("passcode", "Choose a passcode", passcode, 40);
   wifiManager.addParameter(&custom_passcode);
+  WiFiManagerParameter custom_port("port_str", "Choose a port", port_str, 40);
+  wifiManager.addParameter(&custom_port);
 
   //fetches ssid and pass and tries to connect
   //if it does not connect it starts an access point with the specified name
@@ -149,7 +153,14 @@ bool setupWifi(bool resetConf) {
   //if you get here you have connected to the WiFi
   strncpy(host_name, custom_hostname.getValue(), 40);
   strncpy(passcode, custom_passcode.getValue(), 40);
-  Serial.println("WiFi connected! User chose hostname '" + String(host_name) + String("' and passcode '") + String(passcode) + "'");
+  strncpy(port_str, custom_port.getValue(), 40);
+
+  if (port != 80) {
+    Serial.println("Default port changed");
+    server = ESP8266WebServer(port);
+  }
+
+  Serial.println("WiFi connected! User chose hostname '" + String(host_name) + String("' passcode '") + String(passcode) + "' and port '" + String(port_str) + "'");
 
   //save the custom parameters to FS
   if (shouldSaveConfig) {
@@ -158,6 +169,7 @@ bool setupWifi(bool resetConf) {
     JsonObject& json = jsonBuffer.createObject();
     json["hostname"] = host_name;
     json["passcode"] = passcode;
+    json["port_str"] = port_str;
 
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) {
@@ -208,7 +220,7 @@ void setup() {
   }
   MDNS.addService("http", "tcp", port); // Anounce the ESP as an HTTP service
   String port_str((port == 80)? String("") : String(port));
-  Serial.println("URL to send commands: http://" + String(host_name) + ".local" + port_str);
+  Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
 
   // Configure the server
   server.on("/json", []() { // JSON handler for more complicated IR blaster routines
