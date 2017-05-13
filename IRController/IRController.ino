@@ -1,4 +1,4 @@
-#include <FS.h>                   //this needs to be first, or it all crashes and burns...
+#include <FS.h>                   // This needs to be first, or it all crashes and burns
 
 #include <IRremoteESP8266.h>
 #include <DNSServer.h>
@@ -10,14 +10,9 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
 
-//for LED status
-#include <Ticker.h>
+#include <Ticker.h>               // For LED status
 
-// There is a jumper on pin 13. Take it to ground to force reconfiguration of Wifi
-// If high, it reuses the same Wifi configuration as before.
-// If automatic reconfiguration failed, a new Wifi network "irblaster" is created to
-// configure the wifi settings.
-const int configpin = 13; // GPIO13 (D7 on D1 Mini)
+const int configpin = 13;         // GPIO13 (D7 on D1 Mini) to enable configuration (connect to ground)
 const char *wifi_config_name = "IRBlaster Configuration";
 int port = 80;
 char passcode[40] = "";
@@ -29,34 +24,37 @@ ESP8266WebServer server(port);
 HTTPClient http;
 Ticker ticker;
 
-//flag for saving data
-bool shouldSaveConfig = false;
+bool shouldSaveConfig = false;    // Flag for saving data
 
-IRrecv irrecv(5); // Receiving pin (GPIO5 = D1)
-IRsend irsend1(4); // Transmitting preset 1
-IRsend irsend2(0); // Transmitting preset 2
-IRsend irsend3(12); // Transmitting preset 3
-IRsend irsend4(13); // Transmitting preset 4
-//
-// End configuration area
+IRrecv irrecv(5);                 // Receiving pin (GPIO5 = D1)
+IRsend irsend1(4);                // Transmitting preset 1
+IRsend irsend2(0);                // Transmitting preset 2
+IRsend irsend3(12);               // Transmitting preset 3
+IRsend irsend4(13);               // Transmitting preset 4
+
+
 //+=============================================================================
-
-
-//callback notifying us of the need to save config
+// Callback notifying us of the need to save config
+//
 void saveConfigCallback () {
   Serial.println("Should save config");
   shouldSaveConfig = true;
 }
 
 
+//+=============================================================================
 // Toggle state
+//
 void tick()
 {
   int state = digitalRead(BUILTIN_LED);  // get the current state of GPIO1 pin
   digitalWrite(BUILTIN_LED, !state);     // set pin to the opposite state
 }
 
+
+//+=============================================================================
 // Turn off the Led after timeout
+//
 void disableLed()
 {
   Serial.println("Turning off the LED to save power.");
@@ -65,7 +63,9 @@ void disableLed()
 }
 
 
+//+=============================================================================
 // Gets called when WiFiManager enters configuration mode
+//
 void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println("Entered config mode");
   Serial.println(WiFi.softAPIP());
@@ -76,25 +76,27 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 }
 
 
+//+=============================================================================
 // First setup of the Wifi.
 // If return true, the Wifi is well connected.
 // Should not return false if Wifi cannot be connected, it will loop
+//
 bool setupWifi(bool resetConf) {
-  //set led pin as output
+  // set led pin as output
   pinMode(BUILTIN_LED, OUTPUT);
   // start ticker with 0.5 because we start in AP mode and try to connect
   ticker.attach(0.6, tick);
 
-  //WiFiManager
-  //Local intialization. Once its business is done, there is no need to keep it around
+  // WiFiManager
+  // Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
-  //reset settings - for testing
+  // reset settings - for testing
   if (resetConf)
     wifiManager.resetSettings();
 
-  //set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
+  // set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
   wifiManager.setAPCallback(configModeCallback);
-  //set config save notify callback
+  // set config save notify callback
   wifiManager.setSaveConfigCallback(saveConfigCallback);
 
   char port_str[40] = "80";
@@ -130,7 +132,7 @@ bool setupWifi(bool resetConf) {
   } else {
     Serial.println("failed to mount FS");
   }
-  //end read
+  // end read
 
   WiFiManagerParameter custom_hostname("hostname", "Choose a hostname to this IRBlaster", host_name, 40);
   wifiManager.addParameter(&custom_hostname);
@@ -139,10 +141,10 @@ bool setupWifi(bool resetConf) {
   WiFiManagerParameter custom_port("port_str", "Choose a port", port_str, 40);
   wifiManager.addParameter(&custom_port);
 
-  //fetches ssid and pass and tries to connect
-  //if it does not connect it starts an access point with the specified name
-  //here  "AutoConnectAP"
-  //and goes into a blocking loop awaiting configuration
+  // fetches ssid and pass and tries to connect
+  // if it does not connect it starts an access point with the specified name
+  // here  "AutoConnectAP"
+  // and goes into a blocking loop awaiting configuration
   if (!wifiManager.autoConnect(wifi_config_name)) {
     Serial.println("failed to connect and hit timeout");
     // reset and try again, or maybe put it to deep sleep
@@ -150,10 +152,11 @@ bool setupWifi(bool resetConf) {
     delay(1000);
   }
 
-  //if you get here you have connected to the WiFi
+  // if you get here you have connected to the WiFi
   strncpy(host_name, custom_hostname.getValue(), 40);
   strncpy(passcode, custom_passcode.getValue(), 40);
   strncpy(port_str, custom_port.getValue(), 40);
+  port = atoi(port_str);
 
   if (port != 80) {
     Serial.println("Default port changed");
@@ -162,7 +165,7 @@ bool setupWifi(bool resetConf) {
 
   Serial.println("WiFi connected! User chose hostname '" + String(host_name) + String("' passcode '") + String(passcode) + "' and port '" + String(port_str) + "'");
 
-  //save the custom parameters to FS
+  // save the custom parameters to FS
   if (shouldSaveConfig) {
     Serial.println(" config...");
     DynamicJsonBuffer jsonBuffer;
@@ -180,11 +183,11 @@ bool setupWifi(bool resetConf) {
     Serial.println("");
     json.printTo(configFile);
     configFile.close();
-    //end save
+    //e nd save
   }
   ticker.detach();
 
-  //keep LED on
+  // keep LED on
   digitalWrite(BUILTIN_LED, LOW);
   return true;
 }
