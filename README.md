@@ -41,6 +41,8 @@ V2 of the hardware includes the 2N2222 transistor for increased current and pull
 
 *These are just quick Amazon references. Parts can likely be purchased cheaper elsewhere*
 
+![Custom PCB Set](http://go.aisler.net/p/DORGBJMY)
+
 Drivers
 --------------
 Install the NodeMCU drivers for your respective operating system if they are not autodetected
