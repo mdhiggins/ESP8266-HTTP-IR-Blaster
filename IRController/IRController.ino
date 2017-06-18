@@ -1,6 +1,9 @@
 #include <FS.h>                   // This needs to be first, or it all crashes and burns
 
 #include <IRremoteESP8266.h>
+#include <IRsend.h>
+#include <IRrecv.h>
+#include <IRutils.h>
 #include <DNSServer.h>
 #include <ESP8266WiFi.h>
 #include <WiFiManager.h>          // https://github.com/tzapu/WiFiManager WiFi Configuration Magic
@@ -28,9 +31,9 @@ bool shouldSaveConfig = false;    // Flag for saving data
 
 IRrecv irrecv(5);                 // Receiving pin (GPIO5 = D1)
 IRsend irsend1(4);                // Transmitting preset 1
-IRsend irsend2(0);                // Transmitting preset 2
-IRsend irsend3(12);               // Transmitting preset 3
-IRsend irsend4(13);               // Transmitting preset 4
+IRsend irsend2(12);                // Transmitting preset 2
+IRsend irsend3(16);               // Transmitting preset 3
+IRsend irsend4(15);               // Transmitting preset 4
 
 
 //+=============================================================================
@@ -363,14 +366,18 @@ String getValue(String data, char separator, int index)
 //
 void  ircode (decode_results *results)
 {
-  // Panasonic has an Address
-  if (results->decode_type == PANASONIC) {
-    Serial.print(results->panasonicAddress, HEX);
-    Serial.print(":");
+  // Address or Command
+  if (results->address > 0 || results->command > 0) {
+    Serial.print("uint32_t  address = 0x");
+    Serial.print(results->address, HEX);
+    Serial.println(";");
+    Serial.print("uint32_t  command = 0x");
+    Serial.print(results->command, HEX);
+    Serial.println(";");
   }
 
   // Print Code
-  Serial.print(results->value, HEX);
+  serialPrintUint64(results->value, 16);
 }
 
 
@@ -419,7 +426,7 @@ void  encoding (decode_results *results)
 void fullCode (decode_results *results)
 {
   Serial.print("One line: ");
-  Serial.print(results->value, HEX);
+  serialPrintUint64(results->value, 16);
   Serial.print(":");
   encoding(results);
   Serial.print(":");
@@ -450,51 +457,50 @@ void dumpInfo (decode_results *results)
 //+=============================================================================
 // Dump out the decode_results structure.
 //
-void  dumpRaw (decode_results *results)
-{
+void dumpRaw(decode_results *results) {
   // Print Raw data
   Serial.print("Timing[");
   Serial.print(results->rawlen - 1, DEC);
   Serial.println("]: ");
 
-  for (int i = 1;  i < results->rawlen;  i++) {
-    unsigned long  x = results->rawbuf[i] * USECPERTICK;
+  for (uint16_t i = 1;  i < results->rawlen;  i++) {
+    if (i % 100 == 0)
+      yield();  // Preemptive yield every 100th entry to feed the WDT.
+    uint32_t x = results->rawbuf[i] * USECPERTICK;
     if (!(i & 1)) {  // even
       Serial.print("-");
-      if (x < 1000)  Serial.print(" ") ;
-      if (x < 100)   Serial.print(" ") ;
+      if (x < 1000) Serial.print(" ");
+      if (x < 100) Serial.print(" ");
       Serial.print(x, DEC);
     } else {  // odd
       Serial.print("     ");
       Serial.print("+");
-      if (x < 1000)  Serial.print(" ") ;
-      if (x < 100)   Serial.print(" ") ;
+      if (x < 1000) Serial.print(" ");
+      if (x < 100) Serial.print(" ");
       Serial.print(x, DEC);
-      if (i < results->rawlen - 1) Serial.print(", "); //',' not needed for last one
+      if (i < results->rawlen - 1)
+        Serial.print(", ");  // ',' not needed for last one
     }
-    if (!(i % 8))  Serial.println("");
+    if (!(i % 8)) Serial.println("");
   }
-  Serial.println("");                    // Newline
+  Serial.println("");  // Newline
 }
 
-
-//+=============================================================================
 // Dump out the decode_results structure.
 //
-void  dumpCode (decode_results *results)
-{
+void dumpCode(decode_results *results) {
   // Start declaration
-  Serial.println("Raw (code):");
-  Serial.print("unsigned int  ");          // variable type
+  Serial.print("uint16_t  ");              // variable type
   Serial.print("rawData[");                // array name
   Serial.print(results->rawlen - 1, DEC);  // array size
   Serial.print("] = {");                   // Start declaration
 
   // Dump data
-  for (int i = 1;  i < results->rawlen;  i++) {
+  for (uint16_t i = 1; i < results->rawlen; i++) {
     Serial.print(results->rawbuf[i] * USECPERTICK, DEC);
-    if ( i < results->rawlen - 1 ) Serial.print(","); // ',' not needed on last one
-    if (!(i & 1))  Serial.print(" ");
+    if (i < results->rawlen - 1)
+      Serial.print(",");  // ',' not needed on last one
+    if (!(i & 1)) Serial.print(" ");
   }
 
   // End declaration
@@ -504,24 +510,28 @@ void  dumpCode (decode_results *results)
   Serial.print("  // ");
   encoding(results);
   Serial.print(" ");
-  ircode(results);
+  serialPrintUint64(results->value, 16);
 
   // Newline
   Serial.println("");
 
   // Now dump "known" codes
   if (results->decode_type != UNKNOWN) {
-
-    // Some protocols have an address
-    if (results->decode_type == PANASONIC) {
-      Serial.print("unsigned int  addr = 0x");
-      Serial.print(results->panasonicAddress, HEX);
+    // Some protocols have an address &/or command.
+    // NOTE: It will ignore the atypical case when a message has been decoded
+    // but the address & the command are both 0.
+    if (results->address > 0 || results->command > 0) {
+      Serial.print("uint32_t  address = 0x");
+      Serial.print(results->address, HEX);
+      Serial.println(";");
+      Serial.print("uint32_t  command = 0x");
+      Serial.print(results->command, HEX);
       Serial.println(";");
     }
 
     // All protocols have data
-    Serial.print("unsigned int  data = ");
-    Serial.print(results->value, HEX);
+    Serial.print("uint64_t  data = 0x");
+    serialPrintUint64(results->value, 16);
     Serial.println(";");
   }
 }
@@ -558,10 +568,10 @@ unsigned long HexToLongInt(String h)
 //+=============================================================================
 // Send IR codes to variety of sources
 //
-void irblast(String type, String dataStr, int len, int rdelay, int pulse, int pdelay, int repeat, long address, IRsend irsend) {
+void irblast(String type, String dataStr, unsigned int len, int rdelay, int pulse, int pdelay, int repeat, long address, IRsend irsend) {
   Serial.println("Blasting off");
   type.toLowerCase();
-  long data = HexToLongInt(dataStr);
+  unsigned long data = HexToLongInt(dataStr);
   // Repeat Loop
   for (int r = 0; r < repeat; r++) {
     // Pulse Loop
@@ -632,11 +642,13 @@ void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
   Serial.print("Sending Roomba code ");
   Serial.println(code);
   int length = 8;
-  unsigned int raw[length * 2];
+  uint16_t raw[length * 2];
   unsigned int one_pulse = 3000;
   unsigned int one_break = 1000;
   unsigned int zero_pulse = one_break;
   unsigned int zero_break = one_pulse;
+  uint16_t len = 15;
+  uint16_t hz = 38;
 
   int arrayposition = 0;
   for (int counter = length - 1; counter >= 0; --counter) {
@@ -651,7 +663,7 @@ void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
     arrayposition = arrayposition + 2;
   }
   for (int i = 0; i < pulse; i++) {
-    irsend.sendRaw(raw, 15, 38);
+    irsend.sendRaw(raw, len, hz);
     delay(pdelay);
   }
 }
