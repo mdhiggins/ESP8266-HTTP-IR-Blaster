@@ -69,7 +69,7 @@ For sending simple commands such as a single button press, or a repeating sequen
 Parameters
 - `pass` - password required to execute IR command sending
 - `code` - IR code such as `A90:SONY:12`
-- `pulse` - (optional) Repeat a signal rapidly. Default `1`. Sony based codes will not be recognized unless pulsed at least twice
+- `pulse` - (optional) Repeat a signal rapidly. Default `1`
 - `pdelay` - (optional) Delay between pulses in milliseconds. Default `100`
 - `repeat` - (optional) Number of times to send the signal. Default `1`. Useful for emulating multiple button presses for functions like large volume adjustments or sleep timer
 - `rdelay` - (optional) Delay between repeats in milliseconds. Default `1000`
