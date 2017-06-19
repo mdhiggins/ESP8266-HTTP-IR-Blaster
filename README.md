@@ -57,11 +57,16 @@ Setup
 6. Upload blueprint to your ESP8266. Monitor via serial at 115200 baud rate
 7. Device will boot into WiFi access point mode initially with SSID `IRBlaster Configuration`, IP address `192.168.4.1`. Connect to this and configure your access point settings using WiFi Manager
 8. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network
-9. Create an [IFTTT trigger](https://cloud.githubusercontent.com/assets/3608298/21918439/526b6ba0-d91f-11e6-9ef2-dcc8e41f7637.png) using the Maker channel using the URL format below
+9. If your router supports mDNS/Bonjour you can now access your device on your local network via the hostname you specified (`http://hostname.local:port/`)
+10. Create an [IFTTT trigger](https://cloud.githubusercontent.com/assets/3608298/21918439/526b6ba0-d91f-11e6-9ef2-dcc8e41f7637.png) using the Maker channel using the URL format below. Make sure you use your external IP address and not your local IP address or local hostname
+
+Server Info
+---------------
+You may access basic device information at `http://xxx.xxx.xxx.xxx:port/` (webroot)
 
 Capturing Codes
 ---------------
-While connected to the ESP via USB and monitoring via serial at 115200 baud, scan your remote code you wish to emulate. Most codes will be recognized and displayed in the format `A90:SONY:12`. Make a note of the code displayed in the serial output as you will need it for your maker channel URL. If your code is not recognized scroll down the JSON section of this read me.
+Your last scanned code can be accessed via web at `http://xxx.xxx.xxx.xxx:port/last` or via serial monitoring over USB at 115200 baud. Most codes will be recognized and displayed in the format `A90:SONY:12`. Make a note of the code displayed in the serial output as you will need it for your maker channel URL. If your code is not recognized scroll down the JSON section of this read me.
 
 Simple URL
 --------------
@@ -76,7 +81,7 @@ Parameters
 - `out` - (optional) Set which IRsend present to transmit over. Default `1`. Choose between `1-4`. Corresponding output pins set in the blueprint. Useful for a single ESP8266 that needs multiple LEDs pointed in different directions to trigger different devices
 
 Example:
-`http://xxx.xxx.xxx.xxx/msg?code=A90:SONY:12&pulse=2&repeat=5&pass=yourpass`
+`http://xxx.xxx.xxx.xxx:port/msg?code=A90:SONY:12&pulse=2&repeat=5&pass=yourpass`
 
 JSON
 --------------
@@ -153,7 +158,7 @@ To send the signal using the IFTTT Maker channel, simply take your JSON payload 
 
 Sample URL using the same 3 button JSON sequence as above
 ```
-http://xxx.xxx.xxx.xxx/json?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
+http://xxx.xxx.xxx.xxx:port/json?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
 ```
 
 Roku
@@ -167,5 +172,5 @@ Roku commands require 3 parameters that can be sent as a Simple URL or part of a
 
 Example Roku command to simulate pressing play button on a Roku with local IP `10.0.1.3`
 ```
-http://xxx.xxx.xxx.xxx/msg?pass=yourpass&type=roku&data=keypress/play&ip=10.0.1.3
+http://xxx.xxx.xxx.xxx:port/msg?pass=yourpass&type=roku&data=keypress/play&ip=10.0.1.3
 ```
