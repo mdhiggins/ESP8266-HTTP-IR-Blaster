@@ -20,8 +20,7 @@ const char *wifi_config_name = "IRBlaster Configuration";
 int port = 80;
 char passcode[40] = "";
 char host_name[40] = "";
-char last_codes[5][20];
-char last_code_idx = 0;
+String last_code = "";
 
 ESP8266WebServer server(port);
 HTTPClient http;
@@ -29,11 +28,17 @@ Ticker ticker;
 
 bool shouldSaveConfig = false;    // Flag for saving data
 
-IRrecv irrecv(5);                 // Receiving pin (GPIO5 = D1)
-IRsend irsend1(4);                // Transmitting preset 1
-IRsend irsend2(12);                // Transmitting preset 2
-IRsend irsend3(16);               // Transmitting preset 3
-IRsend irsend4(15);               // Transmitting preset 4
+int pinr1 = 5;                    // Receiving pin (GPIO5 = D1)
+int pins1 = 4;                    // Transmitting preset 1
+int pins2 = 12;                   // Transmitting preset 2
+int pins3 = 16;                   // Transmitting preset 3
+int pins4 = 15;                   // Transmitting preset 4
+
+IRrecv irrecv(pinr1);
+IRsend irsend1(pins1);
+IRsend irsend2(pins2);
+IRsend irsend3(pins3);
+IRsend irsend4(pins4);
 
 
 //+=============================================================================
@@ -312,7 +317,28 @@ void setup() {
 
   server.on("/", []() {
     Serial.println("Connection received");
-    server.send(200, "text/html", "Server is running");
+    byte mac[6];
+    String s;
+    WiFi.macAddress(mac);
+    s = "<pre>";
+    s += "Server is running \n";
+    s += "=======================================\n";
+    s += "IP           : " + ipToString(WiFi.localIP()) + "\n";
+    s += "Host name    : " + String(host_name) + "\n";
+    s += "Port         : " + String(port) + "\n";
+    s += "MAC Address  : " + mac2String(mac) + "\n";
+    s += "Receiving    : GPIO" + String(pinr1) + "\n";
+    s += "Transmitter 1: GPIO" + String(pins1) + "\n";
+    s += "Transmitter 2: GPIO" + String(pins2) + "\n";
+    s += "Transmitter 3: GPIO" + String(pins3) + "\n";
+    s += "Transmitter 4: GPIO" + String(pins4) + "\n";
+    s += "</pre>";
+    server.send(200, "text/html", s);
+  });
+
+  server.on("/last", []() {
+    Serial.println("Connection received");
+    server.send(200, "text/html", last_code);
   });
 
   server.begin();
@@ -324,6 +350,35 @@ void setup() {
   irsend4.begin();
   irrecv.enableIRIn();
   Serial.println("Ready to send and receive IR signals");
+}
+
+
+//+=============================================================================
+// MAC Address to String
+//
+String mac2String(byte ar[])
+{
+  String s;
+  for (byte i = 0; i < 6; ++i)
+  {
+    char buf[3];
+    sprintf(buf, "%2X", ar[i]);
+    s += buf;
+    if (i < 5) s += ':';
+  }
+  return s;
+}
+
+
+//+=============================================================================
+// IP Address to String
+//
+String ipToString(IPAddress ip)
+{
+  String s="";
+  for (int i=0; i<4; i++)
+    s += i  ? "." + String(ip[i]) : String(ip[i]);
+  return s;
 }
 
 
@@ -380,31 +435,55 @@ IRsend pickIRsend (int out) {
 //
 // Display encoding type
 //
-void encoding(decode_results *results) {
+String encoding(decode_results *results) {
+  String output;
   switch (results->decode_type) {
     default:
-    case UNKNOWN:      Serial.print("UNKNOWN");       break;
-    case NEC:          Serial.print("NEC");           break;
-    case SONY:         Serial.print("SONY");          break;
-    case RC5:          Serial.print("RC5");           break;
-    case RC6:          Serial.print("RC6");           break;
-    case DISH:         Serial.print("DISH");          break;
-    case SHARP:        Serial.print("SHARP");         break;
-    case JVC:          Serial.print("JVC");           break;
-    case SANYO:        Serial.print("SANYO");         break;
-    case SANYO_LC7461: Serial.print("SANYO_LC7461");  break;
-    case MITSUBISHI:   Serial.print("MITSUBISHI");    break;
-    case SAMSUNG:      Serial.print("SAMSUNG");       break;
-    case LG:           Serial.print("LG");            break;
-    case WHYNTER:      Serial.print("WHYNTER");       break;
-    case AIWA_RC_T501: Serial.print("AIWA_RC_T501");  break;
-    case PANASONIC:    Serial.print("PANASONIC");     break;
-    case DENON:        Serial.print("DENON");         break;
-    case COOLIX:       Serial.print("COOLIX");        break;
+    case UNKNOWN:      output = "UNKNOWN";            break;
+    case NEC:          output = "NEC";                break;
+    case SONY:         output = "SONY";               break;
+    case RC5:          output = "RC5";                break;
+    case RC6:          output = "RC6";                break;
+    case DISH:         output = "DISH";               break;
+    case SHARP:        output = "SHARP";              break;
+    case JVC:          output = "JVC";                break;
+    case SANYO:        output = "SANYO";              break;
+    case SANYO_LC7461: output = "SANYO_LC7461";       break;
+    case MITSUBISHI:   output = "MITSUBISHI";         break;
+    case SAMSUNG:      output = "SAMSUNG";            break;
+    case LG:           output = "LG";                 break;
+    case WHYNTER:      output = "WHYNTER";            break;
+    case AIWA_RC_T501: output = "AIWA_RC_T501";       break;
+    case PANASONIC:    output = "PANASONIC";          break;
+    case DENON:        output = "DENON";              break;
+    case COOLIX:       output = "COOLIX";             break;
   }
+  return output;
   if (results->repeat) Serial.print(" (Repeat)");
 }
 
+//+=============================================================================
+// Uint64 to String
+//
+String Uint64toString(uint64_t input, uint8_t base) {
+  char buf[8 * sizeof(input) + 1];  // Assumes 8-bit chars plus zero byte.
+  char *str = &buf[sizeof(buf) - 1];
+
+  *str = '\0';
+
+  // prevent crash if called with base == 1
+  if (base < 2) base = 10;
+
+  do {
+    char c = input % base;
+    input /= base;
+
+    *--str = c < 10 ? c + '0' : c + 'A' - 10;
+  } while (input);
+
+  std::string s(str);
+  return s.c_str();
+}
 
 //+=============================================================================
 // Single line compact code
@@ -414,7 +493,7 @@ void fullCode (decode_results *results)
   Serial.print("One line: ");
   serialPrintUint64(results->value, 16);
   Serial.print(":");
-  encoding(results);
+  Serial.print(encoding(results));
   Serial.print(":");
   Serial.print(results->bits, DEC);
   if (results->overflow)
@@ -423,6 +502,51 @@ void fullCode (decode_results *results)
   Serial.println("");
 }
 
+//+=============================================================================
+// Code to string
+//
+String codeOutput (decode_results *results)
+{
+    String s;
+    s = "<pre>";
+    s += Uint64toString(results->value, 16);
+    s += ":";
+    s += encoding(results);
+    s += ":";
+    s += results->bits;
+
+    // Start declaration
+    s += "\n";
+    s += "uint16_t  rawData[";              // variable type
+    s += results->rawlen - 1;               // array size
+    s += "] = {";                           // Start declaration
+
+    // Dump data
+    for (uint16_t i = 1; i < results->rawlen; i++) {
+      s += results->rawbuf[i] * USECPERTICK;
+      if (i < results->rawlen - 1)
+        s += ",";                           // ',' not needed on last one
+      if (!(i & 1)) s += " ";
+    }
+    s += ("};");                            // End declaration
+
+    s += "\n";
+
+    // Now dump "known" codes
+    if (results->decode_type != UNKNOWN) {
+      // Some protocols have an address &/or command.
+      // NOTE: It will ignore the atypical case when a message has been decoded
+      // but the address & the command are both 0.
+      if (results->address > 0 || results->command > 0) {
+        s += "uint32_t  address = 0x \n";
+        s += results->address + "; \n";
+        s += "uint32_t  command = 0x";
+        s += results->command + "; \n";
+      }
+    }
+    s += "</pre>";
+    return s;
+}
 
 //+=============================================================================
 // Dump out the decode_results structure.
@@ -434,7 +558,7 @@ void dumpInfo(decode_results *results) {
 
   // Show Encoding standard
   Serial.print("Encoding  : ");
-  encoding(results);
+  Serial.print(encoding(results));
   Serial.println("");
 
   // Show Code & length
@@ -502,7 +626,7 @@ void dumpCode(decode_results *results) {
 
   // Comment
   Serial.print("  // ");
-  encoding(results);
+  Serial.print(encoding(results));
   Serial.print(" ");
   serialPrintUint64(results->value, 16);
 
@@ -665,18 +789,15 @@ void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
 
 void loop() {
   server.handleClient();
-  decode_results  results;        // Somewhere to store the results
+  decode_results  results;              // Somewhere to store the results
 
-  if (irrecv.decode(&results)) {  // Grab an IR code
+  if (irrecv.decode(&results)) {        // Grab an IR code
     Serial.println("Signal received:");
-     fullCode(&results);           // Print the singleline value
-    //dumpInfo(&results);           // Output the results
-    //dumpRaw(&results);            // Output the results in RAW format
-    dumpCode(&results);           // Output the results as source code
-    Serial.println("");           // Blank line between entries
-    strncpy(last_codes[last_code_idx], "", 20);
-    last_code_idx = (last_code_idx + 1) % 5;
-    irrecv.resume();              // Prepare for the next value
+    fullCode(&results);                 // Print the singleline value
+    dumpCode(&results);                 // Output the results as source code
+    last_code = codeOutput(&results);   // Save result for web viewing
+    Serial.println("");                 // Blank line between entries
+    irrecv.resume();                    // Prepare for the next value
   }
   delay(200);
 }
