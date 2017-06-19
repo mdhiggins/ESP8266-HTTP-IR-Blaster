@@ -362,26 +362,6 @@ String getValue(String data, char separator, int index)
 
 
 //+=============================================================================
-// Display IR code
-//
-void  ircode (decode_results *results)
-{
-  // Address or Command
-  if (results->address > 0 || results->command > 0) {
-    Serial.print("uint32_t  address = 0x");
-    Serial.print(results->address, HEX);
-    Serial.println(";");
-    Serial.print("uint32_t  command = 0x");
-    Serial.print(results->command, HEX);
-    Serial.println(";");
-  }
-
-  // Print Code
-  serialPrintUint64(results->value, 16);
-}
-
-
-//+
 // Return which IRsend object to act on
 //
 IRsend pickIRsend (int out) {
@@ -398,25 +378,31 @@ IRsend pickIRsend (int out) {
 //+=============================================================================
 // Display encoding type
 //
-void  encoding (decode_results *results)
-{
+// Display encoding type
+//
+void encoding(decode_results *results) {
   switch (results->decode_type) {
     default:
-    case UNKNOWN:      Serial.print("UNKNOWN");       break ;
-    case NEC:          Serial.print("NEC");           break ;
-    case SONY:         Serial.print("SONY");          break ;
-    case RC5:          Serial.print("RC5");           break ;
-    case RC6:          Serial.print("RC6");           break ;
-    case DISH:         Serial.print("DISH");          break ;
-    case SHARP:        Serial.print("SHARP");         break ;
-    case JVC:          Serial.print("JVC");           break ;
-    case SANYO:        Serial.print("SANYO");         break ;
-    case MITSUBISHI:   Serial.print("MITSUBISHI");    break ;
-    case SAMSUNG:      Serial.print("SAMSUNG");       break ;
-    case LG:           Serial.print("LG");            break ;
-    case WHYNTER:      Serial.print("WHYNTER");       break ;
-    case PANASONIC:    Serial.print("PANASONIC");     break ;
+    case UNKNOWN:      Serial.print("UNKNOWN");       break;
+    case NEC:          Serial.print("NEC");           break;
+    case SONY:         Serial.print("SONY");          break;
+    case RC5:          Serial.print("RC5");           break;
+    case RC6:          Serial.print("RC6");           break;
+    case DISH:         Serial.print("DISH");          break;
+    case SHARP:        Serial.print("SHARP");         break;
+    case JVC:          Serial.print("JVC");           break;
+    case SANYO:        Serial.print("SANYO");         break;
+    case SANYO_LC7461: Serial.print("SANYO_LC7461");  break;
+    case MITSUBISHI:   Serial.print("MITSUBISHI");    break;
+    case SAMSUNG:      Serial.print("SAMSUNG");       break;
+    case LG:           Serial.print("LG");            break;
+    case WHYNTER:      Serial.print("WHYNTER");       break;
+    case AIWA_RC_T501: Serial.print("AIWA_RC_T501");  break;
+    case PANASONIC:    Serial.print("PANASONIC");     break;
+    case DENON:        Serial.print("DENON");         break;
+    case COOLIX:       Serial.print("COOLIX");        break;
   }
+  if (results->repeat) Serial.print(" (Repeat)");
 }
 
 
@@ -431,6 +417,9 @@ void fullCode (decode_results *results)
   encoding(results);
   Serial.print(":");
   Serial.print(results->bits, DEC);
+  if (results->overflow)
+    Serial.println("WARNING: IR code too long."
+                   "Edit IRrecv.h and increase RAWBUF");
   Serial.println("");
 }
 
@@ -438,8 +427,11 @@ void fullCode (decode_results *results)
 //+=============================================================================
 // Dump out the decode_results structure.
 //
-void dumpInfo (decode_results *results)
-{
+void dumpInfo(decode_results *results) {
+  if (results->overflow)
+    Serial.println("WARNING: IR code too long."
+                   "Edit IRrecv.h and increase RAWBUF");
+
   // Show Encoding standard
   Serial.print("Encoding  : ");
   encoding(results);
@@ -447,7 +439,7 @@ void dumpInfo (decode_results *results)
 
   // Show Code & length
   Serial.print("Code      : ");
-  ircode(results);
+  serialPrintUint64(results->value, 16);
   Serial.print(" (");
   Serial.print(results->bits, DEC);
   Serial.println(" bits)");
@@ -486,6 +478,8 @@ void dumpRaw(decode_results *results) {
   Serial.println("");  // Newline
 }
 
+
+//+=============================================================================
 // Dump out the decode_results structure.
 //
 void dumpCode(decode_results *results) {
