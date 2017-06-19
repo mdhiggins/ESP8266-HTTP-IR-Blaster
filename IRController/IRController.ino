@@ -317,16 +317,14 @@ void setup() {
 
   server.on("/", []() {
     Serial.println("Connection received");
-    byte mac[6];
     String s;
-    WiFi.macAddress(mac);
     s = "<pre>";
     s += "Server is running \n";
     s += "=======================================\n";
     s += "IP           : " + ipToString(WiFi.localIP()) + "\n";
     s += "Host name    : " + String(host_name) + "\n";
     s += "Port         : " + String(port) + "\n";
-    s += "MAC Address  : " + mac2String(mac) + "\n";
+    s += "MAC Address  : " + String(WiFi.macAddress()) + "\n";
     s += "Receiving    : GPIO" + String(pinr1) + "\n";
     s += "Transmitter 1: GPIO" + String(pins1) + "\n";
     s += "Transmitter 2: GPIO" + String(pins2) + "\n";
@@ -350,23 +348,6 @@ void setup() {
   irsend4.begin();
   irrecv.enableIRIn();
   Serial.println("Ready to send and receive IR signals");
-}
-
-
-//+=============================================================================
-// MAC Address to String
-//
-String mac2String(byte ar[])
-{
-  String s;
-  for (byte i = 0; i < 6; ++i)
-  {
-    char buf[3];
-    sprintf(buf, "%2X", ar[i]);
-    s += buf;
-    if (i < 5) s += ':';
-  }
-  return s;
 }
 
 
@@ -486,7 +467,7 @@ String Uint64toString(uint64_t input, uint8_t base) {
 }
 
 //+=============================================================================
-// Single line compact code
+// Code to string
 //
 void fullCode (decode_results *results)
 {
@@ -789,15 +770,17 @@ void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
 
 void loop() {
   server.handleClient();
-  decode_results  results;              // Somewhere to store the results
+  decode_results  results;        // Somewhere to store the results
 
-  if (irrecv.decode(&results)) {        // Grab an IR code
+  if (irrecv.decode(&results)) {  // Grab an IR code
     Serial.println("Signal received:");
-    fullCode(&results);                 // Print the singleline value
-    dumpCode(&results);                 // Output the results as source code
-    last_code = codeOutput(&results);   // Save result for web viewing
-    Serial.println("");                 // Blank line between entries
-    irrecv.resume();                    // Prepare for the next value
+    fullCode(&results);           // Print the singleline value
+    //dumpInfo(&results);           // Output the results
+    //dumpRaw(&results);            // Output the results in RAW format
+    dumpCode(&results);           // Output the results as source code
+    last_code = codeOutput(&results);
+    Serial.println("");           // Blank line between entries
+    irrecv.resume();              // Prepare for the next value
   }
   delay(200);
 }
