@@ -20,7 +20,9 @@ const char *wifi_config_name = "IRBlaster Configuration";
 int port = 80;
 char passcode[40] = "";
 char host_name[40] = "";
-String last_code = "";
+String last_code = "";            // Stores last code
+String last_code_2 = "";          // Stores 2nd to last code
+String last_code_3 = "";          // Stores 3rd to last code
 
 ESP8266WebServer server(port);
 HTTPClient http;
@@ -336,7 +338,7 @@ void setup() {
 
   server.on("/last", []() {
     Serial.println("Connection received");
-    server.send(200, "text/html", last_code);
+    server.send(200, "text/html", last_code + last_code_2 + last_code_3);
   });
 
   server.begin();
@@ -778,6 +780,8 @@ void loop() {
     //dumpInfo(&results);           // Output the results
     //dumpRaw(&results);            // Output the results in RAW format
     dumpCode(&results);           // Output the results as source code
+    last_code_3 = last_code_2;
+    last_code_2 = last_code;
     last_code = codeOutput(&results);
     Serial.println("");           // Blank line between entries
     irrecv.resume();              // Prepare for the next value
