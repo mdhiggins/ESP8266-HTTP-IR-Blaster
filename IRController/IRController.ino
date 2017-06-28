@@ -295,7 +295,7 @@ void setup() {
       String ip = server.arg("ip");
       int len = server.arg("length").toInt();
       long address = (server.hasArg("address")) ? server.arg("address").toInt() : 0;
-      int rdelay = (server.hasArg("delay")) ? server.arg("rdelay").toInt() : 1000;
+      int rdelay = (server.hasArg("rdelay")) ? server.arg("rdelay").toInt() : 1000;
       int pulse = (server.hasArg("pulse")) ? server.arg("pulse").toInt() : 1;
       int pdelay = (server.hasArg("pdelay")) ? server.arg("pdelay").toInt() : 100;
       int repeat = (server.hasArg("repeat")) ? server.arg("repeat").toInt() : 1;
