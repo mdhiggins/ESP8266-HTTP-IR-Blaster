@@ -17,6 +17,7 @@
 
 const int configpin = 13;         // GPIO13 (D7 on D1 Mini) to enable configuration (connect to ground)
 const char *wifi_config_name = "IRBlaster Configuration";
+const char serverName[] = "checkip.dyndns.org";
 int port = 80;
 char passcode[40] = "";
 char host_name[40] = "";
@@ -42,6 +43,7 @@ IRsend irsend2(pins2);
 IRsend irsend3(pins3);
 IRsend irsend4(pins4);
 
+WiFiClient client;
 
 //+=============================================================================
 // Callback notifying us of the need to save config
@@ -59,6 +61,50 @@ void tick()
 {
   int state = digitalRead(BUILTIN_LED);  // get the current state of GPIO1 pin
   digitalWrite(BUILTIN_LED, !state);     // set pin to the opposite state
+}
+
+
+//+=============================================================================
+// Get External IP Address
+//
+String externalIP()
+{
+  String readBuffer = "";
+  String _ip = "";
+  if(client.connect(serverName, 8245)) // you can use port 80, but this works faster
+  {
+    // Make a HTTP request:
+    client.println("GET / HTTP/1.0");
+    client.println("Host: checkip.dyndns.org");
+    client.println("Connection: close");
+    client.println();
+
+    while ( _ip == "" || millis() < 10000 ) {
+      // read incoming bytes available from the server
+      if (client.available()) {
+        //give time to receive whole message to the buffer
+        delay(10);
+        while (client.available()) {
+          char c = client.read();
+          readBuffer += c;
+          Serial.print(c);
+
+          if (readBuffer.length() > 100) {
+            readBuffer = readBuffer.substring(70, readBuffer.length());
+          }
+        }
+        int pos_start = readBuffer.indexOf("IP Address") + 12; // add 10 for "IP Address" and 2 for ":" + "space"
+        int pos_end = readBuffer.indexOf("</body>", pos_start); // add nothing
+        _ip = readBuffer.substring(pos_start, pos_end);
+        Serial.print(F("WAN IP: "));
+        Serial.println(_ip);
+        readBuffer = "";
+        client.stop();
+      }
+      //******************************
+    }
+  }
+  return _ip;
 }
 
 
@@ -323,8 +369,9 @@ void setup() {
     s = "<pre>";
     s += "Server is running \n";
     s += "=======================================\n";
-    s += "IP           : " + ipToString(WiFi.localIP()) + "\n";
-    s += "Host name    : " + String(host_name) + "\n";
+    s += "Local IP     : " + ipToString(WiFi.localIP()) + "\n";
+    s += "External IP  : " + externalIP() + "\n";
+    s += "Host name    : " + String(host_name) + ".local" + "\n";
     s += "Port         : " + String(port) + "\n";
     s += "MAC Address  : " + String(WiFi.macAddress()) + "\n";
     s += "Receiving    : GPIO" + String(pinr1) + "\n";
@@ -521,10 +568,12 @@ String codeOutput (decode_results *results)
       // NOTE: It will ignore the atypical case when a message has been decoded
       // but the address & the command are both 0.
       if (results->address > 0 || results->command > 0) {
-        s += "uint32_t  address = 0x \n";
-        s += results->address + "; \n";
+        s += "uint32_t  address = 0x";
+        s += String(results->address, HEX) + "; \n";
         s += "uint32_t  command = 0x";
-        s += results->command + "; \n";
+        s += String(results->command, HEX) + "; \n";
+        s += "uint64_t  data = 0x";
+        s += Uint64toString(results->value, 16) + "; \n";
       }
     }
     s += "</pre>";
@@ -777,8 +826,6 @@ void loop() {
   if (irrecv.decode(&results)) {  // Grab an IR code
     Serial.println("Signal received:");
     fullCode(&results);           // Print the singleline value
-    //dumpInfo(&results);           // Output the results
-    //dumpRaw(&results);            // Output the results in RAW format
     dumpCode(&results);           // Output the results as source code
     last_code_3 = last_code_2;
     last_code_2 = last_code;
