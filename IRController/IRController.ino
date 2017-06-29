@@ -258,17 +258,17 @@ void setup() {
         int repeat = root[x]["repeat"];
         int out = root[x]["out"];
 
-        if (pulse == 0) pulse = 1; // Make sure pulse isn't 0
-        if (repeat == 0) repeat = 1; // Make sure repeat isn't 0
-        if (pdelay == 0) pdelay = 100; // Default pdelay
-        if (rdelay == 0) rdelay = 1000; // Default rdelay
+        if (pulse <= 0) pulse = 1; // Make sure pulse isn't 0
+        if (repeat <= 0) repeat = 1; // Make sure repeat isn't 0
+        if (pdelay <= 0) pdelay = 100; // Default pdelay
+        if (rdelay <= 0) rdelay = 1000; // Default rdelay
 
         if (type == "delay") {
           delay(rdelay);
         } else if (type == "raw") {
           JsonArray &raw = root[x]["data"]; // Array of unsigned int values for the raw signal
           int khz = root[x]["khz"];
-          if (khz == 0) khz = 38; // Default to 38khz if not set
+          if (khz <= 0) khz = 38; // Default to 38khz if not set
           rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(out));
         } else if (type == "roku") {
           String data = root[x]["data"];
