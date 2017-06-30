@@ -683,11 +683,11 @@ String codePage(JsonObject& selCode){
   if (selCode["encoding"] == "UNKNOWN") {
     page +=     "<ul class='list-unstyled'>";
     page +=       "<li>Hostname <span class='label label-default'>JSON</span></li>";
-    page +=       "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plan=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>";
+    page +=       "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>";
     page +=       "<li>Local IP <span class='label label-default'>JSON</span</li>";
-    page +=       "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plan=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>";
+    page +=       "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>";
     page +=       "<li>External IP <span class='label label-default'>JSON</span</li>";
-    page +=       "<li><pre>http://" + eip + ":" + String(port) + "/json?plan=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>";
+    page +=       "<li><pre>http://" + eip + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>";
   } else {
     page +=     "<ul class='list-unstyled'>";
     page +=       "<li>Hostname <span class='label label-default'>MSG</span></li>";
@@ -698,11 +698,11 @@ String codePage(JsonObject& selCode){
     page +=       "<li><pre>http://" + eip + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>";
     page +=     "<ul class='list-unstyled'>";
     page +=       "<li>Hostname <span class='label label-default'>JSON</span></li>";
-    page +=       "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plan=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>";
+    page +=       "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>";
     page +=       "<li>Local IP <span class='label label-default'>JSON</span</li>";
-    page +=       "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plan=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>";
+    page +=       "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>";
     page +=       "<li>External IP <span class='label label-default'>JSON</span</li>";
-    page +=       "<li><pre>http://" + eip + ":" + String(port) + "/json?plan=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>";
+    page +=       "<li><pre>http://" + eip + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>";
   }
   page +=       "<footer><em>" + String(millis()) + "ms uptime</em></footer>";
   page += "</div></div></div>";
