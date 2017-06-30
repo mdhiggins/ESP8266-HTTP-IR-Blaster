@@ -576,29 +576,33 @@ void fullCode (decode_results *results)
 // Generate info page HTML
 //
 String getPage(String message, String header, int type) {
-  String page = "<html><head><meta http-equiv='refresh' content='300' />";
-  page += "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'></script>";
+  String page = "<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en'><head><meta http-equiv='refresh' content='300' />";
+  page += "<meta name='viewport' content='width=device-width, initial-scale=1' />";
+  page += "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css' />";
   page += "<title>ESP8266 IR Controller (" + String(host_name) + ")</title></head><body>";
-  page += "<div class='container-fluid'>";
+  page += "<div class='container'>";
+  page +=   "<h1>ESP8266 IR Controller</h1>";
   page +=   "<div class='row'>";
-  page +=     "<div class='container'>";
-  page +=       "<h1>ESP8266 IR Controller</h1><hr />";
+  page +=     "<div class='col-md-12'>";
   page +=       "<ul class='nav nav-pills'>";
   page +=         "<li class='active'>";
-  page +=           "<a href='#'><span class='badge pull-right'>" + String(host_name) + ".local" + ":" + String(port) + "</span> Hostname</a></li>";
+  page +=           "<a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'><span class='badge pull-right'>" + String(host_name) + ".local" + ":" + String(port) + "</span> Hostname</a></li>";
   page +=         "<li class='active'>";
-  page +=           "<a href='#'><span class='badge pull-right'>" + ipToString(WiFi.localIP()) + ":" + String(port) + "</span> Local</a></li>";
+  page +=           "<a href='http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "'><span class='badge pull-right'>" + ipToString(WiFi.localIP()) + ":" + String(port) + "</span> Local</a></li>";
   page +=         "<li class='active'>";
-  page +=           "<a href='#'><span class='badge pull-right'>" + externalIP() + ":" + String(port) + "</span> External</a></li>";
+  page +=           "<a href='http://" + externalIP() + ":" + String(port) + "'><span class='badge pull-right'>" + externalIP() + ":" + String(port) + "</span> External</a></li>";
   page +=         "<li class='active'>";
   page +=           "<a href='#'><span class='badge pull-right'>" + String(WiFi.macAddress()) + "</span> Mac Address</a></li>";
   page +=       "</ul>";
+  page +=     "</div></div><hr />";
   if (type == 1)
-  page +=       "<br /><div class='alert alert-success' role='alert'><strong>" + header + "</strong> " + message + "</div>";
+  page +=   "<div class='row'><div class='col-md-12'><div class='alert alert-success'><strong>" + header + "</strong> " + message + "</div></div></div>";
   if (type == 2)
-  page +=       "<br /><div class='alert alert-error' role='alert'><strong>" + header + "</strong> " + message + "</div>";
+  page +=   "<div class='row'><div class='col-md-12'><div class='alert alert-error'><strong>" + header + "</strong> " + message + "</div></div></div>";
   if (type == 3)
-  page +=       "<br /><div class='alert alert-warning' role='alert'><strong>" + header + "</strong> " + message + "</div>";
+  page +=   "<div class='row'><div class='col-md-12'><div class='alert alert-warning'><strong>" + header + "</strong> " + message + "</div></div></div>";
+  page +=   "<div class='row'>";
+  page +=     "<div class='col-md-12'>";
   page +=       "<h3>Codes Transmitted</h3>";
   page +=       "<table class='table table-striped' style='table-layout: fixed;'>";
   page +=         "<thead><tr><th>Time Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>"; //Title
@@ -614,6 +618,9 @@ String getPage(String message, String header, int type) {
   if (last_send_5.containsKey("time"))
   page +=           "<tr class='text-uppercase'><td>" + last_send_5["time"].as<String>() + "</td><td><code>" + last_send_5["data"].as<String>() + "</code></td><td><code>" + last_send_5["type"].as<String>() + "</code></td><td><code>" + last_send_5["len"].as<String>() + "</code></td><td><code>" + last_send_5["address"].as<String>() + "</code></td></tr>";
   page +=         "</tbody></table>";
+  page +=     "</div></div>";
+  page +=   "<div class='row'>";
+  page +=     "<div class='col-md-12'>";
   page +=       "<h3>Codes Received</h3>";
   page +=       "<table class='table table-striped' style='table-layout: fixed;'>";
   page +=         "<thead><tr><th>Time Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>"; //Title
@@ -629,13 +636,16 @@ String getPage(String message, String header, int type) {
   if (last_code_5.containsKey("time"))
   page +=           "<tr class='text-uppercase'><td><a href='/received?id=5'>" + last_code_5["time"].as<String>() + "</a></td><td><code>" + last_code_5["data"].as<String>() + "</code></td><td><code>" + last_code_5["encoding"].as<String>() + "</code></td><td><code>" + last_code_5["bits"].as<String>() + "</code></td><td><code>" + last_code_5["address"].as<String>() + "</code></td></tr>";
   page +=         "</tbody></table>";
+  page +=     "</div></div>";
+  page +=   "<div class='row'>";
+  page +=     "<div class='col-md-12'>";
   page +=       "<ul class='list-unstyled'>";
   page +=         "<li><span class='badge'>GPIO " + String(pinr1) + "</span> Receiving </li>";
   page +=         "<li><span class='badge'>GPIO " + String(pins1) + "</span> Transmitter 1 </li>";
   page +=         "<li><span class='badge'>GPIO " + String(pins2) + "</span> Transmitter 2 </li>";
   page +=         "<li><span class='badge'>GPIO " + String(pins3) + "</span> Transmitter 3 </li>";
   page +=         "<li><span class='badge'>GPIO " + String(pins4) + "</span> Transmitter 4 </li></ul>";
-  page +=       "<footer><em>" + String(millis()) + "ms uptime</em></footer>";
+  page +=       "<em>" + String(millis()) + "ms uptime</em>";
   page += "</div></div></div>";
   page += "</body></html>";
   return page;
@@ -645,24 +655,27 @@ String getPage(String message, String header, int type) {
 // Generate full code datasheet
 //
 String codePage(JsonObject& selCode){
-  String eip = externalIP();
-  String page = "<html><head>";
-  page += "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'>";
+  String page = "<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en'><head>";
+  page += "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css' />";
+  page += "<meta name='viewport' content='width=device-width, initial-scale=1' />";
   page += "<title>ESP8266 IR Controller (" + String(host_name) + ")</title></head><body>";
-  page += "<div class='container-fluid'>";
+  page += "<div class='container'>";
+  page +=   "<h1>ESP8266 IR Controller <span class='pull-right'><a href='/'>Home</a></span></h1><hr />";
   page +=   "<div class='row'>";
-  page +=     "<div class='container'>";
-  page +=       "<h1>ESP8266 IR Controller <span class='pull-right'><a href='/'>Home</a></span></h1><hr />";
+  page +=     "<div class='col-md-12'>";
   page +=       "<ul class='nav nav-pills'>";
   page +=         "<li class='active'>";
-  page +=           "<a href='#'><span class='badge pull-right'>" + String(host_name) + ".local" + ":" + String(port) + "</span> Hostname</a></li>";
+  page +=           "<a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'><span class='badge pull-right'>" + String(host_name) + ".local" + ":" + String(port) + "</span> Hostname</a></li>";
   page +=         "<li class='active'>";
-  page +=           "<a href='#'><span class='badge pull-right'>" + ipToString(WiFi.localIP()) + ":" + String(port) + "</span> Local</a></li>";
+  page +=           "<a href='http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "'><span class='badge pull-right'>" + ipToString(WiFi.localIP()) + ":" + String(port) + "</span> Local</a></li>";
   page +=         "<li class='active'>";
-  page +=           "<a href='#'><span class='badge pull-right'>" + eip + ":" + String(port) + "</span> External</a></li>";
+  page +=           "<a href='http://" + externalIP() + ":" + String(port) + "'><span class='badge pull-right'>" + externalIP() + ":" + String(port) + "</span> External</a></li>";
   page +=         "<li class='active'>";
   page +=           "<a href='#'><span class='badge pull-right'>" + String(WiFi.macAddress()) + "</span> Mac Address</a></li>";
   page +=       "</ul>";
+  page +=     "</div></div><hr />";
+  page +=   "<div class='row'>";
+  page +=     "<div class='col-md-12'>";
   page +=       "<h2><span class='label label-success'>" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</span></h2><br/>";
   page +=       "<dl class='dl-horizontal'>";
   page +=         "<dt>Data</dt>";
@@ -679,33 +692,37 @@ String codePage(JsonObject& selCode){
   page +=       "<dl class='dl-horizontal'>";
   page +=         "<dt>Raw</dt>";
   page +=         "<dd><code>" + selCode["uint16_t"].as<String>()  + "</code></dd></dl>";
-  page +=       "<div class='alert alert-warning' role='alert'>Don't forget to add your passcode to the URLs below if you set one</div>";
+  page +=     "</div></div>";
+  page +=   "<div class='row'>";
+  page +=     "<div class='col-md-12'>";
+  page +=       "<div class='alert alert-warning'>Don't forget to add your passcode to the URLs below if you set one</div>";
   if (selCode["encoding"] == "UNKNOWN") {
     page +=     "<ul class='list-unstyled'>";
     page +=       "<li>Hostname <span class='label label-default'>JSON</span></li>";
     page +=       "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>";
-    page +=       "<li>Local IP <span class='label label-default'>JSON</span</li>";
+    page +=       "<li>Local IP <span class='label label-default'>JSON</span></li>";
     page +=       "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>";
-    page +=       "<li>External IP <span class='label label-default'>JSON</span</li>";
-    page +=       "<li><pre>http://" + eip + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>";
+    page +=       "<li>External IP <span class='label label-default'>JSON</span></li>";
+    page +=       "<li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li></ul>";
   } else {
     page +=     "<ul class='list-unstyled'>";
     page +=       "<li>Hostname <span class='label label-default'>MSG</span></li>";
     page +=       "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>";
-    page +=       "<li>Local IP <span class='label label-default'>MSG</span</li>";
+    page +=       "<li>Local IP <span class='label label-default'>MSG</span></li>";
     page +=       "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>";
-    page +=       "<li>External IP <span class='label label-default'>MSG</span</li>";
-    page +=       "<li><pre>http://" + eip + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>";
+    page +=       "<li>External IP <span class='label label-default'>MSG</span></li>";
+    page +=       "<li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li></ul>";
     page +=     "<ul class='list-unstyled'>";
     page +=       "<li>Hostname <span class='label label-default'>JSON</span></li>";
     page +=       "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>";
-    page +=       "<li>Local IP <span class='label label-default'>JSON</span</li>";
+    page +=       "<li>Local IP <span class='label label-default'>JSON</span></li>";
     page +=       "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>";
-    page +=       "<li>External IP <span class='label label-default'>JSON</span</li>";
-    page +=       "<li><pre>http://" + eip + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>";
+    page +=       "<li>External IP <span class='label label-default'>JSON</span></li>";
+    page +=       "<li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li></ul>";
   }
-  page +=       "<footer><em>" + String(millis()) + "ms uptime</em></footer>";
-  page += "</div></div></div>";
+  page +=      "</div></div>";
+  page +=    "<em>" + String(millis()) + "ms uptime</em>";
+  page +=   "</div>";
   page += "</body></html>";
   return page;
 }
