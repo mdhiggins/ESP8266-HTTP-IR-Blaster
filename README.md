@@ -62,8 +62,7 @@ Setup
 
 Server Info
 ---------------
-<img width="300" alt="screen shot 2017-06-29 at 10 49 54 pm" src="https://user-images.githubusercontent.com/3608298/27719101-43871fb6-5d1e-11e7-97dc-cafbe7d64297.png">
-<img width="300" alt="screen shot 2017-06-29 at 10 49 10 pm" src="https://user-images.githubusercontent.com/3608298/27719103-46890738-5d1e-11e7-90ff-1b536481c686.png">
+<img width="250" alt="screen shot 2017-06-29 at 10 49 54 pm" src="https://user-images.githubusercontent.com/3608298/27719101-43871fb6-5d1e-11e7-97dc-cafbe7d64297.png"><img width="250" alt="screen shot 2017-06-29 at 10 49 10 pm" src="https://user-images.githubusercontent.com/3608298/27719103-46890738-5d1e-11e7-90ff-1b536481c686.png">
 You may access basic device information at `http://xxx.xxx.xxx.xxx:port/` (webroot)
 
 Capturing Codes
