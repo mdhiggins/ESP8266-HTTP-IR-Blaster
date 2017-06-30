@@ -17,6 +17,7 @@
 #include <NTPClient.h>
 
 const int configpin = 13;         // GPIO13 (D7 on D1 Mini) to enable configuration (connect to ground)
+const int ledpin = BUILTIN_LED;   // Built in LED defined for WEMOS people
 const char *wifi_config_name = "IRBlaster Configuration";
 const char serverName[] = "checkip.dyndns.org";
 int port = 80;
@@ -74,8 +75,8 @@ void saveConfigCallback () {
 //
 void tick()
 {
-  int state = digitalRead(BUILTIN_LED);  // get the current state of GPIO1 pin
-  digitalWrite(BUILTIN_LED, !state);     // set pin to the opposite state
+  int state = digitalRead(ledpin);  // get the current state of GPIO1 pin
+  digitalWrite(ledpin, !state);     // set pin to the opposite state
 }
 
 
@@ -136,7 +137,7 @@ String externalIP()
 void disableLed()
 {
   Serial.println("Turning off the LED to save power.");
-  digitalWrite(BUILTIN_LED, HIGH);     // Shut down the LED
+  digitalWrite(ledpin, HIGH);     // Shut down the LED
   ticker.detach();                     // Stopping the ticker
 }
 
@@ -161,7 +162,7 @@ void configModeCallback (WiFiManager *myWiFiManager) {
 //
 bool setupWifi(bool resetConf) {
   // set led pin as output
-  pinMode(BUILTIN_LED, OUTPUT);
+  pinMode(ledpin, OUTPUT);
   // start ticker with 0.5 because we start in AP mode and try to connect
   ticker.attach(0.6, tick);
 
@@ -265,7 +266,7 @@ bool setupWifi(bool resetConf) {
   ticker.detach();
 
   // keep LED on
-  digitalWrite(BUILTIN_LED, LOW);
+  digitalWrite(ledpin, LOW);
   return true;
 }
 
@@ -290,7 +291,7 @@ void setup() {
   }
 
   wifi_set_sleep_type(LIGHT_SLEEP_T);
-  digitalWrite(BUILTIN_LED, LOW);
+  digitalWrite(ledpin, LOW);
   // Turn off the led in 5s
   ticker.attach(5, disableLed);
 
@@ -349,6 +350,8 @@ void setup() {
           irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
         }
       }
+      digitalWrite(ledpin, LOW);
+      ticker.attach(0.5, disableLed);
       server.send(200, "text/html", getPage("Code sent", "Success", 1));
     }
   });
@@ -383,6 +386,8 @@ void setup() {
       } else {
         irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
       }
+      digitalWrite(ledpin, LOW);
+      ticker.attach(0.5, disableLed);
       server.send(200, "text/html", getPage("Code Sent", "Success", 1));
     }
   });
@@ -391,18 +396,18 @@ void setup() {
     Serial.println("Connection received");
     int id = server.arg("id").toInt();
     String output;
-    if (id == 1) {
+    if (id == 1 && last_code.containsKey("time")) {
       output = codePage(last_code);
-    } else if (id == 2) {
+    } else if (id == 2 && last_code_2.containsKey("time")) {
       output = codePage(last_code_2);
-    } else if (id == 3) {
+    } else if (id == 3 && last_code_3.containsKey("time")) {
       output = codePage(last_code_3);
-    } else if (id == 4) {
+    } else if (id == 4 && last_code_4.containsKey("time")) {
       output = codePage(last_code_4);
-    } else if (id == 5) {
+    } else if (id == 5 && last_code_5.containsKey("time")) {
       output = codePage(last_code_5);
     } else {
-      output = "";
+      output = getPage("Code does not exist", "Warning", 3);
     }
     server.send(200, "text/html", output);
   });
@@ -576,8 +581,8 @@ String getPage(String message, String header, int type) {
   page += "<title>ESP8266 IR Controller (" + String(host_name) + ")</title></head><body>";
   page += "<div class='container-fluid'>";
   page +=   "<div class='row'>";
-  page +=     "<div class='col-md-12'>";
-  page +=       "<h1>ESP8266 IR Controller</h1>";
+  page +=     "<div class='container'>";
+  page +=       "<h1>ESP8266 IR Controller</h1><hr />";
   page +=       "<ul class='nav nav-pills'>";
   page +=         "<li class='active'>";
   page +=           "<a href='#'><span class='badge pull-right'>" + String(host_name) + ".local" + ":" + String(port) + "</span> Hostname</a></li>";
@@ -592,35 +597,37 @@ String getPage(String message, String header, int type) {
   page +=       "<br /><div class='alert alert-success' role='alert'><strong>" + header + "</strong> " + message + "</div>";
   if (type == 2)
   page +=       "<br /><div class='alert alert-error' role='alert'><strong>" + header + "</strong> " + message + "</div>";
+  if (type == 3)
+  page +=       "<br /><div class='alert alert-warning' role='alert'><strong>" + header + "</strong> " + message + "</div>";
   page +=       "<h3>Codes Transmitted</h3>";
   page +=       "<table class='table table-striped' style='table-layout: fixed;'>";
   page +=         "<thead><tr><th>Time Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>"; //Title
   page +=         "<tbody>";
   if (last_send.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_send["time"].as<String>() + "</td><td>" + last_send["data"].as<String>() + "</td><td>" + last_send["type"].as<String>() + "</td><td>" + last_send["len"].as<String>() + "</td><td>" + last_send["address"].as<String>() + "</td></tr>";
+  page +=           "<tr class='text-uppercase'><td>" + last_send["time"].as<String>() + "</td><td><code>" + last_send["data"].as<String>() + "</code></td><td><code>" + last_send["type"].as<String>() + "</code></td><td><code>" + last_send["len"].as<String>() + "</code></td><td><code>" + last_send["address"].as<String>() + "</code></td></tr>";
   if (last_send_2.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_send_2["time"].as<String>() + "</td><td>" + last_send_2["data"].as<String>() + "</td><td>" + last_send_2["type"].as<String>() + "</td><td>" + last_send_2["len"].as<String>() + "</td><td>" + last_send_2["address"].as<String>() + "</td></tr>";
+  page +=           "<tr class='text-uppercase'><td>" + last_send_2["time"].as<String>() + "</td><td><code>" + last_send_2["data"].as<String>() + "</code></td><td><code>" + last_send_2["type"].as<String>() + "</code></td><td><code>" + last_send_2["len"].as<String>() + "</code></td><td><code>" + last_send_2["address"].as<String>() + "</code></td></tr>";
   if (last_send_3.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_send_3["time"].as<String>() + "</td><td>" + last_send_3["data"].as<String>() + "</td><td>" + last_send_3["type"].as<String>() + "</td><td>" + last_send_3["len"].as<String>() + "</td><td>" + last_send_3["address"].as<String>() + "</td></tr>";
+  page +=           "<tr class='text-uppercase'><td>" + last_send_3["time"].as<String>() + "</td><td><code>" + last_send_3["data"].as<String>() + "</code></td><td><code>" + last_send_3["type"].as<String>() + "</code></td><td><code>" + last_send_3["len"].as<String>() + "</code></td><td><code>" + last_send_3["address"].as<String>() + "</code></td></tr>";
   if (last_send_4.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_send_4["time"].as<String>() + "</td><td>" + last_send_4["data"].as<String>() + "</td><td>" + last_send_4["type"].as<String>() + "</td><td>" + last_send_4["len"].as<String>() + "</td><td>" + last_send_4["address"].as<String>() + "</td></tr>";
+  page +=           "<tr class='text-uppercase'><td>" + last_send_4["time"].as<String>() + "</td><td><code>" + last_send_4["data"].as<String>() + "</code></td><td><code>" + last_send_4["type"].as<String>() + "</code></td><td><code>" + last_send_4["len"].as<String>() + "</code></td><td><code>" + last_send_4["address"].as<String>() + "</code></td></tr>";
   if (last_send_5.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_send_5["time"].as<String>() + "</td><td>" + last_send_5["data"].as<String>() + "</td><td>" + last_send_5["type"].as<String>() + "</td><td>" + last_send_5["len"].as<String>() + "</td><td>" + last_send_5["address"].as<String>() + "</td></tr>";
+  page +=           "<tr class='text-uppercase'><td>" + last_send_5["time"].as<String>() + "</td><td><code>" + last_send_5["data"].as<String>() + "</code></td><td><code>" + last_send_5["type"].as<String>() + "</code></td><td><code>" + last_send_5["len"].as<String>() + "</code></td><td><code>" + last_send_5["address"].as<String>() + "</code></td></tr>";
   page +=         "</tbody></table>";
   page +=       "<h3>Codes Received</h3>";
   page +=       "<table class='table table-striped' style='table-layout: fixed;'>";
   page +=         "<thead><tr><th>Time Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>"; //Title
   page +=         "<tbody>";
   if (last_code.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_code["time"].as<String>() + "</td><td><a href='/received?id=1'>" + last_code["data"].as<String>() + "</a></td><td>" + last_code["encoding"].as<String>() + "</td><td>" + last_code["bits"].as<String>() + "</td><td>" + last_code["address"].as<String>() + "</td></tr>";
+  page +=           "<tr class='text-uppercase'><td><a href='/received?id=1'>" + last_code["time"].as<String>() + "</a></td><td><code>" + last_code["data"].as<String>() + "</code></td><td><code>" + last_code["encoding"].as<String>() + "</code></td><td><code>" + last_code["bits"].as<String>() + "</code></td><td><code>" + last_code["address"].as<String>() + "</code></td></tr>";
   if (last_code_2.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_code_2["time"].as<String>() + "</td><td><a href='/received?id=2'>" + last_code_2["data"].as<String>() + "</a></td><td>" + last_code_2["encoding"].as<String>() + "</td><td>" + last_code_2["bits"].as<String>() + "</td><td>" + last_code_2["address"].as<String>() + "</td></tr>";
+  page +=           "<tr class='text-uppercase'><td><a href='/received?id=2'>" + last_code_2["time"].as<String>() + "</a></td><td><code>" + last_code_2["data"].as<String>() + "</code></td><td><code>" + last_code_2["encoding"].as<String>() + "</code></td><td><code>" + last_code_2["bits"].as<String>() + "</code></td><td><code>" + last_code_2["address"].as<String>() + "</code></td></tr>";
   if (last_code_3.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_code_3["time"].as<String>() + "</td><td><a href='/received?id=3'>" + last_code_3["data"].as<String>() + "</a></td><td>" + last_code_3["encoding"].as<String>() + "</td><td>" + last_code_3["bits"].as<String>() + "</td><td>" + last_code_3["address"].as<String>() + "</td></tr>";
+  page +=           "<tr class='text-uppercase'><td><a href='/received?id=3'>" + last_code_3["time"].as<String>() + "</a></td><td><code>" + last_code_3["data"].as<String>() + "</code></td><td><code>" + last_code_3["encoding"].as<String>() + "</code></td><td><code>" + last_code_3["bits"].as<String>() + "</code></td><td><code>" + last_code_3["address"].as<String>() + "</code></td></tr>";
   if (last_code_4.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_code_4["time"].as<String>() + "</td><td><a href='/received?id=4'>" + last_code_4["data"].as<String>() + "</a></td><td>" + last_code_4["encoding"].as<String>() + "</td><td>" + last_code_4["bits"].as<String>() + "</td><td>" + last_code_4["address"].as<String>() + "</td></tr>";
+  page +=           "<tr class='text-uppercase'><td><a href='/received?id=4'>" + last_code_4["time"].as<String>() + "</a></td><td><code>" + last_code_4["data"].as<String>() + "</code></td><td><code>" + last_code_4["encoding"].as<String>() + "</code></td><td><code>" + last_code_4["bits"].as<String>() + "</code></td><td><code>" + last_code_4["address"].as<String>() + "</code></td></tr>";
   if (last_code_5.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_code_5["time"].as<String>() + "</td><td><a href='/received?id=5'>" + last_code_5["data"].as<String>() + "</a></td><td>" + last_code_5["encoding"].as<String>() + "</td><td>" + last_code_5["bits"].as<String>() + "</td><td>" + last_code_5["address"].as<String>() + "</td></tr>";
+  page +=           "<tr class='text-uppercase'><td><a href='/received?id=5'>" + last_code_5["time"].as<String>() + "</a></td><td><code>" + last_code_5["data"].as<String>() + "</code></td><td><code>" + last_code_5["encoding"].as<String>() + "</code></td><td><code>" + last_code_5["bits"].as<String>() + "</code></td><td><code>" + last_code_5["address"].as<String>() + "</code></td></tr>";
   page +=         "</tbody></table>";
   page +=       "<ul class='list-unstyled'>";
   page +=         "<li><span class='badge'>GPIO " + String(pinr1) + "</span> Receiving </li>";
@@ -644,8 +651,8 @@ String codePage(JsonObject& selCode){
   page += "<title>ESP8266 IR Controller (" + String(host_name) + ")</title></head><body>";
   page += "<div class='container-fluid'>";
   page +=   "<div class='row'>";
-  page +=     "<div class='col-md-12'>";
-  page +=       "<h1>ESP8266 IR Controller</h1>";
+  page +=     "<div class='container'>";
+  page +=       "<h1>ESP8266 IR Controller <span class='pull-right'><a href='/'>Home</a></span></h1><hr />";
   page +=       "<ul class='nav nav-pills'>";
   page +=         "<li class='active'>";
   page +=           "<a href='#'><span class='badge pull-right'>" + String(host_name) + ".local" + ":" + String(port) + "</span> Hostname</a></li>";
@@ -656,8 +663,7 @@ String codePage(JsonObject& selCode){
   page +=         "<li class='active'>";
   page +=           "<a href='#'><span class='badge pull-right'>" + String(WiFi.macAddress()) + "</span> Mac Address</a></li>";
   page +=       "</ul>";
-  page +=       "<h3>Code ";
-  page +=       "<code>" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</code></h3>";
+  page +=       "<h2><span class='label label-success'>" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</span></h2><br/>";
   page +=       "<dl class='dl-horizontal'>";
   page +=         "<dt>Data</dt>";
   page +=         "<dd><code>" + selCode["data"].as<String>()  + "</code></dd></dl>";
@@ -985,6 +991,7 @@ void copyJson(JsonObject& j1, JsonObject& j2) {
   if (j1.containsKey("address"))  j2["address"] = j1["address"];
   if (j1.containsKey("command"))  j2["command"] = j1["command"];
   if (j1.containsKey("time"))     j2["time"] = j1["time"];
+  if (j1.containsKey("uint16_t")) j2["uint16_t"] = j1["uint16_t"];
 }
 
 void copyJsonSend(JsonObject& j1, JsonObject& j2) {
@@ -1013,8 +1020,8 @@ void loop() {
     last_code["time"] = String(timeClient.getFormattedTime());
     Serial.println("");                   // Blank line between entries
     irrecv.resume();                      // Prepare for the next value
-    digitalWrite(BUILTIN_LED, LOW);       // Turn on the LED
-    ticker.attach(1, disableLed);
+    digitalWrite(ledpin, LOW);       // Turn on the LED
+    ticker.attach(0.5, disableLed);
   }
   delay(200);
 }
