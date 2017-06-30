@@ -14,6 +14,7 @@
 #include <ESP8266HTTPClient.h>
 
 #include <Ticker.h>               // For LED status
+#include <NTPClient.h>
 
 const int configpin = 13;         // GPIO13 (D7 on D1 Mini) to enable configuration (connect to ground)
 const char *wifi_config_name = "IRBlaster Configuration";
@@ -21,9 +22,17 @@ const char serverName[] = "checkip.dyndns.org";
 int port = 80;
 char passcode[40] = "";
 char host_name[40] = "";
-String last_code = "";            // Stores last code
-String last_code_2 = "";          // Stores 2nd to last code
-String last_code_3 = "";          // Stores 3rd to last code
+DynamicJsonBuffer jsonBuffer;
+JsonObject& last_code = jsonBuffer.createObject();            // Stores last code
+JsonObject& last_code_2 = jsonBuffer.createObject();          // Stores 2nd to last code
+JsonObject& last_code_3 = jsonBuffer.createObject();          // Stores 3rd to last code
+JsonObject& last_code_4 = jsonBuffer.createObject();          // Stores 4th to last code
+JsonObject& last_code_5 = jsonBuffer.createObject();          // Stores 5th to last code
+JsonObject& last_send = jsonBuffer.createObject();            // Stores last sent
+JsonObject& last_send_2 = jsonBuffer.createObject();          // Stores 2nd last sent
+JsonObject& last_send_3 = jsonBuffer.createObject();          // Stores 3rd last sent
+JsonObject& last_send_4 = jsonBuffer.createObject();          // Stores 4th last sent
+JsonObject& last_send_5 = jsonBuffer.createObject();          // Stores 5th last sent
 
 ESP8266WebServer server(port);
 HTTPClient http;
@@ -44,6 +53,8 @@ IRsend irsend3(pins3);
 IRsend irsend4(pins4);
 
 WiFiClient client;
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP);
 
 //+=============================================================================
 // Callback notifying us of the need to save config
@@ -280,6 +291,8 @@ void setup() {
   String port_str((port == 80)? String("") : String(port));
   Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
 
+  timeClient.update(); // Get the time
+
   // Configure the server
   server.on("/json", []() { // JSON handler for more complicated IR blaster routines
     Serial.println("Connection received - JSON");
@@ -289,12 +302,11 @@ void setup() {
 
     if (!root.success()) {
       Serial.println("JSON parsing failed");
-      server.send(400, "text/html", "Failed");
+      server.send(400, "text/html", getPage("JSON parsing failed", "Error", 2));
     } else if (server.arg("pass") != passcode) {
       Serial.println("Unauthorized access");
-      server.send(401, "text/html", "Unauthorized");
+      server.send(401, "text/html", getPage("Invalid passcode", "Unauthorized", 2));
     } else {
-      server.send(200, "text/json", "Valid JSON object received, sending sequence");
       for (int x = 0; x < root.size(); x++) {
         String type = root[x]["type"];
         String ip = root[x]["ip"];
@@ -326,6 +338,7 @@ void setup() {
           irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
         }
       }
+      server.send(200, "text/html", getPage("Code sent", "Success", 1));
     }
   });
 
@@ -334,7 +347,7 @@ void setup() {
     Serial.println("Connection received - MSG");
     if (server.arg("pass") != passcode) {
       Serial.println("Unauthorized access");
-      server.send(401, "text/html", "Unauthorized");
+      server.send(401, "text/html", getPage("Invalid passcode", "Unauthorized", 2));
     } else {
       String type = server.arg("type");
       String data = server.arg("data");
@@ -359,33 +372,33 @@ void setup() {
       } else {
         irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
       }
-      server.send(200, "text/html", "code sent");
+      server.send(200, "text/html", getPage("Code Sent", "Success", 1));
     }
+  });
+
+  server.on("/received", []() {
+    Serial.println("Connection received");
+    int id = server.arg("id").toInt();
+    String output;
+    if (id == 1) {
+      output = codePage(last_code);
+    } else if (id == 2) {
+      output = codePage(last_code_2);
+    } else if (id == 3) {
+      output = codePage(last_code_3);
+    } else if (id == 4) {
+      output = codePage(last_code_4);
+    } else if (id == 5) {
+      output = codePage(last_code_5);
+    } else {
+      output = "";
+    }
+    server.send(200, "text/html", output);
   });
 
   server.on("/", []() {
     Serial.println("Connection received");
-    String s;
-    s = "<pre>";
-    s += "Server is running \n";
-    s += "=======================================\n";
-    s += "Local IP     : " + ipToString(WiFi.localIP()) + "\n";
-    s += "External IP  : " + externalIP() + "\n";
-    s += "Host name    : " + String(host_name) + ".local" + "\n";
-    s += "Port         : " + String(port) + "\n";
-    s += "MAC Address  : " + String(WiFi.macAddress()) + "\n";
-    s += "Receiving    : GPIO" + String(pinr1) + "\n";
-    s += "Transmitter 1: GPIO" + String(pins1) + "\n";
-    s += "Transmitter 2: GPIO" + String(pins2) + "\n";
-    s += "Transmitter 3: GPIO" + String(pins3) + "\n";
-    s += "Transmitter 4: GPIO" + String(pins4) + "\n";
-    s += "</pre>";
-    server.send(200, "text/html", s);
-  });
-
-  server.on("/last", []() {
-    Serial.println("Connection received");
-    server.send(200, "text/html", last_code + last_code_2 + last_code_3);
+    server.send(200, "text/html", getPage("", "", 0));
   });
 
   server.begin();
@@ -420,6 +433,17 @@ int rokuCommand(String ip, String data) {
   http.begin(url);
   Serial.println(url);
   Serial.println("Sending roku command");
+
+  copyJsonSend(last_send_4, last_send_5);
+  copyJsonSend(last_send_3, last_send_4);
+  copyJsonSend(last_send_2, last_send_3);
+  copyJsonSend(last_send, last_send_2);
+
+  last_send["data"] = data;
+  last_send["len"] = 0;
+  last_send["type"] = "roku";
+  last_send["address"] = ip;
+  last_send["time"] = String(timeClient.getFormattedTime());
   return http.POST("");
   http.end();
 }
@@ -533,51 +557,165 @@ void fullCode (decode_results *results)
 }
 
 //+=============================================================================
-// Code to string
+// Generate info page HTML
 //
-String codeOutput (decode_results *results)
+String getPage(String message, String header, int type) {
+  String page = "<html lang='fr'><head><meta http-equiv='refresh' content='60' name='viewport' content='width=device-width, initial-scale=1'/>";
+  page += "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'></script><script src='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js'></script>";
+  page += "<title>ESP8266 IR Controller (" + String(host_name) + ")</title></head><body>";
+  page += "<div class='container-fluid'>";
+  page +=   "<div class='row'>";
+  page +=     "<div class='col-md-12'>";
+  page +=       "<h1>ESP8266 IR Controller</h1>";
+  page +=       "<ul class='nav nav-pills'>";
+  page +=         "<li class='active'>";
+  page +=           "<a href='#'><span class='badge pull-right'>" + String(host_name) + ".local" + ":" + String(port) + "</span> Hostname</a></li>";
+  page +=         "<li class='active'>";
+  page +=           "<a href='#'><span class='badge pull-right'>" + ipToString(WiFi.localIP()) + ":" + String(port) + "</span> Local</a></li>";
+  page +=         "<li class='active'>";
+  page +=           "<a href='#'><span class='badge pull-right'>" + externalIP() + ":" + String(port) + "</span> External</a></li>";
+  page +=         "<li class='active'>";
+  page +=           "<a href='#'><span class='badge pull-right'>" + String(WiFi.macAddress()) + "</span> Mac Address</a></li>";
+  page +=       "</ul>";
+  if (type == 1)
+  page +=       "<br /><div class='alert alert-success' role='alert'><strong>" + header + "</strong> " + message + "</div>";
+  if (type == 2)
+  page +=       "<br /><div class='alert alert-error' role='alert'><strong>" + header + "</strong> " + message + "</div>";
+  page +=       "<h3>Codes Transmitted</h3>";
+  page +=       "<table class='table table-striped' style='table-layout: fixed;'>";
+  page +=         "<thead><tr><th>Time Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>"; //Title
+  page +=         "<tbody>";
+  if (last_send.containsKey("time"))
+  page +=           "<tr class='text-uppercase'><td>" + last_send["time"].as<String>() + "</td><td>" + last_send["data"].as<String>() + "</td><td>" + last_send["type"].as<String>() + "</td><td>" + last_send["len"].as<String>() + "</td><td>" + last_send["address"].as<String>() + "</td></tr>";
+  if (last_send_2.containsKey("time"))
+  page +=           "<tr class='text-uppercase'><td>" + last_send_2["time"].as<String>() + "</td><td>" + last_send_2["data"].as<String>() + "</td><td>" + last_send_2["type"].as<String>() + "</td><td>" + last_send_2["len"].as<String>() + "</td><td>" + last_send_2["address"].as<String>() + "</td></tr>";
+  if (last_send_3.containsKey("time"))
+  page +=           "<tr class='text-uppercase'><td>" + last_send_3["time"].as<String>() + "</td><td>" + last_send_3["data"].as<String>() + "</td><td>" + last_send_3["type"].as<String>() + "</td><td>" + last_send_3["len"].as<String>() + "</td><td>" + last_send_3["address"].as<String>() + "</td></tr>";
+  if (last_send_4.containsKey("time"))
+  page +=           "<tr class='text-uppercase'><td>" + last_send_4["time"].as<String>() + "</td><td>" + last_send_4["data"].as<String>() + "</td><td>" + last_send_4["type"].as<String>() + "</td><td>" + last_send_4["len"].as<String>() + "</td><td>" + last_send_4["address"].as<String>() + "</td></tr>";
+  if (last_send_5.containsKey("time"))
+  page +=           "<tr class='text-uppercase'><td>" + last_send_5["time"].as<String>() + "</td><td>" + last_send_5["data"].as<String>() + "</td><td>" + last_send_5["type"].as<String>() + "</td><td>" + last_send_5["len"].as<String>() + "</td><td>" + last_send_5["address"].as<String>() + "</td></tr>";
+  page +=         "</tbody></table>";
+  page +=       "<h3>Codes Received</h3>";
+  page +=       "<table class='table table-striped' style='table-layout: fixed;'>";
+  page +=         "<thead><tr><th>Time Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>"; //Title
+  page +=         "<tbody>";
+  if (last_code.containsKey("time"))
+  page +=           "<tr class='text-uppercase'><td>" + last_code["time"].as<String>() + "</td><td><a href='/received?id=1'>" + last_code["data"].as<String>() + "</a></td><td>" + last_code["encoding"].as<String>() + "</td><td>" + last_code["bits"].as<String>() + "</td><td>" + last_code["address"].as<String>() + "</td></tr>";
+  if (last_code_2.containsKey("time"))
+  page +=           "<tr class='text-uppercase'><td>" + last_code_2["time"].as<String>() + "</td><td><a href='/received?id=2'>" + last_code_2["data"].as<String>() + "</a></td><td>" + last_code_2["encoding"].as<String>() + "</td><td>" + last_code_2["bits"].as<String>() + "</td><td>" + last_code_2["address"].as<String>() + "</td></tr>";
+  if (last_code_3.containsKey("time"))
+  page +=           "<tr class='text-uppercase'><td>" + last_code_3["time"].as<String>() + "</td><td><a href='/received?id=3'>" + last_code_3["data"].as<String>() + "</a></td><td>" + last_code_3["encoding"].as<String>() + "</td><td>" + last_code_3["bits"].as<String>() + "</td><td>" + last_code_3["address"].as<String>() + "</td></tr>";
+  if (last_code_4.containsKey("time"))
+  page +=           "<tr class='text-uppercase'><td>" + last_code_4["time"].as<String>() + "</td><td><a href='/received?id=4'>" + last_code_4["data"].as<String>() + "</a></td><td>" + last_code_4["encoding"].as<String>() + "</td><td>" + last_code_4["bits"].as<String>() + "</td><td>" + last_code_4["address"].as<String>() + "</td></tr>";
+  if (last_code_5.containsKey("time"))
+  page +=           "<tr class='text-uppercase'><td>" + last_code_5["time"].as<String>() + "</td><td><a href='/received?id=5'>" + last_code_5["data"].as<String>() + "</a></td><td>" + last_code_5["encoding"].as<String>() + "</td><td>" + last_code_5["bits"].as<String>() + "</td><td>" + last_code_5["address"].as<String>() + "</td></tr>";
+  page +=         "</tbody></table>";
+  page +=       "<ul class='list-unstyled'>";
+  page +=         "<li><span class='badge'>GPIO " + String(pinr1) + "</span> Receiving </li>";
+  page +=         "<li><span class='badge'>GPIO " + String(pins1) + "</span> Transmitter 1 </li>";
+  page +=         "<li><span class='badge'>GPIO " + String(pins2) + "</span> Transmitter 2 </li>";
+  page +=         "<li><span class='badge'>GPIO " + String(pins3) + "</span> Transmitter 3 </li>";
+  page +=         "<li><span class='badge'>GPIO " + String(pins4) + "</span> Transmitter 4 </li></ul>";
+  page +=       "<footer><em>" + String(millis()) + "ms uptime</em></footer>";
+  page += "</div></div></div>";
+  page += "</body></html>";
+  return page;
+}
+
+//+=============================================================================
+// Generate full code datasheet
+//
+String codePage(JsonObject& selCode){
+  String eip = externalIP();
+  String page = "<html lang='fr'><head><meta http-equiv='refresh' content='60' name='viewport' content='width=device-width, initial-scale=1'/>";
+  page += "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'></script><script src='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js'></script>";
+  page += "<title>ESP8266 IR Controller (" + String(host_name) + ")</title></head><body>";
+  page += "<div class='container-fluid'>";
+  page +=   "<div class='row'>";
+  page +=     "<div class='col-md-12'>";
+  page +=       "<h1>ESP8266 IR Controller</h1>";
+  page +=       "<ul class='nav nav-pills'>";
+  page +=         "<li class='active'>";
+  page +=           "<a href='#'><span class='badge pull-right'>" + String(host_name) + ".local" + ":" + String(port) + "</span> Hostname</a></li>";
+  page +=         "<li class='active'>";
+  page +=           "<a href='#'><span class='badge pull-right'>" + ipToString(WiFi.localIP()) + ":" + String(port) + "</span> Local</a></li>";
+  page +=         "<li class='active'>";
+  page +=           "<a href='#'><span class='badge pull-right'>" + eip + ":" + String(port) + "</span> External</a></li>";
+  page +=         "<li class='active'>";
+  page +=           "<a href='#'><span class='badge pull-right'>" + String(WiFi.macAddress()) + "</span> Mac Address</a></li>";
+  page +=       "</ul>";
+  page +=       "<h3>Code ";
+  page +=       "<code>" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</code></h3>";
+  page +=       "<dl class='dl-horizontal'>";
+  page +=         "<dt>Data</dt>";
+  page +=         "<dd><code>" + selCode["data"].as<String>()  + "</code></dd></dl>";
+  page +=       "<dl class='dl-horizontal'>";
+  page +=         "<dt>Type</dt>";
+  page +=         "<dd><code>" + selCode["encoding"].as<String>()  + "</code></dd></dl>";
+  page +=       "<dl class='dl-horizontal'>";
+  page +=         "<dt>Length</dt>";
+  page +=         "<dd><code>" + selCode["bits"].as<String>()  + "</code></dd></dl>";
+  page +=       "<dl class='dl-horizontal'>";
+  page +=         "<dt>Address</dt>";
+  page +=         "<dd><code>" + selCode["address"].as<String>()  + "</code></dd></dl>";
+  page +=       "<dl class='dl-horizontal'>";
+  page +=         "<dt>Raw</dt>";
+  page +=         "<dd><code>" + selCode["uint16_t"].as<String>()  + "</code></dd></dl>";
+  page +=       "<div class='alert alert-warning' role='alert'>Don't forget to add your passcode to the URLs below if you set one</div>";
+  if (selCode["encoding"] == "UNKNOWN") {
+    page +=     "<ul class='list-unstyled'>";
+    page +=       "<li>Hostname <span class='label label-default'>JSON</span></li>";
+    page +=       "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plan=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>";
+    page +=       "<li>Local IP <span class='label label-default'>JSON</span</li>";
+    page +=       "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plan=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>";
+    page +=       "<li>External IP <span class='label label-default'>JSON</span</li>";
+    page +=       "<li><pre>http://" + eip + ":" + String(port) + "/json?plan=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>";
+  } else {
+    page +=     "<ul class='list-unstyled'>";
+    page +=       "<li>Hostname <span class='label label-default'>MSG</span></li>";
+    page +=       "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>";
+    page +=       "<li>Local IP <span class='label label-default'>MSG</span</li>";
+    page +=       "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>";
+    page +=       "<li>External IP <span class='label label-default'>MSG</span</li>";
+    page +=       "<li><pre>http://" + eip + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>";
+    page +=     "<ul class='list-unstyled'>";
+    page +=       "<li>Hostname <span class='label label-default'>JSON</span></li>";
+    page +=       "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plan=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>";
+    page +=       "<li>Local IP <span class='label label-default'>JSON</span</li>";
+    page +=       "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plan=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>";
+    page +=       "<li>External IP <span class='label label-default'>JSON</span</li>";
+    page +=       "<li><pre>http://" + eip + ":" + String(port) + "/json?plan=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>";
+  }
+  page +=       "<footer><em>" + String(millis()) + "ms uptime</em></footer>";
+  page += "</div></div></div>";
+  page += "</body></html>";
+  return page;
+}
+
+//+=============================================================================
+// Code to JsonObject
+//
+void codeJson(JsonObject &codeData, decode_results *results)
 {
-    String s;
-    s = "<pre>";
-    s += Uint64toString(results->value, 16);
-    s += ":";
-    s += encoding(results);
-    s += ":";
-    s += results->bits;
-
-    // Start declaration
-    s += "\n";
-    s += "uint16_t  rawData[";              // variable type
-    s += results->rawlen - 1;               // array size
-    s += "] = {";                           // Start declaration
-
-    // Dump data
-    for (uint16_t i = 1; i < results->rawlen; i++) {
-      s += results->rawbuf[i] * USECPERTICK;
+  codeData["data"] = Uint64toString(results->value, 16);
+  codeData["encoding"] = encoding(results);
+  codeData["bits"] = results->bits;
+  String r = "";
+      for (uint16_t i = 1; i < results->rawlen; i++) {
+      r += results->rawbuf[i] * USECPERTICK;
       if (i < results->rawlen - 1)
-        s += ",";                           // ',' not needed on last one
-      if (!(i & 1)) s += " ";
+        r += ",";                           // ',' not needed on last one
+      if (!(i & 1)) r += " ";
     }
-    s += ("};");                            // End declaration
-
-    s += "\n";
-
-    // Now dump "known" codes
-    if (results->decode_type != UNKNOWN) {
-      // Some protocols have an address &/or command.
-      // NOTE: It will ignore the atypical case when a message has been decoded
-      // but the address & the command are both 0.
-      if (results->address > 0 || results->command > 0) {
-        s += "uint32_t  address = 0x";
-        s += String(results->address, HEX) + "; \n";
-        s += "uint32_t  command = 0x";
-        s += String(results->command, HEX) + "; \n";
-        s += "uint64_t  data = 0x";
-        s += Uint64toString(results->value, 16) + "; \n";
-      }
-    }
-    s += "</pre>";
-    return s;
+  codeData["uint16_t"] = r;
+  if (results->decode_type != UNKNOWN) {
+    codeData["address"] = "0x" + String(results->address, HEX);
+    codeData["command"] = "0x" + String(results->command, HEX);
+  } else {
+    codeData["address"] = "0x";
+    codeData["command"] = "0x";
+  }
 }
 
 //+=============================================================================
@@ -761,6 +899,17 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
     }
     delay(rdelay);
   }
+
+  copyJsonSend(last_send_4, last_send_5);
+  copyJsonSend(last_send_3, last_send_4);
+  copyJsonSend(last_send_2, last_send_3);
+  copyJsonSend(last_send, last_send_2);
+
+  last_send["data"] = dataStr;
+  last_send["len"] = len;
+  last_send["type"] = type;
+  last_send["address"] = address;
+  last_send["time"] = String(timeClient.getFormattedTime());
 }
 
 
@@ -818,20 +967,43 @@ void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
   }
 }
 
+void copyJson(JsonObject& j1, JsonObject& j2) {
+  if (j1.containsKey("data"))     j2["data"] = j1["data"];
+  if (j1.containsKey("encoding")) j2["encoding"] = j1["encoding"];
+  if (j1.containsKey("bits"))     j2["bits"] = j1["bits"];
+  if (j1.containsKey("address"))  j2["address"] = j1["address"];
+  if (j1.containsKey("command"))  j2["command"] = j1["command"];
+  if (j1.containsKey("time"))     j2["time"] = j1["time"];
+}
+
+void copyJsonSend(JsonObject& j1, JsonObject& j2) {
+  if (j1.containsKey("data"))    j2["data"] = j1["data"];
+  if (j1.containsKey("type"))    j2["type"] = j1["type"];
+  if (j1.containsKey("len"))     j2["len"] = j1["len"];
+  if (j1.containsKey("address")) j2["address"] = j1["address"];
+  if (j1.containsKey("time"))    j2["time"] = j1["time"];
+}
 
 void loop() {
   server.handleClient();
-  decode_results  results;        // Somewhere to store the results
+  decode_results  results;                // Somewhere to store the results
 
-  if (irrecv.decode(&results)) {  // Grab an IR code
+  if (irrecv.decode(&results)) {          // Grab an IR code
     Serial.println("Signal received:");
-    fullCode(&results);           // Print the singleline value
-    dumpCode(&results);           // Output the results as source code
-    last_code_3 = last_code_2;
-    last_code_2 = last_code;
-    last_code = codeOutput(&results);
-    Serial.println("");           // Blank line between entries
-    irrecv.resume();              // Prepare for the next value
+    fullCode(&results);                   // Print the singleline value
+    //dumpInfo(&results);                 // Output the results
+    //dumpRaw(&results);                  // Output the results in RAW format
+    dumpCode(&results);                   // Output the results as source code
+    copyJson(last_code_4, last_code_5);   // Pass
+    copyJson(last_code_3, last_code_4);   // Pass
+    copyJson(last_code_2, last_code_3);   // Pass
+    copyJson(last_code, last_code_2);     // Pass
+    codeJson(last_code, &results);        // Store the results
+    last_code["time"] = String(timeClient.getFormattedTime());
+    Serial.println("");                   // Blank line between entries
+    irrecv.resume();                      // Prepare for the next value
+    digitalWrite(BUILTIN_LED, LOW);       // Turn on the LED
+    ticker.attach(1, disableLed);
   }
   delay(200);
 }
