@@ -85,7 +85,7 @@ void tick()
 String externalIP()
 {
   if (_ip != "") {
-    if (millis() - lastupdate > resetfrequency) {
+    if (millis() - lastupdate > resetfrequency || lastupdate > millis()) {
       Serial.println("Reseting cached external IP address");
       _ip = ""; // Reset the cached external IP every 72 hours
     } else {
