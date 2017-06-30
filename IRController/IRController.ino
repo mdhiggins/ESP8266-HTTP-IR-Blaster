@@ -571,7 +571,7 @@ void fullCode (decode_results *results)
 // Generate info page HTML
 //
 String getPage(String message, String header, int type) {
-  String page = "<html lang='fr'><head><meta http-equiv='refresh' content='300' name='viewport' content='width=device-width,initial-scale=1'/>";
+  String page = "<html><head><meta http-equiv='refresh' content='300' />";
   page += "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'></script>";
   page += "<title>ESP8266 IR Controller (" + String(host_name) + ")</title></head><body>";
   page += "<div class='container-fluid'>";
@@ -639,7 +639,7 @@ String getPage(String message, String header, int type) {
 //
 String codePage(JsonObject& selCode){
   String eip = externalIP();
-  String page = "<html lang='fr'><head><meta name='viewport' content='width=device-width,initial-scale=1'/>";
+  String page = "<html><head>";
   page += "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'>";
   page += "<title>ESP8266 IR Controller (" + String(host_name) + ")</title></head><body>";
   page += "<div class='container-fluid'>";
