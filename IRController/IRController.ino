@@ -56,6 +56,10 @@ WiFiClient client;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 
+String _ip = "";
+unsigned long lastupdate = 0;
+unsigned long resetfrequency = 259200000; // 72 hours in milliseconds
+
 //+=============================================================================
 // Callback notifying us of the need to save config
 //
@@ -80,17 +84,26 @@ void tick()
 //
 String externalIP()
 {
-  String readBuffer = "";
-  String _ip = "";
+  if (_ip != "") {
+    if (millis() - lastupdate > resetfrequency) {
+      Serial.println("Reseting cached external IP address");
+      _ip = ""; // Reset the cached external IP every 72 hours
+    } else {
+      return _ip;
+    }
+  }
+
   if(client.connect(serverName, 8245)) // you can use port 80, but this works faster
   {
+    String readBuffer = "";
     // Make a HTTP request:
     client.println("GET / HTTP/1.0");
     client.println("Host: checkip.dyndns.org");
     client.println("Connection: close");
     client.println();
 
-    while ( _ip == "" || millis() < 10000 ) {
+    while ( _ip == "" || millis() < 5000 ) {
+      Serial.println("Retrieving external IP address");
       // read incoming bytes available from the server
       if (client.available()) {
         //give time to receive whole message to the buffer
@@ -98,8 +111,6 @@ String externalIP()
         while (client.available()) {
           char c = client.read();
           readBuffer += c;
-          Serial.print(c);
-
           if (readBuffer.length() > 100) {
             readBuffer = readBuffer.substring(70, readBuffer.length());
           }
@@ -107,12 +118,12 @@ String externalIP()
         int pos_start = readBuffer.indexOf("IP Address") + 12; // add 10 for "IP Address" and 2 for ":" + "space"
         int pos_end = readBuffer.indexOf("</body>", pos_start); // add nothing
         _ip = readBuffer.substring(pos_start, pos_end);
-        Serial.print(F("WAN IP: "));
+        Serial.print(F("External IP: "));
         Serial.println(_ip);
         readBuffer = "";
         client.stop();
+        lastupdate = millis();
       }
-      //******************************
     }
   }
   return _ip;
@@ -560,8 +571,8 @@ void fullCode (decode_results *results)
 // Generate info page HTML
 //
 String getPage(String message, String header, int type) {
-  String page = "<html lang='fr'><head><meta http-equiv='refresh' content='60' name='viewport' content='width=device-width, initial-scale=1'/>";
-  page += "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'></script><script src='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js'></script>";
+  String page = "<html lang='fr'><head><meta http-equiv='refresh' content='300' name='viewport' content='width=device-width,initial-scale=1'/>";
+  page += "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'></script>";
   page += "<title>ESP8266 IR Controller (" + String(host_name) + ")</title></head><body>";
   page += "<div class='container-fluid'>";
   page +=   "<div class='row'>";
@@ -628,8 +639,8 @@ String getPage(String message, String header, int type) {
 //
 String codePage(JsonObject& selCode){
   String eip = externalIP();
-  String page = "<html lang='fr'><head><meta http-equiv='refresh' content='60' name='viewport' content='width=device-width, initial-scale=1'/>";
-  page += "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'></script><script src='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js'></script>";
+  String page = "<html lang='fr'><head><meta name='viewport' content='width=device-width,initial-scale=1'/>";
+  page += "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css'>";
   page += "<title>ESP8266 IR Controller (" + String(host_name) + ")</title></head><body>";
   page += "<div class='container-fluid'>";
   page +=   "<div class='row'>";
