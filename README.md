@@ -51,7 +51,7 @@ Setup
 --------------
 1. Install [Arduino IDE](https://www.arduino.cc/en/main/software)
 2. Install [ESP8266 Arduino Core](https://github.com/esp8266/Arduino)
-3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson` `WiFiManager`
+3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson` `WiFiManager` `NTPClient`
 4. Manually install the [IRremoteESP8266 library](https://github.com/markszabo/IRremoteESP8266)
 5. Load the `IRController.ino` blueprint from this repository
 6. Upload blueprint to your ESP8266. Monitor via serial at 115200 baud rate
@@ -62,11 +62,13 @@ Setup
 
 Server Info
 ---------------
+<img width="300" alt="screen shot 2017-06-29 at 10 49 54 pm" src="https://user-images.githubusercontent.com/3608298/27719101-43871fb6-5d1e-11e7-97dc-cafbe7d64297.png">
+<img width="300" alt="screen shot 2017-06-29 at 10 49 10 pm" src="https://user-images.githubusercontent.com/3608298/27719103-46890738-5d1e-11e7-90ff-1b536481c686.png">
 You may access basic device information at `http://xxx.xxx.xxx.xxx:port/` (webroot)
 
 Capturing Codes
 ---------------
-Your last scanned code can be accessed via web at `http://xxx.xxx.xxx.xxx:port/last` or via serial monitoring over USB at 115200 baud. Most codes will be recognized and displayed in the format `A90:SONY:12`. Make a note of the code displayed in the serial output as you will need it for your maker channel URL. If your code is not recognized scroll down the JSON section of this read me.
+Your last scanned code can be accessed via web at `http://xxx.xxx.xxx.xxx:port/` or via serial monitoring over USB at 115200 baud. Most codes will be recognized and displayed in the format `A90:SONY:12`. Make a note of the code displayed in the serial output as you will need it for your maker channel URL. If your code is not recognized scroll down the JSON section of this read me.
 
 Simple URL
 --------------
