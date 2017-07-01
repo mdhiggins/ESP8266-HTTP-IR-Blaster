@@ -40,6 +40,7 @@ HTTPClient http;
 Ticker ticker;
 
 bool shouldSaveConfig = false;    // Flag for saving data
+bool holdReceive = false;         // Flag to prevent IR receiving while transmitting
 
 int pinr1 = 5;                    // Receiving pin (GPIO5 = D1)
 int pins1 = 4;                    // Transmitting preset 1
@@ -66,6 +67,18 @@ unsigned long resetfrequency = 259200000; // 72 hours in milliseconds
 void saveConfigCallback () {
   Serial.println("Should save config");
   shouldSaveConfig = true;
+}
+
+
+//+=============================================================================
+// Reenable IR receiving
+//
+void resetReceive() {
+  if (holdReceive) {
+    Serial.println("Reenabling receiving");
+    irrecv.resume();
+    holdReceive = false;
+  }
 }
 
 
@@ -117,8 +130,8 @@ String externalIP()
 void disableLed()
 {
   Serial.println("Turning off the LED to save power.");
-  digitalWrite(ledpin, HIGH);     // Shut down the LED
-  ticker.detach();                     // Stopping the ticker
+  digitalWrite(ledpin, HIGH);                           // Shut down the LED
+  ticker.detach();                                      // Stopping the ticker
 }
 
 
@@ -866,6 +879,8 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
   Serial.println("Blasting off");
   type.toLowerCase();
   unsigned long data = HexToLongInt(dataStr);
+  holdReceive = true;
+  Serial.println("Blocking incoming IR signals");
   // Repeat Loop
   for (int r = 0; r < repeat; r++) {
     // Pulse Loop
@@ -916,12 +931,15 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
   last_send["type"] = type;
   last_send["address"] = address;
   last_send["time"] = String(timeClient.getFormattedTime());
+
+  resetReceive();
 }
 
 
 void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int repeat, IRsend irsend) {
   Serial.println("Raw transmit");
-
+  holdReceive = true;
+  Serial.println("Blocking incoming IR signals");
   // Repeat Loop
   for (int r = 0; r < repeat; r++) {
     // Pulse Loop
@@ -939,6 +957,8 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int re
     }
     delay(rdelay);
   }
+
+  resetReceive();
 }
 
 
@@ -946,6 +966,9 @@ void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
 {
   Serial.print("Sending Roomba code ");
   Serial.println(code);
+  holdReceive = true;
+  Serial.println("Blocking incoming IR signals");
+
   int length = 8;
   uint16_t raw[length * 2];
   unsigned int one_pulse = 3000;
@@ -971,6 +994,8 @@ void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
     irsend.sendRaw(raw, len, hz);
     delay(pdelay);
   }
+
+  resetReceive();
 }
 
 void copyJson(JsonObject& j1, JsonObject& j2) {
@@ -993,23 +1018,21 @@ void copyJsonSend(JsonObject& j1, JsonObject& j2) {
 
 void loop() {
   server.handleClient();
-  decode_results  results;                // Somewhere to store the results
+  decode_results  results;                                        // Somewhere to store the results
 
-  if (irrecv.decode(&results)) {          // Grab an IR code
+  if (irrecv.decode(&results) && !holdReceive) {                  // Grab an IR code
     Serial.println("Signal received:");
-    fullCode(&results);                   // Print the singleline value
-    //dumpInfo(&results);                 // Output the results
-    //dumpRaw(&results);                  // Output the results in RAW format
-    dumpCode(&results);                   // Output the results as source code
-    copyJson(last_code_4, last_code_5);   // Pass
-    copyJson(last_code_3, last_code_4);   // Pass
-    copyJson(last_code_2, last_code_3);   // Pass
-    copyJson(last_code, last_code_2);     // Pass
-    codeJson(last_code, &results);        // Store the results
-    last_code["time"] = String(timeClient.getFormattedTime());
-    Serial.println("");                   // Blank line between entries
-    irrecv.resume();                      // Prepare for the next value
-    digitalWrite(ledpin, LOW);       // Turn on the LED
+    fullCode(&results);                                           // Print the singleline value
+    dumpCode(&results);                                           // Output the results as source code
+    copyJson(last_code_4, last_code_5);                           // Pass
+    copyJson(last_code_3, last_code_4);                           // Pass
+    copyJson(last_code_2, last_code_3);                           // Pass
+    copyJson(last_code, last_code_2);                             // Pass
+    codeJson(last_code, &results);                                // Store the results
+    last_code["time"] = String(timeClient.getFormattedTime());    // Set the new update time
+    Serial.println("");                                           // Blank line between entries
+    irrecv.resume();                                              // Prepare for the next value
+    digitalWrite(ledpin, LOW);                                    // Turn on the LED for 0.5 seconds
     ticker.attach(0.5, disableLed);
   }
   delay(200);
