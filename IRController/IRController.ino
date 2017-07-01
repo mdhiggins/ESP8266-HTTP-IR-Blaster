@@ -53,7 +53,6 @@ IRsend irsend2(pins2);
 IRsend irsend3(pins3);
 IRsend irsend4(pins4);
 
-WiFiClient client;
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP);
 
@@ -93,39 +92,20 @@ String externalIP()
       return _ip;
     }
   }
+  http.setTimeout(5000);
+  http.begin(serverName, 8245);
+  int httpCode = http.GET();
 
-  if(client.connect(serverName, 8245)) // you can use port 80, but this works faster
-  {
-    String readBuffer = "";
-    // Make a HTTP request:
-    client.println("GET / HTTP/1.0");
-    client.println("Host: checkip.dyndns.org");
-    client.println("Connection: close");
-    client.println();
-
-    while ( _ip == "" || millis() < 5000 ) {
-      Serial.println("Retrieving external IP address");
-      // read incoming bytes available from the server
-      if (client.available()) {
-        //give time to receive whole message to the buffer
-        delay(10);
-        while (client.available()) {
-          char c = client.read();
-          readBuffer += c;
-          if (readBuffer.length() > 100) {
-            readBuffer = readBuffer.substring(70, readBuffer.length());
-          }
-        }
-        int pos_start = readBuffer.indexOf("IP Address") + 12; // add 10 for "IP Address" and 2 for ":" + "space"
-        int pos_end = readBuffer.indexOf("</body>", pos_start); // add nothing
-        _ip = readBuffer.substring(pos_start, pos_end);
-        Serial.print(F("External IP: "));
-        Serial.println(_ip);
-        readBuffer = "";
-        client.stop();
-        lastupdate = millis();
-      }
-    }
+  if (httpCode > 0 && httpCode == HTTP_CODE_OK) {
+    String payload = http.getString();
+    int pos_start = payload.indexOf("IP Address") + 12; // add 10 for "IP Address" and 2 for ":" + "space"
+    int pos_end = payload.indexOf("</body>", pos_start); // add nothing
+    _ip = payload.substring(pos_start, pos_end);
+    Serial.print(F("External IP: "));
+    Serial.println(_ip);
+    http.end();
+  } else {
+    Serial.println("Error retrieving external IP");
   }
   return _ip;
 }
