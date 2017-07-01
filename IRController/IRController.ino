@@ -54,12 +54,17 @@ IRsend irsend2(pins2);
 IRsend irsend3(pins3);
 IRsend irsend4(pins4);
 
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP);
+const unsigned long resetfrequency = 259200000;                // 72 hours in milliseconds
+const int timeOffset = -14400;                                 // Timezone offset in seconds
+const char* poolServerName = "time.nist.gov";
 
+const bool getTime = true;                                     // Set to false to disable querying for the time
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, poolServerName, timeOffset, (int)resetfrequency);
+
+const bool getExternalIP = true;                               // Set to false to disable querying external IP
 String _ip = "";
 unsigned long lastupdate = 0;
-unsigned long resetfrequency = 259200000;                     // 72 hours in milliseconds
 
 //+=============================================================================
 // Callback notifying us of the need to save config
@@ -97,6 +102,10 @@ void tick()
 //
 String externalIP()
 {
+  if (!getExternalIP) {
+    return "0.0.0.0"; // User doesn't want the external IP
+  }
+
   if (_ip != "") {
     if (millis() - lastupdate > resetfrequency || lastupdate > millis()) {
       Serial.println("Reseting cached external IP address");
@@ -105,6 +114,7 @@ String externalIP()
       return _ip;
     }
   }
+  unsigned long start = millis();
   http.setTimeout(5000);
   http.begin(serverName, 8245);
   int httpCode = http.GET();
@@ -120,6 +130,11 @@ String externalIP()
   } else {
     Serial.println("Error retrieving external IP");
   }
+
+  Serial.print("External IP address request took ");
+  Serial.print(millis() - start);
+  Serial.println(" ms");
+
   return _ip;
 }
 
@@ -296,7 +311,7 @@ void setup() {
   String port_str((port == 80)? String("") : String(port));
   Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
 
-  timeClient.update(); // Get the time
+  if (getTime) timeClient.begin(); // Get the time
 
   // Configure the server
   server.on("/json", []() { // JSON handler for more complicated IR blaster routines
@@ -412,6 +427,8 @@ void setup() {
 
   server.begin();
   Serial.println("HTTP Server started on port " + String(port));
+
+  externalIP();
 
   irsend1.begin();
   irsend2.begin();
@@ -602,11 +619,11 @@ String wrapPage(String &content) {
 String getPage(String message, String header, int type) {
   String page = "";
   if (type == 1)
-  page +=   "<div class='row'><div class='col-md-12'><div class='alert alert-success'><strong>" + header + "</strong> " + message + "</div></div></div>";
+  page +=   "<div class='row'><div class='col-md-12'><div class='alert alert-success'><strong>" + header + "!</strong> " + message + "</div></div></div>";
   if (type == 2)
-  page +=   "<div class='row'><div class='col-md-12'><div class='alert alert-warning'><strong>" + header + "</strong> " + message + "</div></div></div>";
+  page +=   "<div class='row'><div class='col-md-12'><div class='alert alert-warning'><strong>" + header + "!</strong> " + message + "</div></div></div>";
   if (type == 3)
-  page +=   "<div class='row'><div class='col-md-12'><div class='alert alert-danger'><strong>" + header + "</strong> " + message + "</div></div></div>";
+  page +=   "<div class='row'><div class='col-md-12'><div class='alert alert-danger'><strong>" + header + "!</strong> " + message + "</div></div></div>";
   page +=   "<div class='row'>";
   page +=     "<div class='col-md-12'>";
   page +=       "<h3>Codes Transmitted</h3>";
@@ -1019,6 +1036,7 @@ void copyJsonSend(JsonObject& j1, JsonObject& j2) {
 void loop() {
   server.handleClient();
   decode_results  results;                                        // Somewhere to store the results
+  if (getTime) timeClient.update();                               // Update the time
 
   if (irrecv.decode(&results) && !holdReceive) {                  // Grab an IR code
     Serial.println("Signal received:");
