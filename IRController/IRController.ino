@@ -1,4 +1,4 @@
-#include <FS.h>                   // This needs to be first, or it all crashes and burns
+#include <FS.h>                                               // This needs to be first, or it all crashes and burns
 
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
@@ -6,18 +6,18 @@
 #include <IRutils.h>
 #include <DNSServer.h>
 #include <ESP8266WiFi.h>
-#include <WiFiManager.h>          // https://github.com/tzapu/WiFiManager WiFi Configuration Magic
-#include <ESP8266mDNS.h>          // useful to access to ESP by hostname.local
+#include <WiFiManager.h>                                      // https://github.com/tzapu/WiFiManager WiFi Configuration Magic
+#include <ESP8266mDNS.h>                                      // Useful to access to ESP by hostname.local
 
 #include <ArduinoJson.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
 
-#include <Ticker.h>               // For LED status
+#include <Ticker.h>                                           // For LED status
 #include <NTPClient.h>
 
-const int configpin = 13;         // GPIO13 (D7 on D1 Mini) to enable configuration (connect to ground)
-const int ledpin = BUILTIN_LED;   // Built in LED defined for WEMOS people
+const int configpin = 13;                                     // GPIO13 (D7 on D1 Mini) to enable configuration (connect to ground)
+const int ledpin = BUILTIN_LED;                               // Built in LED defined for WEMOS people
 const char *wifi_config_name = "IRBlaster Configuration";
 const char serverName[] = "checkip.dyndns.org";
 int port = 80;
@@ -39,14 +39,14 @@ ESP8266WebServer server(port);
 HTTPClient http;
 Ticker ticker;
 
-bool shouldSaveConfig = false;    // Flag for saving data
-bool holdReceive = false;         // Flag to prevent IR receiving while transmitting
+bool shouldSaveConfig = false;                                // Flag for saving data
+bool holdReceive = false;                                     // Flag to prevent IR receiving while transmitting
 
-int pinr1 = 5;                    // Receiving pin (GPIO5 = D1)
-int pins1 = 4;                    // Transmitting preset 1
-int pins2 = 12;                   // Transmitting preset 2
-int pins3 = 16;                   // Transmitting preset 3
-int pins4 = 15;                   // Transmitting preset 4
+int pinr1 = 5;                                                // Receiving pin (GPIO5 = D1)
+int pins1 = 4;                                                // Transmitting preset 1
+int pins2 = 12;                                               // Transmitting preset 2
+int pins3 = 16;                                               // Transmitting preset 3
+int pins4 = 15;                                               // Transmitting preset 4
 
 IRrecv irrecv(pinr1);
 IRsend irsend1(pins1);
@@ -59,7 +59,7 @@ NTPClient timeClient(ntpUDP);
 
 String _ip = "";
 unsigned long lastupdate = 0;
-unsigned long resetfrequency = 259200000; // 72 hours in milliseconds
+unsigned long resetfrequency = 259200000;                     // 72 hours in milliseconds
 
 //+=============================================================================
 // Callback notifying us of the need to save config
@@ -570,7 +570,7 @@ void fullCode (decode_results *results)
 //
 String wrapPage(String &content) {
   String wrap = "<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en'><head><meta http-equiv='refresh' content='300' />";
-  wrap += "<meta name='viewport' content='width=device-width, initial-scale=1' />";
+  wrap += "<meta name='viewport' content='width=device-width, initial-scale=.75' />";
   wrap += "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css' />";
   wrap += "<title>ESP8266 IR Controller (" + String(host_name) + ")</title></head><body>";
   wrap += "<div class='container'>";
@@ -579,13 +579,13 @@ String wrapPage(String &content) {
   wrap +=     "<div class='col-md-12'>";
   wrap +=       "<ul class='nav nav-pills'>";
   wrap +=         "<li class='active'>";
-  wrap +=           "<a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'><span class='badge pull-right'>" + String(host_name) + ".local" + ":" + String(port) + "</span> Hostname</a></li>";
+  wrap +=           "<a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'>Hostname <span class='badge'>" + String(host_name) + ".local" + ":" + String(port) + "</span></a></li>";
   wrap +=         "<li class='active'>";
-  wrap +=           "<a href='http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "'><span class='badge pull-right'>" + ipToString(WiFi.localIP()) + ":" + String(port) + "</span> Local</a></li>";
+  wrap +=           "<a href='http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "'>Local <span class='badge'>" + ipToString(WiFi.localIP()) + ":" + String(port) + "</span></a></li>";
   wrap +=         "<li class='active'>";
-  wrap +=           "<a href='http://" + externalIP() + ":" + String(port) + "'><span class='badge pull-right'>" + externalIP() + ":" + String(port) + "</span> External</a></li>";
+  wrap +=           "<a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>";
   wrap +=         "<li class='active'>";
-  wrap +=           "<a href='#'><span class='badge pull-right'>" + String(WiFi.macAddress()) + "</span> Mac Address</a></li>";
+  wrap +=           "<a href='#'>MAC <span class='badge'>" + String(WiFi.macAddress()) + "</span></a></li>";
   wrap +=       "</ul>";
   wrap +=     "</div>";
   wrap +=   "</div><hr />";
@@ -611,7 +611,7 @@ String getPage(String message, String header, int type) {
   page +=     "<div class='col-md-12'>";
   page +=       "<h3>Codes Transmitted</h3>";
   page +=       "<table class='table table-striped' style='table-layout: fixed;'>";
-  page +=         "<thead><tr><th>Time Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>"; //Title
+  page +=         "<thead><tr><th>Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>"; //Title
   page +=         "<tbody>";
   if (last_send.containsKey("time"))
   page +=           "<tr class='text-uppercase'><td>" + last_send["time"].as<String>() + "</td><td><code>" + last_send["data"].as<String>() + "</code></td><td><code>" + last_send["type"].as<String>() + "</code></td><td><code>" + last_send["len"].as<String>() + "</code></td><td><code>" + last_send["address"].as<String>() + "</code></td></tr>";
