@@ -584,20 +584,23 @@ void fullCode (decode_results *results)
 //+=============================================================================
 // Send header HTML
 //
-void sendHeader(int httpcode = 200) {
+void sendHeader() {
+  sendHeader(200);
+}
+
+void sendHeader(int httpcode) {
   server.setContentLength(CONTENT_LENGTH_UNKNOWN);
   server.send(httpcode, "text/html; charset=utf-8", "");
   server.sendContent("<!DOCTYPE html PUBLIC '-//W3C//DTD XHTML 1.0 Strict//EN' 'http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd'>\n");
   server.sendContent("<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en'>\n");
   server.sendContent("  <head>\n");
-  server.sendContent("    <meta http-equiv='refresh' content='300' />\n");
   server.sendContent("    <meta name='viewport' content='width=device-width, initial-scale=.75' />\n");
   server.sendContent("    <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css' />\n");
   server.sendContent("    <title>ESP8266 IR Controller (" + String(host_name) + ")</title>\n");
   server.sendContent("  </head>\n");
   server.sendContent("  <body>\n");
   server.sendContent("    <div class='container'>\n");
-  server.sendContent("      <h1>ESP8266 IR Controller</h1>\n");
+  server.sendContent("      <h1><a href='https://github.com/mdhiggins/ESP8266-HTTP-IR-Blaster'>ESP8266 IR Controller</a></h1>\n");
   server.sendContent("      <div class='row'>\n");
   server.sendContent("        <div class='col-md-12'>\n");
   server.sendContent("          <ul class='nav nav-pills'>\n");
@@ -734,32 +737,32 @@ void sendCodePage(JsonObject& selCode, int httpcode){
   server.sendContent("          <div class='alert alert-warning'>Don't forget to add your passcode to the URLs below if you set one</div>\n");
   server.sendContent("      </div></div>\n");
   if (selCode["encoding"] == "UNKNOWN") {
-    server.sendContent("    <div class='row'>\n");
-    server.sendContent("      <div class='col-md-12'>\n");
-    server.sendContent("        <ul class='list-unstyled'>\n");
-    server.sendContent("          <li>Hostname <span class='label label-default'>JSON</span></li>\n");
-    server.sendContent("          <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>\n");
-    server.sendContent("          <li>Local IP <span class='label label-default'>JSON</span></li>\n");
-    server.sendContent("          <li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>\n");
-    server.sendContent("          <li>External IP <span class='label label-default'>JSON</span></li>\n");
-    server.sendContent("          <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li></ul>\n");
+  server.sendContent("      <div class='row'>\n");
+  server.sendContent("        <div class='col-md-12'>\n");
+  server.sendContent("          <ul class='list-unstyled'>\n");
+  server.sendContent("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
+  server.sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>\n");
+  server.sendContent("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
+  server.sendContent("            <li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>\n");
+  server.sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
+  server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li></ul>\n");
   } else {
-    server.sendContent("    <div class='row'>\n");
-    server.sendContent("      <div class='col-md-12'>\n");
-    server.sendContent("        <ul class='list-unstyled'>\n");
-    server.sendContent("          <li>Hostname <span class='label label-default'>MSG</span></li>\n");
-    server.sendContent("          <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>\n");
-    server.sendContent("          <li>Local IP <span class='label label-default'>MSG</span></li>\n");
-    server.sendContent("          <li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>\n");
-    server.sendContent("          <li>External IP <span class='label label-default'>MSG</span></li>\n");
-    server.sendContent("          <li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li></ul>\n");
-    server.sendContent("        <ul class='list-unstyled'>\n");
-    server.sendContent("          <li>Hostname <span class='label label-default'>JSON</span></li>\n");
-    server.sendContent("          <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>\n");
-    server.sendContent("          <li>Local IP <span class='label label-default'>JSON</span></li>\n");
-    server.sendContent("          <li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>\n");
-    server.sendContent("          <li>External IP <span class='label label-default'>JSON</span></li>\n");
-    server.sendContent("          <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li></ul>\n");
+  server.sendContent("      <div class='row'>\n");
+  server.sendContent("        <div class='col-md-12'>\n");
+  server.sendContent("          <ul class='list-unstyled'>\n");
+  server.sendContent("            <li>Hostname <span class='label label-default'>MSG</span></li>\n");
+  server.sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>\n");
+  server.sendContent("            <li>Local IP <span class='label label-default'>MSG</span></li>\n");
+  server.sendContent("            <li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>\n");
+  server.sendContent("            <li>External IP <span class='label label-default'>MSG</span></li>\n");
+  server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li></ul>\n");
+  server.sendContent("          <ul class='list-unstyled'>\n");
+  server.sendContent("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
+  server.sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>\n");
+  server.sendContent("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
+  server.sendContent("            <li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>\n");
+  server.sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
+  server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li></ul>\n");
   }
   server.sendContent("        </div>\n");
   server.sendContent("     </div>\n");
