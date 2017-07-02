@@ -307,7 +307,7 @@ void setup() {
   if (MDNS.begin(host_name)) {
     Serial.println("mDNS started. Hostname is set to " + String(host_name) + ".local");
   }
-  MDNS.addService("http", "tcp", port); // Anounce the ESP as an HTTP service
+  MDNS.addService("http", "tcp", port); // Announce the ESP as an HTTP service
   String port_str((port == 80)? String("") : String(port));
   Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
 
@@ -322,10 +322,10 @@ void setup() {
 
     if (!root.success()) {
       Serial.println("JSON parsing failed");
-      server.send(400, "text/html", getPage("JSON parsing failed", "Error", 3));
+      sendHomePage("JSON parsing failed", "Error", 3, 400); // 400
     } else if (server.arg("pass") != passcode) {
       Serial.println("Unauthorized access");
-      server.send(401, "text/html", getPage("Invalid passcode", "Unauthorized", 3));
+      sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
     } else {
       for (int x = 0; x < root.size(); x++) {
         String type = root[x]["type"];
@@ -360,7 +360,7 @@ void setup() {
       }
       digitalWrite(ledpin, LOW);
       ticker.attach(0.5, disableLed);
-      server.send(200, "text/html", getPage("Code sent", "Success", 1));
+      sendHomePage("Code sent", "Success", 1); // 200
     }
   });
 
@@ -369,7 +369,7 @@ void setup() {
     Serial.println("Connection received - MSG");
     if (server.arg("pass") != passcode) {
       Serial.println("Unauthorized access");
-      server.send(401, "text/html", getPage("Invalid passcode", "Unauthorized", 3));
+      sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
     } else {
       String type = server.arg("type");
       String data = server.arg("data");
@@ -396,7 +396,7 @@ void setup() {
       }
       digitalWrite(ledpin, LOW);
       ticker.attach(0.5, disableLed);
-      server.send(200, "text/html", getPage("Code Sent", "Success", 1));
+      sendHomePage("Code Sent", "Success", 1); // 200
     }
   });
 
@@ -405,24 +405,23 @@ void setup() {
     int id = server.arg("id").toInt();
     String output;
     if (id == 1 && last_code.containsKey("time")) {
-      output = codePage(last_code);
+      sendCodePage(last_code);
     } else if (id == 2 && last_code_2.containsKey("time")) {
-      output = codePage(last_code_2);
+      sendCodePage(last_code_2);
     } else if (id == 3 && last_code_3.containsKey("time")) {
-      output = codePage(last_code_3);
+      sendCodePage(last_code_3);
     } else if (id == 4 && last_code_4.containsKey("time")) {
-      output = codePage(last_code_4);
+      sendCodePage(last_code_4);
     } else if (id == 5 && last_code_5.containsKey("time")) {
-      output = codePage(last_code_5);
+      sendCodePage(last_code_5);
     } else {
-      output = getPage("Code does not exist", "Alert", 2);
+      sendHomePage("Code does not exist", "Alert", 2, 404); // 404
     }
-    server.send(200, "text/html", output);
   });
 
   server.on("/", []() {
     Serial.println("Connection received");
-    server.send(200, "text/html", getPage("", "", 0));
+    sendHomePage("", "", 0); // 200
   });
 
   server.begin();
@@ -583,150 +582,165 @@ void fullCode (decode_results *results)
 }
 
 //+=============================================================================
-// Wrap header and footer into content
+// Send header HTML
 //
-String wrapPage(String &content) {
-  String wrap = "<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en'><head><meta http-equiv='refresh' content='300' />";
-  wrap += "<meta name='viewport' content='width=device-width, initial-scale=.75' />";
-  wrap += "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css' />";
-  wrap += "<title>ESP8266 IR Controller (" + String(host_name) + ")</title></head><body>";
-  wrap += "<div class='container'>";
-  wrap +=   "<h1>ESP8266 IR Controller</h1>";
-  wrap +=   "<div class='row'>";
-  wrap +=     "<div class='col-md-12'>";
-  wrap +=       "<ul class='nav nav-pills'>";
-  wrap +=         "<li class='active'>";
-  wrap +=           "<a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'>Hostname <span class='badge'>" + String(host_name) + ".local" + ":" + String(port) + "</span></a></li>";
-  wrap +=         "<li class='active'>";
-  wrap +=           "<a href='http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "'>Local <span class='badge'>" + ipToString(WiFi.localIP()) + ":" + String(port) + "</span></a></li>";
-  wrap +=         "<li class='active'>";
-  wrap +=           "<a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>";
-  wrap +=         "<li class='active'>";
-  wrap +=           "<a href='#'>MAC <span class='badge'>" + String(WiFi.macAddress()) + "</span></a></li>";
-  wrap +=       "</ul>";
-  wrap +=     "</div>";
-  wrap +=   "</div><hr />";
-  wrap += content;
-  wrap +=   "<div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime</em></div></div>";
-  wrap += "</div>";
-  wrap += "</body></html>";
-  return wrap;
+void sendHeader(int httpcode = 200) {
+  server.setContentLength(CONTENT_LENGTH_UNKNOWN);
+  server.send(httpcode, "text/html", "");
+  server.sendContent("<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en'>\n");
+  server.sendContent("  <head><meta http-equiv='refresh' content='300' />\n");
+  server.sendContent(    "<meta name='viewport' content='width=device-width, initial-scale=.75' />\n");
+  server.sendContent(    "<link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css' />\n");
+  server.sendContent(    "<title>ESP8266 IR Controller (" + String(host_name) + ")</title></head>\n");
+  server.sendContent(  "<body>\n");
+  server.sendContent(    "<div class='container'>\n");
+  server.sendContent(      "<h1>ESP8266 IR Controller</h1>\n");
+  server.sendContent(      "<div class='row'>\n");
+  server.sendContent(        "<div class='col-md-12'>\n");
+  server.sendContent(          "<ul class='nav nav-pills'>\n");
+  server.sendContent(            "<li class='active'>\n");
+  server.sendContent(              "<a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'>Hostname <span class='badge'>" + String(host_name) + ".local" + ":" + String(port) + "</span></a></li>\n");
+  server.sendContent(            "<li class='active'>\n");
+  server.sendContent(              "<a href='http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "'>Local <span class='badge'>" + ipToString(WiFi.localIP()) + ":" + String(port) + "</span></a></li>\n");
+  server.sendContent(            "<li class='active'>\n");
+  server.sendContent(              "<a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>\n");
+  server.sendContent(            "<li class='active'>\n");
+  server.sendContent(              "<a href='#'>MAC <span class='badge'>" + String(WiFi.macAddress()) + "</span></a></li>\n");
+  server.sendContent(          "</ul>\n");
+  server.sendContent(        "</div>\n");
+  server.sendContent(      "</div><hr />\n");
 }
 
 //+=============================================================================
-// Generate info page HTML
+// Send footer HTML
 //
-String getPage(String message, String header, int type) {
-  String page = "";
+void sendFooter() {
+  server.sendContent(      "<div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime</em></div></div>\n");
+  server.sendContent("    </div>\n");
+  server.sendContent("  </body>\n");
+  server.sendContent("</html>\n");
+  server.client().stop();
+}
+
+//+=============================================================================
+// Stream home page HTML
+//
+void sendHomePage(String message, String header, int type, int httpcode = 200) {
+  sendHeader(httpcode);
   if (type == 1)
-  page +=   "<div class='row'><div class='col-md-12'><div class='alert alert-success'><strong>" + header + "!</strong> " + message + "</div></div></div>";
+  server.sendContent(      "<div class='row'><div class='col-md-12'><div class='alert alert-success'><strong>" + header + "!</strong> " + message + "</div></div></div>\n");
   if (type == 2)
-  page +=   "<div class='row'><div class='col-md-12'><div class='alert alert-warning'><strong>" + header + "!</strong> " + message + "</div></div></div>";
+  server.sendContent(      "<div class='row'><div class='col-md-12'><div class='alert alert-warning'><strong>" + header + "!</strong> " + message + "</div></div></div>\n");
   if (type == 3)
-  page +=   "<div class='row'><div class='col-md-12'><div class='alert alert-danger'><strong>" + header + "!</strong> " + message + "</div></div></div>";
-  page +=   "<div class='row'>";
-  page +=     "<div class='col-md-12'>";
-  page +=       "<h3>Codes Transmitted</h3>";
-  page +=       "<table class='table table-striped' style='table-layout: fixed;'>";
-  page +=         "<thead><tr><th>Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>"; //Title
-  page +=         "<tbody>";
+  server.sendContent(      "<div class='row'><div class='col-md-12'><div class='alert alert-danger'><strong>" + header + "!</strong> " + message + "</div></div></div>\n");
+  server.sendContent(      "<div class='row'>\n");
+  server.sendContent(        "<div class='col-md-12'>\n");
+  server.sendContent(          "<h3>Codes Transmitted</h3>\n");
+  server.sendContent(          "<table class='table table-striped' style='table-layout: fixed;'>\n");
+  server.sendContent(            "<thead><tr><th>Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>\n"); //Title
+  server.sendContent(            "<tbody>\n");
   if (last_send.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_send["time"].as<String>() + "</td><td><code>" + last_send["data"].as<String>() + "</code></td><td><code>" + last_send["type"].as<String>() + "</code></td><td><code>" + last_send["len"].as<String>() + "</code></td><td><code>" + last_send["address"].as<String>() + "</code></td></tr>";
+  server.sendContent(              "<tr class='text-uppercase'><td>" + last_send["time"].as<String>() + "</td><td><code>" + last_send["data"].as<String>() + "</code></td><td><code>" + last_send["type"].as<String>() + "</code></td><td><code>" + last_send["len"].as<String>() + "</code></td><td><code>" + last_send["address"].as<String>() + "</code></td></tr>\n");
   if (last_send_2.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_send_2["time"].as<String>() + "</td><td><code>" + last_send_2["data"].as<String>() + "</code></td><td><code>" + last_send_2["type"].as<String>() + "</code></td><td><code>" + last_send_2["len"].as<String>() + "</code></td><td><code>" + last_send_2["address"].as<String>() + "</code></td></tr>";
+  server.sendContent(              "<tr class='text-uppercase'><td>" + last_send_2["time"].as<String>() + "</td><td><code>" + last_send_2["data"].as<String>() + "</code></td><td><code>" + last_send_2["type"].as<String>() + "</code></td><td><code>" + last_send_2["len"].as<String>() + "</code></td><td><code>" + last_send_2["address"].as<String>() + "</code></td></tr>\n");
   if (last_send_3.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_send_3["time"].as<String>() + "</td><td><code>" + last_send_3["data"].as<String>() + "</code></td><td><code>" + last_send_3["type"].as<String>() + "</code></td><td><code>" + last_send_3["len"].as<String>() + "</code></td><td><code>" + last_send_3["address"].as<String>() + "</code></td></tr>";
+  server.sendContent(              "<tr class='text-uppercase'><td>" + last_send_3["time"].as<String>() + "</td><td><code>" + last_send_3["data"].as<String>() + "</code></td><td><code>" + last_send_3["type"].as<String>() + "</code></td><td><code>" + last_send_3["len"].as<String>() + "</code></td><td><code>" + last_send_3["address"].as<String>() + "</code></td></tr>\n");
   if (last_send_4.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_send_4["time"].as<String>() + "</td><td><code>" + last_send_4["data"].as<String>() + "</code></td><td><code>" + last_send_4["type"].as<String>() + "</code></td><td><code>" + last_send_4["len"].as<String>() + "</code></td><td><code>" + last_send_4["address"].as<String>() + "</code></td></tr>";
+  server.sendContent(              "<tr class='text-uppercase'><td>" + last_send_4["time"].as<String>() + "</td><td><code>" + last_send_4["data"].as<String>() + "</code></td><td><code>" + last_send_4["type"].as<String>() + "</code></td><td><code>" + last_send_4["len"].as<String>() + "</code></td><td><code>" + last_send_4["address"].as<String>() + "</code></td></tr>\n");
   if (last_send_5.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td>" + last_send_5["time"].as<String>() + "</td><td><code>" + last_send_5["data"].as<String>() + "</code></td><td><code>" + last_send_5["type"].as<String>() + "</code></td><td><code>" + last_send_5["len"].as<String>() + "</code></td><td><code>" + last_send_5["address"].as<String>() + "</code></td></tr>";
-  page +=         "</tbody></table>";
-  page +=     "</div></div>";
-  page +=   "<div class='row'>";
-  page +=     "<div class='col-md-12'>";
-  page +=       "<h3>Codes Received</h3>";
-  page +=       "<table class='table table-striped' style='table-layout: fixed;'>";
-  page +=         "<thead><tr><th>Time Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>"; //Title
-  page +=         "<tbody>";
+  server.sendContent(              "<tr class='text-uppercase'><td>" + last_send_5["time"].as<String>() + "</td><td><code>" + last_send_5["data"].as<String>() + "</code></td><td><code>" + last_send_5["type"].as<String>() + "</code></td><td><code>" + last_send_5["len"].as<String>() + "</code></td><td><code>" + last_send_5["address"].as<String>() + "</code></td></tr>\n");
+  server.sendContent(            "</tbody></table>\n");
+  server.sendContent(          "</div></div>\n");
+  server.sendContent(      "<div class='row'>\n");
+  server.sendContent(        "<div class='col-md-12'>\n");
+  server.sendContent(          "<h3>Codes Received</h3>\n");
+  server.sendContent(          "<table class='table table-striped' style='table-layout: fixed;'>\n");
+  server.sendContent(            "<thead><tr><th>Time Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>\n"); //Title
+  server.sendContent(            "<tbody>\n");
   if (last_code.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td><a href='/received?id=1'>" + last_code["time"].as<String>() + "</a></td><td><code>" + last_code["data"].as<String>() + "</code></td><td><code>" + last_code["encoding"].as<String>() + "</code></td><td><code>" + last_code["bits"].as<String>() + "</code></td><td><code>" + last_code["address"].as<String>() + "</code></td></tr>";
+  server.sendContent(              "<tr class='text-uppercase'><td><a href='/received?id=1'>" + last_code["time"].as<String>() + "</a></td><td><code>" + last_code["data"].as<String>() + "</code></td><td><code>" + last_code["encoding"].as<String>() + "</code></td><td><code>" + last_code["bits"].as<String>() + "</code></td><td><code>" + last_code["address"].as<String>() + "</code></td></tr>\n");
   if (last_code_2.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td><a href='/received?id=2'>" + last_code_2["time"].as<String>() + "</a></td><td><code>" + last_code_2["data"].as<String>() + "</code></td><td><code>" + last_code_2["encoding"].as<String>() + "</code></td><td><code>" + last_code_2["bits"].as<String>() + "</code></td><td><code>" + last_code_2["address"].as<String>() + "</code></td></tr>";
+  server.sendContent(              "<tr class='text-uppercase'><td><a href='/received?id=2'>" + last_code_2["time"].as<String>() + "</a></td><td><code>" + last_code_2["data"].as<String>() + "</code></td><td><code>" + last_code_2["encoding"].as<String>() + "</code></td><td><code>" + last_code_2["bits"].as<String>() + "</code></td><td><code>" + last_code_2["address"].as<String>() + "</code></td></tr>\n");
   if (last_code_3.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td><a href='/received?id=3'>" + last_code_3["time"].as<String>() + "</a></td><td><code>" + last_code_3["data"].as<String>() + "</code></td><td><code>" + last_code_3["encoding"].as<String>() + "</code></td><td><code>" + last_code_3["bits"].as<String>() + "</code></td><td><code>" + last_code_3["address"].as<String>() + "</code></td></tr>";
+  server.sendContent(              "<tr class='text-uppercase'><td><a href='/received?id=3'>" + last_code_3["time"].as<String>() + "</a></td><td><code>" + last_code_3["data"].as<String>() + "</code></td><td><code>" + last_code_3["encoding"].as<String>() + "</code></td><td><code>" + last_code_3["bits"].as<String>() + "</code></td><td><code>" + last_code_3["address"].as<String>() + "</code></td></tr>\n");
   if (last_code_4.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td><a href='/received?id=4'>" + last_code_4["time"].as<String>() + "</a></td><td><code>" + last_code_4["data"].as<String>() + "</code></td><td><code>" + last_code_4["encoding"].as<String>() + "</code></td><td><code>" + last_code_4["bits"].as<String>() + "</code></td><td><code>" + last_code_4["address"].as<String>() + "</code></td></tr>";
+  server.sendContent(              "<tr class='text-uppercase'><td><a href='/received?id=4'>" + last_code_4["time"].as<String>() + "</a></td><td><code>" + last_code_4["data"].as<String>() + "</code></td><td><code>" + last_code_4["encoding"].as<String>() + "</code></td><td><code>" + last_code_4["bits"].as<String>() + "</code></td><td><code>" + last_code_4["address"].as<String>() + "</code></td></tr>\n");
   if (last_code_5.containsKey("time"))
-  page +=           "<tr class='text-uppercase'><td><a href='/received?id=5'>" + last_code_5["time"].as<String>() + "</a></td><td><code>" + last_code_5["data"].as<String>() + "</code></td><td><code>" + last_code_5["encoding"].as<String>() + "</code></td><td><code>" + last_code_5["bits"].as<String>() + "</code></td><td><code>" + last_code_5["address"].as<String>() + "</code></td></tr>";
-  page +=         "</tbody></table>";
-  page +=     "</div></div>";
-  page +=   "<div class='row'>";
-  page +=     "<div class='col-md-12'>";
-  page +=       "<ul class='list-unstyled'>";
-  page +=         "<li><span class='badge'>GPIO " + String(pinr1) + "</span> Receiving </li>";
-  page +=         "<li><span class='badge'>GPIO " + String(pins1) + "</span> Transmitter 1 </li>";
-  page +=         "<li><span class='badge'>GPIO " + String(pins2) + "</span> Transmitter 2 </li>";
-  page +=         "<li><span class='badge'>GPIO " + String(pins3) + "</span> Transmitter 3 </li>";
-  page +=         "<li><span class='badge'>GPIO " + String(pins4) + "</span> Transmitter 4 </li></ul>";
-  page +=     "</div>";
-  page +=   "</div>";
-  return wrapPage(page);
+  server.sendContent(              "<tr class='text-uppercase'><td><a href='/received?id=5'>" + last_code_5["time"].as<String>() + "</a></td><td><code>" + last_code_5["data"].as<String>() + "</code></td><td><code>" + last_code_5["encoding"].as<String>() + "</code></td><td><code>" + last_code_5["bits"].as<String>() + "</code></td><td><code>" + last_code_5["address"].as<String>() + "</code></td></tr>\n");
+  server.sendContent(            "</tbody></table>\n");
+  server.sendContent(          "</div></div>\n");
+  server.sendContent(      "<div class='row'>\n");
+  server.sendContent(        "<div class='col-md-12'>\n");
+  server.sendContent(          "<ul class='list-unstyled'>\n");
+  server.sendContent(            "<li><span class='badge'>GPIO " + String(pinr1) + "</span> Receiving </li>\n");
+  server.sendContent(            "<li><span class='badge'>GPIO " + String(pins1) + "</span> Transmitter 1 </li>\n");
+  server.sendContent(            "<li><span class='badge'>GPIO " + String(pins2) + "</span> Transmitter 2 </li>\n");
+  server.sendContent(            "<li><span class='badge'>GPIO " + String(pins3) + "</span> Transmitter 3 </li>\n");
+  server.sendContent(            "<li><span class='badge'>GPIO " + String(pins4) + "</span> Transmitter 4 </li></ul>\n");
+  server.sendContent(        "</div>\n");
+  server.sendContent(      "</div>\n");
+  sendFooter();
 }
 
 //+=============================================================================
-// Generate full code datasheet
+// Stream code page HTML
 //
-String codePage(JsonObject& selCode){
-  String page = "";
-  page +=   "<div class='row'>";
-  page +=     "<div class='col-md-12'>";
-  page +=       "<h2><span class='label label-success'>" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</span></h2><br/>";
-  page +=       "<dl class='dl-horizontal'>";
-  page +=         "<dt>Data</dt>";
-  page +=         "<dd><code>" + selCode["data"].as<String>()  + "</code></dd></dl>";
-  page +=       "<dl class='dl-horizontal'>";
-  page +=         "<dt>Type</dt>";
-  page +=         "<dd><code>" + selCode["encoding"].as<String>()  + "</code></dd></dl>";
-  page +=       "<dl class='dl-horizontal'>";
-  page +=         "<dt>Length</dt>";
-  page +=         "<dd><code>" + selCode["bits"].as<String>()  + "</code></dd></dl>";
-  page +=       "<dl class='dl-horizontal'>";
-  page +=         "<dt>Address</dt>";
-  page +=         "<dd><code>" + selCode["address"].as<String>()  + "</code></dd></dl>";
-  page +=       "<dl class='dl-horizontal'>";
-  page +=         "<dt>Raw</dt>";
-  page +=         "<dd><code>" + selCode["uint16_t"].as<String>()  + "</code></dd></dl>";
-  page +=     "</div></div>";
-  page +=   "<div class='row'>";
-  page +=     "<div class='col-md-12'>";
-  page +=       "<div class='alert alert-warning'>Don't forget to add your passcode to the URLs below if you set one</div>";
+void sendCodePage(JsonObject& selCode, int httpcode = 200){
+  sendHeader(httpcode);
+  server.sendContent(      "<div class='row'>\n");
+  server.sendContent(        "<div class='col-md-12'>\n");
+  server.sendContent(          "<h2><span class='label label-success'>" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</span></h2><br/>\n");
+  server.sendContent(          "<dl class='dl-horizontal'>\n");
+  server.sendContent(            "<dt>Data</dt>\n");
+  server.sendContent(            "<dd><code>" + selCode["data"].as<String>()  + "</code></dd></dl>\n");
+  server.sendContent(          "<dl class='dl-horizontal'>\n");
+  server.sendContent(            "<dt>Type</dt>\n");
+  server.sendContent(            "<dd><code>" + selCode["encoding"].as<String>()  + "</code></dd></dl>\n");
+  server.sendContent(          "<dl class='dl-horizontal'>\n");
+  server.sendContent(            "<dt>Length</dt>\n");
+  server.sendContent(            "<dd><code>" + selCode["bits"].as<String>()  + "</code></dd></dl>\n");
+  server.sendContent(          "<dl class='dl-horizontal'>\n");
+  server.sendContent(            "<dt>Address</dt>\n");
+  server.sendContent(            "<dd><code>" + selCode["address"].as<String>()  + "</code></dd></dl>\n");
+  server.sendContent(          "<dl class='dl-horizontal'>\n");
+  server.sendContent(            "<dt>Raw</dt>\n");
+  server.sendContent(            "<dd><code>" + selCode["uint16_t"].as<String>()  + "</code></dd></dl>\n");
+  server.sendContent(        "</div></div>\n");
+  server.sendContent(      "<div class='row'>\n");
+  server.sendContent(        "<div class='col-md-12'>\n");
+  server.sendContent(          "<div class='alert alert-warning'>Don't forget to add your passcode to the URLs below if you set one</div>\n");
+  server.sendContent(      "</div></div>\n");
   if (selCode["encoding"] == "UNKNOWN") {
-    page +=     "<ul class='list-unstyled'>";
-    page +=       "<li>Hostname <span class='label label-default'>JSON</span></li>";
-    page +=       "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>";
-    page +=       "<li>Local IP <span class='label label-default'>JSON</span></li>";
-    page +=       "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>";
-    page +=       "<li>External IP <span class='label label-default'>JSON</span></li>";
-    page +=       "<li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li></ul>";
+    server.sendContent(    "<div class='row'>\n");
+    server.sendContent(      "<div class='col-md-12'>\n");
+    server.sendContent(        "<ul class='list-unstyled'>\n");
+    server.sendContent(          "<li>Hostname <span class='label label-default'>JSON</span></li>\n");
+    server.sendContent(          "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>\n");
+    server.sendContent(          "<li>Local IP <span class='label label-default'>JSON</span></li>\n");
+    server.sendContent(          "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>\n");
+    server.sendContent(          "<li>External IP <span class='label label-default'>JSON</span></li>\n");
+    server.sendContent(          "<li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li></ul>\n");
   } else {
-    page +=     "<ul class='list-unstyled'>";
-    page +=       "<li>Hostname <span class='label label-default'>MSG</span></li>";
-    page +=       "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>";
-    page +=       "<li>Local IP <span class='label label-default'>MSG</span></li>";
-    page +=       "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>";
-    page +=       "<li>External IP <span class='label label-default'>MSG</span></li>";
-    page +=       "<li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li></ul>";
-    page +=     "<ul class='list-unstyled'>";
-    page +=       "<li>Hostname <span class='label label-default'>JSON</span></li>";
-    page +=       "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>";
-    page +=       "<li>Local IP <span class='label label-default'>JSON</span></li>";
-    page +=       "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>";
-    page +=       "<li>External IP <span class='label label-default'>JSON</span></li>";
-    page +=       "<li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li></ul>";
+    server.sendContent(    "<div class='row'>\n");
+    server.sendContent(      "<div class='col-md-12'>\n");
+    server.sendContent(        "<ul class='list-unstyled'>\n");
+    server.sendContent(          "<li>Hostname <span class='label label-default'>MSG</span></li>\n");
+    server.sendContent(          "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>\n");
+    server.sendContent(          "<li>Local IP <span class='label label-default'>MSG</span></li>\n");
+    server.sendContent(          "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>\n");
+    server.sendContent(          "<li>External IP <span class='label label-default'>MSG</span></li>\n");
+    server.sendContent(          "<li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li></ul>\n");
+    server.sendContent(        "<ul class='list-unstyled'>\n");
+    server.sendContent(          "<li>Hostname <span class='label label-default'>JSON</span></li>\n");
+    server.sendContent(          "<li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>\n");
+    server.sendContent(          "<li>Local IP <span class='label label-default'>JSON</span></li>\n");
+    server.sendContent(          "<li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>\n");
+    server.sendContent(          "<li>External IP <span class='label label-default'>JSON</span></li>\n");
+    server.sendContent(          "<li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li></ul>\n");
   }
-  page +=     "</div>";
-  page +=   "</div>";
-  return wrapPage(page);
+  server.sendContent(        "</div>\n");
+  server.sendContent(     "</div>\n");
+  sendFooter();
 }
 
 //+=============================================================================
