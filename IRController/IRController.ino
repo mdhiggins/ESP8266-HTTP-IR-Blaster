@@ -4,7 +4,6 @@
 #include <IRsend.h>
 #include <IRrecv.h>
 #include <IRutils.h>
-#include <DNSServer.h>
 #include <ESP8266WiFi.h>
 #include <WiFiManager.h>                                      // https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 #include <ESP8266mDNS.h>                                      // Useful to access to ESP by hostname.local
@@ -596,6 +595,7 @@ void sendHeader(int httpcode) {
   server.sendContent("  <head>\n");
   server.sendContent("    <meta name='viewport' content='width=device-width, initial-scale=.75' />\n");
   server.sendContent("    <link rel='stylesheet' href='https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css' />\n");
+  server.sendContent("    <style>@media (max-width: 991px) {.nav-pills>li {float: none; margin-left: 0; margin-top: 5px; text-align: center;}}</style>\n");
   server.sendContent("    <title>ESP8266 IR Controller (" + String(host_name) + ")</title>\n");
   server.sendContent("  </head>\n");
   server.sendContent("  <body>\n");
