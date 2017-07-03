@@ -22,6 +22,7 @@ const char serverName[] = "checkip.dyndns.org";
 int port = 80;
 char passcode[40] = "";
 char host_name[40] = "";
+char port_str[20] = "80";
 DynamicJsonBuffer jsonBuffer;
 JsonObject& last_code = jsonBuffer.createObject();            // Stores last code
 JsonObject& last_code_2 = jsonBuffer.createObject();          // Stores 2nd to last code
@@ -185,8 +186,6 @@ bool setupWifi(bool resetConf) {
   // set config save notify callback
   wifiManager.setSaveConfigCallback(saveConfigCallback);
 
-  char port_str[40] = "80";
-
   if (SPIFFS.begin()) {
     Serial.println("mounted file system");
     if (SPIFFS.exists("/config.json")) {
@@ -206,10 +205,12 @@ bool setupWifi(bool resetConf) {
         if (json.success()) {
           Serial.println("\nparsed json");
 
-          strncpy(host_name, json["hostname"], 40);
-          strncpy(passcode, json["passcode"], 40);
-          strncpy(port_str, json["port_str"], 40);
-          port = atoi(json["port_str"]);
+          if (json.containsKey("hostname")) strncpy(host_name, json["hostname"], 40);
+          if (json.containsKey("passcode")) strncpy(passcode, json["passcode"], 40);
+          if (json.containsKey("port_str")) {
+            strncpy(port_str, json["port_str"], 20);
+            port = atoi(json["port_str"]);
+          }
         } else {
           Serial.println("failed to load json config");
         }
@@ -240,7 +241,7 @@ bool setupWifi(bool resetConf) {
   // if you get here you have connected to the WiFi
   strncpy(host_name, custom_hostname.getValue(), 40);
   strncpy(passcode, custom_passcode.getValue(), 40);
-  strncpy(port_str, custom_port.getValue(), 40);
+  strncpy(port_str, custom_port.getValue(), 20);
   port = atoi(port_str);
 
   if (port != 80) {
@@ -307,7 +308,6 @@ void setup() {
     Serial.println("mDNS started. Hostname is set to " + String(host_name) + ".local");
   }
   MDNS.addService("http", "tcp", port); // Announce the ESP as an HTTP service
-  String port_str((port == 80)? String("") : String(port));
   Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
 
   if (getTime) timeClient.begin(); // Get the time
