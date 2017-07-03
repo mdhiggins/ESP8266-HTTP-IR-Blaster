@@ -464,7 +464,7 @@ int rokuCommand(String ip, String data) {
   copyJsonSend(last_send, last_send_2);
 
   last_send["data"] = data;
-  last_send["len"] = 0;
+  last_send["len"] = 1;
   last_send["type"] = "roku";
   last_send["address"] = ip;
   last_send["time"] = String(timeClient.getFormattedTime());
