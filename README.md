@@ -163,6 +163,12 @@ Sample URL using the same 3 button JSON sequence as above
 http://xxx.xxx.xxx.xxx:port/json?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
 ```
 
+Smartthings
+--------------
+For a great write up and instructional on how to integrate this device with Smartthings please visit http://thingsthataresmart.wiki/index.php?title=How_to_Control_your_TV_through_Alexa_and_Smartthings
+
+Thanks to @dham102
+
 Roku
 --------------
 The Roku device supports sending commands via an API to simulate remote button presses over HTTP, but only allows connections via a local IP address. This blueprint supports sending these commands and acts as a bridge between IFTTT/Alexa to control the Roku with basic commands
