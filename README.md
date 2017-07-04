@@ -7,10 +7,7 @@ ESP8266 Compatible IR Blaster that accepts HTTP commands for use with services l
 The purpose of this project was to create a Wi-Fi enabled IR blaster that could be controlled with Amazon Alexa and IFTTT
 This program uses the ESP8266 board and the ESP8266Basic firmware to achieve these goals with minimal coding overhead
 
-Version 2 of the project aims to increase the reliability and expand the functionality to include many different types of devices
- in addition to transmitting RAW formatted codes and more complex combination of codes
-
-Bonjour service configured on port 80
+Version 3 drastically improves the user interface and removes the need to check scanned IR codes over serial, this can now all be accessed through the web portal. Version 3 also includes further optimizations, stability improvements, and LED feedback. Version 3 additionally makes use of the new version of the IRremoteESP8266 library
 
 Supported Signals
 --------------
@@ -29,7 +26,7 @@ Supported Signals
 
 Hardware
 --------------
-V2 of the hardware includes the 2N2222 transistor for increased current and pulls directly off the USB port via the VIN pin (5V supply) to increase the overall current delivery to the IR LED to improve brightness and range. Appropriate current limiting resistors are also shown. V1 hardware still works with the new code but V2 is recommended for better performance and prolonged lifespan of your ESP8266 and LED.
+V3/V2 of the hardware includes the 2N2222 transistor for increased current and pulls directly off the USB port via the VIN pin (5V supply) to increase the overall current delivery to the IR LED to improve brightness and range. Appropriate current limiting resistors are also shown. V1 hardware still works with the new code but V2 is recommended for better performance and prolonged lifespan of your ESP8266 and LED.
 
 ![irblaster](https://cloud.githubusercontent.com/assets/3608298/21850706/e52be61e-d7d9-11e6-8939-9e43d533ae8d.png)
 
@@ -64,6 +61,10 @@ Server Info
 <img width="250" src="https://user-images.githubusercontent.com/3608298/27726397-5a6f6d62-5d48-11e7-886b-1af2007d47b5.png"><img width="250" src="https://user-images.githubusercontent.com/3608298/27726396-5a6dd9f2-5d48-11e7-967f-4d76ecf479d4.png">
 
 You may access basic device information at `http://xxx.xxx.xxx.xxx:port/` (webroot)
+
+mDNS
+---------------
+mDNS/Bonjour service configured on port 80
 
 Capturing Codes
 ---------------
