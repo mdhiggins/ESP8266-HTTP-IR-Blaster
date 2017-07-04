@@ -166,6 +166,7 @@ http://xxx.xxx.xxx.xxx:port/json?pass=yourpass&plain=[{"type":"nec","data":"FF82
 Smartthings
 --------------
 For a great write up and instructional on how to integrate this device with Smartthings please visit http://thingsthataresmart.wiki/index.php?title=How_to_Control_your_TV_through_Alexa_and_Smartthings
+
 Thanks to @dham102
 
 Roku
