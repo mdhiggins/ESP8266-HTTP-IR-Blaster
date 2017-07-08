@@ -42,11 +42,11 @@ Ticker ticker;
 bool shouldSaveConfig = false;                                // Flag for saving data
 bool holdReceive = false;                                     // Flag to prevent IR receiving while transmitting
 
-int pinr1 = 5;                                                // Receiving pin (GPIO5 = D1)
+int pinr1 = 14;                                               // Receiving pin
 int pins1 = 4;                                                // Transmitting preset 1
-int pins2 = 12;                                               // Transmitting preset 2
-int pins3 = 16;                                               // Transmitting preset 3
-int pins4 = 15;                                               // Transmitting preset 4
+int pins2 = 5;                                                // Transmitting preset 2
+int pins3 = 12;                                               // Transmitting preset 3
+int pins4 = 13;                                               // Transmitting preset 4
 
 IRrecv irrecv(pinr1);
 IRsend irsend1(pins1);
@@ -326,6 +326,8 @@ void setup() {
       Serial.println("Unauthorized access");
       sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
     } else {
+      digitalWrite(ledpin, LOW);
+      ticker.attach(0.5, disableLed);
       for (int x = 0; x < root.size(); x++) {
         String type = root[x]["type"];
         String ip = root[x]["ip"];
@@ -357,8 +359,6 @@ void setup() {
           irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
         }
       }
-      digitalWrite(ledpin, LOW);
-      ticker.attach(0.5, disableLed);
       sendHomePage("Code sent", "Success", 1); // 200
     }
   });
@@ -370,6 +370,8 @@ void setup() {
       Serial.println("Unauthorized access");
       sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
     } else {
+      digitalWrite(ledpin, LOW);
+      ticker.attach(0.5, disableLed);
       String type = server.arg("type");
       String data = server.arg("data");
       String ip = server.arg("ip");
@@ -393,8 +395,6 @@ void setup() {
       } else {
         irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
       }
-      digitalWrite(ledpin, LOW);
-      ticker.attach(0.5, disableLed);
       sendHomePage("Code Sent", "Success", 1); // 200
     }
   });
