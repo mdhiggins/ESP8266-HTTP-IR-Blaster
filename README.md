@@ -93,7 +93,7 @@ Parameters
 - `data` - IR code data, may be simple HEX code such as `"A90"` or an array of int values when transmitting a RAW sequence
 - `type` - Type of signal transmitted. Example `"SONY"`, `"RAW"`, `"Delay"` or `"Roomba"` (and many others)
 - `length` - (conditional) Bit length, example `12`. *Parameter does not need to be specified for RAW or Roomba signals*
-- `pulse` - (optional) Repeat a signal rapidly. Default `1`. *Sony based codes will not be recognized unless pulsed at least twice*
+- `pulse` - (optional) Repeat a signal rapidly. Default `1`
 - `pdelay` - (optional) Delay between pulses in milliseconds. Default `100`
 - `repeat` - (optional) Number of times to send the signal. Default `1`. *Useful for emulating multiple button presses for functions like large volume adjustments or sleep timer*
 - `rdelay` - (optional) Delay between repeats in milliseconds. Default `1000`
