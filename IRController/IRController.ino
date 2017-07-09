@@ -58,7 +58,7 @@ const unsigned long resetfrequency = 259200000;                // 72 hours in mi
 const int timeOffset = -14400;                                 // Timezone offset in seconds
 const char* poolServerName = "time.nist.gov";
 
-const bool getTime = true;                                     // Set to false to disable querying for the time
+bool getTime = true;                                     // Set to false to disable querying for the time
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, poolServerName, timeOffset, (int)resetfrequency);
 
@@ -1076,7 +1076,10 @@ void copyJsonSend(JsonObject& j1, JsonObject& j2) {
 void loop() {
   server.handleClient();
   decode_results  results;                                        // Somewhere to store the results
-  if (getTime) timeClient.update();                               // Update the time
+  if (getTime) {
+    timeClient.update();                               // Update the time
+    getTime = false;                                   // Only updates time once
+  }
 
   if (irrecv.decode(&results) && !holdReceive) {                  // Grab an IR code
     Serial.println("Signal received:");
