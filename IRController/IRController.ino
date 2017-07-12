@@ -319,12 +319,23 @@ void setup() {
     DynamicJsonBuffer jsonBuffer;
     JsonArray& root = jsonBuffer.parseArray(server.arg("plain"));
 
+    int simple = false;
+    if (server.hasArg("simple")) simple = server.arg("simple").toInt();
+
     if (!root.success()) {
       Serial.println("JSON parsing failed");
-      sendHomePage("JSON parsing failed", "Error", 3, 400); // 400
+      if (simple) {
+        server.send(400, "text/plain", "JSON parsing failed");
+      } else {
+        sendHomePage("JSON parsing failed", "Error", 3, 400); // 400
+      }
     } else if (server.arg("pass") != passcode) {
       Serial.println("Unauthorized access");
-      sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
+      if (simple) {
+        server.send(401, "text/plain", "Unauthorized, invalid passcode");
+      } else {
+        sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
+      }
     } else {
       digitalWrite(ledpin, LOW);
       ticker.attach(0.5, disableLed);
@@ -359,16 +370,27 @@ void setup() {
           irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
         }
       }
-      sendHomePage("Code sent", "Success", 1); // 200
+      if (simple) {
+        server.send(200, "text/html", "Success, code sent");
+      } else {
+        sendHomePage("Code sent", "Success", 1); // 200
+      }
     }
   });
 
   // Setup simple msg server to mirror version 1.0 functionality
   server.on("/msg", []() {
     Serial.println("Connection received - MSG");
+    int simple = false;
+    if (server.hasArg("simple")) simple = server.arg("simple").toInt();
+
     if (server.arg("pass") != passcode) {
       Serial.println("Unauthorized access");
-      sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
+      if (simple) {
+        server.send(401, "text/plain", "Unauthorized, invalid passcode");
+      } else {
+        sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
+      }
     } else {
       digitalWrite(ledpin, LOW);
       ticker.attach(0.5, disableLed);
@@ -395,7 +417,11 @@ void setup() {
       } else {
         irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
       }
-      sendHomePage("Code Sent", "Success", 1); // 200
+      if (simple) {
+        server.send(200, "text/html", "Success, code sent");
+      } else {
+        sendHomePage("Code Sent", "Success", 1); // 200
+      }
     }
   });
 

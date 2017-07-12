@@ -70,7 +70,7 @@ Capturing Codes
 ---------------
 Your last scanned code can be accessed via web at `http://xxx.xxx.xxx.xxx:port/` or via serial monitoring over USB at 115200 baud. Most codes will be recognized and displayed in the format `A90:SONY:12`. Make a note of the code displayed in the serial output as you will need it for your maker channel URL. If your code is not recognized scroll down the JSON section of this read me.
 
-Simple URL
+Basic Output
 --------------
 For sending simple commands such as a single button press, or a repeating sequence of the same button press, use the logic below. This is unchanged from version 1.
 Parameters
@@ -85,7 +85,7 @@ Parameters
 Example:
 `http://xxx.xxx.xxx.xxx:port/msg?code=A90:SONY:12&pulse=2&repeat=5&pass=yourpass`
 
-JSON
+JSON Scripting
 --------------
 For more complicated sequences of buttons, such a multiple button presses or sending RAW IR commands, you may do an HTTP POST with a JSON object that contains an array of commands which the receiver will parse and transmit. Payload must be a JSON array of JSON objects. Password should still be specified as the URL parameter `pass`.
 
@@ -152,6 +152,13 @@ Default mapping
 Force WiFi Reconfiguration
 ---------------
 Set GPIO13 to ground for force a WiFi configuration reset
+
+Minimal Output
+---------------
+For configuring URLs to work with IFTTT or other automation services where the HTML output of the device will never be seen by a human, add `&simple=1` to the URL to simplify the data sent and speed up the loading process
+
+Example:
+`http://xxx.xxx.xxx.xxx:port/msg?code=A90:SONY:12&pulse=2&repeat=5&pass=yourpass&simple=1`
 
 JSON and IFTTT
 --------------
