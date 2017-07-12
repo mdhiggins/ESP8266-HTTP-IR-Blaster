@@ -319,7 +319,7 @@ void setup() {
     DynamicJsonBuffer jsonBuffer;
     JsonArray& root = jsonBuffer.parseArray(server.arg("plain"));
 
-    int simple = false;
+    int simple = 0;
     if (server.hasArg("simple")) simple = server.arg("simple").toInt();
 
     if (!root.success()) {
@@ -381,7 +381,7 @@ void setup() {
   // Setup simple msg server to mirror version 1.0 functionality
   server.on("/msg", []() {
     Serial.println("Connection received - MSG");
-    int simple = false;
+    int simple = 0;
     if (server.hasArg("simple")) simple = server.arg("simple").toInt();
 
     if (server.arg("pass") != passcode) {
