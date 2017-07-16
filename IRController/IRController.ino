@@ -999,9 +999,9 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
       } else if (type == "roomba") {
         roomba_send(atoi(dataStr.c_str()), pulse, pdelay, irsend);
       }
-      delay(pdelay);
+      if (p + 1 < pdelay) delay(pdelay);
     }
-    delay(rdelay);
+    if (r + 1 < rdelay) delay(rdelay);
   }
 
   copyJsonSend(last_send_4, last_send_5);
