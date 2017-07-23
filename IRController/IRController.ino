@@ -373,6 +373,7 @@ void setup() {
       if (simple) {
         server.send(200, "text/html", "Success, code sent");
       } else {
+        Serial.println("Sending home page");
         sendHomePage("Code sent", "Success", 1); // 200
       }
     }
@@ -1004,6 +1005,8 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
     if (r + 1 < rdelay) delay(rdelay);
   }
 
+  Serial.println("Transmission complete");
+
   copyJsonSend(last_send_4, last_send_5);
   copyJsonSend(last_send_3, last_send_4);
   copyJsonSend(last_send_2, last_send_3);
@@ -1029,17 +1032,29 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int re
     for (int p = 0; p < pulse; p++) {
       Serial.println("Sending code");
       irsend.enableIROut(khz);
-      int first = raw[0];
       for (unsigned int i = 0; i < raw.size(); i++) {
-        unsigned int val = raw[i];
-        if (i & 1) irsend.space(val);
+        int val = raw[i];
+        if (i & 1) irsend.space(std::max(0, val));
         else       irsend.mark(val);
       }
       irsend.space(0);
-      delay(pdelay);
+      if (p + 1 < pdelay) delay(pdelay);
     }
-    delay(rdelay);
+    if (r + 1 < rdelay) delay(rdelay);
   }
+
+  Serial.println("Transmission complete");
+
+  copyJsonSend(last_send_4, last_send_5);
+  copyJsonSend(last_send_3, last_send_4);
+  copyJsonSend(last_send_2, last_send_3);
+  copyJsonSend(last_send, last_send_2);
+
+  last_send["data"] = NULL;
+  last_send["len"] = raw.size();
+  last_send["type"] = "RAW";
+  last_send["address"] = 0;
+  last_send["time"] = String(timeClient.getFormattedTime());
 
   resetReceive();
 }
@@ -1082,21 +1097,21 @@ void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
 }
 
 void copyJson(JsonObject& j1, JsonObject& j2) {
-  if (j1.containsKey("data"))     j2["data"] = j1["data"];
-  if (j1.containsKey("encoding")) j2["encoding"] = j1["encoding"];
-  if (j1.containsKey("bits"))     j2["bits"] = j1["bits"];
-  if (j1.containsKey("address"))  j2["address"] = j1["address"];
-  if (j1.containsKey("command"))  j2["command"] = j1["command"];
-  if (j1.containsKey("time"))     j2["time"] = j1["time"];
-  if (j1.containsKey("uint16_t")) j2["uint16_t"] = j1["uint16_t"];
+  if (j1.containsKey("data"))     j2["data"]     = j1["data"];     else j2["data"]     = NULL;
+  if (j1.containsKey("encoding")) j2["encoding"] = j1["encoding"]; else j2["encoding"] = "";
+  if (j1.containsKey("bits"))     j2["bits"]     = j1["bits"];     else j2["bits"]     = 0;
+  if (j1.containsKey("address"))  j2["address"]  = j1["address"];  else j2["address"]  = 0;
+  if (j1.containsKey("command"))  j2["command"]  = j1["command"];  else j2["command"]  = 0;
+  if (j1.containsKey("time"))     j2["time"]     = j1["time"];
+  if (j1.containsKey("uint16_t")) j2["uint16_t"] = j1["uint16_t"]; else j2["uint16_t"] = NULL;
 }
 
 void copyJsonSend(JsonObject& j1, JsonObject& j2) {
-  if (j1.containsKey("data"))    j2["data"] = j1["data"];
-  if (j1.containsKey("type"))    j2["type"] = j1["type"];
-  if (j1.containsKey("len"))     j2["len"] = j1["len"];
-  if (j1.containsKey("address")) j2["address"] = j1["address"];
-  if (j1.containsKey("time"))    j2["time"] = j1["time"];
+  if (j1.containsKey("data"))     j2["data"]     = j1["data"];     else j2["data"]     = NULL;
+  if (j1.containsKey("type"))     j2["type"]     = j1["type"];     else j2["type"]     = "";
+  if (j1.containsKey("len"))      j2["len"]      = j1["len"];      else j2["len"]      = 0;
+  if (j1.containsKey("address"))  j2["address"]  = j1["address"];  else j2["address"]  = 0;
+  if (j1.containsKey("time"))     j2["time"]     = j1["time"];
 }
 
 void loop() {
