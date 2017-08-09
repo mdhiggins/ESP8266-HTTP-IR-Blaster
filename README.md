@@ -140,18 +140,19 @@ Raw Example
 
 Multiple LED Setup
 --------------
-If  you are setting up your ESP8266 IR Controller to handle multiple devices, for example in a home theater setup, and the IR receivers are in different directions, you may use the `out` parameter to transmit codes with different LEDs which can be arranged to face different directions. Simply wire additional LEDs to a different GPIO pin on the ESP8266 in a similar fashion to the default transmitting pin and set the corresponding pin to the `irsend1-4` objects created at the top of the blueprint. For example if you wired an additional LED to the GPIO0 pin and you wanted to send a signal via that LED instead of the primary, you would modify irsend2 in the blueprint to `IRsend irsend2(0)` corresponding to the GPIO0 pin. Then when sending your signal via the url simply add `&out=2` and the signal will be sent via irsend2 instead of the primary irsend1.
+If  you are setting up your ESP8266 IR Controller to handle multiple devices, for example in a home theater setup, and the IR receivers are in different directions, you may use the `out` parameter to transmit codes with different LEDs which can be arranged to face different directions. Simply wire additional LEDs to a different GPIO pin on the ESP8266 in a similar fashion to the default transmitting pin and set the corresponding pin to the `irsend1-4` objects created at the top of the blueprint. For example if you wired an additional LED to the GPIO0 pin and you wanted to send a signal via that LED instead of the primary, you would modify irsend2 in the blueprint to `IRsend irsend2(0)` corresponding to the GPIO pin. Then when sending your signal via the url simply add `&out=2` and the signal will be sent via irsend2 instead of the primary irsend1.
 
 Default mapping
 - irsend1: GPIO4
-- irsend2: GPIO0
+- irsend2: GPIO5
 - irsend3: GPIO12
 - irsend4: GPIO13
-- irrecv: GPIO5
+- irrecv: GPIO14
+- config: GPIO15
 
 Force WiFi Reconfiguration
 ---------------
-Set GPIO13 to ground for force a WiFi configuration reset
+Set GPIO15 to ground to force a WiFi configuration reset
 
 Minimal Output
 ---------------
