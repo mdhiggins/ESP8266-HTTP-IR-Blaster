@@ -15,7 +15,7 @@
 #include <Ticker.h>                                           // For LED status
 #include <NTPClient.h>
 
-const int configpin = 15;                                     // GPIO13 (D7 on D1 Mini) to enable configuration (connect to ground)
+const int configpin = 10;                                     // GPIO10
 const int ledpin = BUILTIN_LED;                               // Built in LED defined for WEMOS people
 const char *wifi_config_name = "IRBlaster Configuration";
 const char serverName[] = "checkip.dyndns.org";
@@ -289,6 +289,10 @@ void setup() {
   Serial.println("");
   Serial.println("ESP8266 IR Controller");
   pinMode(configpin, INPUT_PULLUP);
+  Serial.print("Config pin GPIO");
+  Serial.print(configpin);
+  Serial.print(" set to: ");
+  Serial.println(digitalRead(configpin));
   if (!setupWifi(digitalRead(configpin) == LOW))
     return;
 
@@ -339,6 +343,11 @@ void setup() {
     } else {
       digitalWrite(ledpin, LOW);
       ticker.attach(0.5, disableLed);
+
+      if (simple) {
+        server.send(200, "text/html", "Success, code sent");
+      }
+            
       for (int x = 0; x < root.size(); x++) {
         String type = root[x]["type"];
         String ip = root[x]["ip"];
@@ -370,9 +379,8 @@ void setup() {
           irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
         }
       }
-      if (simple) {
-        server.send(200, "text/html", "Success, code sent");
-      } else {
+      
+      if (!simple) {
         Serial.println("Sending home page");
         sendHomePage("Code sent", "Success", 1); // 200
       }
@@ -413,14 +421,17 @@ void setup() {
         len = getValue(code, separator, 2).toInt();
       }
 
+      if (simple) {
+        server.send(200, "text/html", "Success, code sent");
+      }
+
       if (type == "roku") {
         rokuCommand(ip, data);
       } else {
         irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
       }
-      if (simple) {
-        server.send(200, "text/html", "Success, code sent");
-      } else {
+
+      if (!simple) {
         sendHomePage("Code Sent", "Success", 1); // 200
       }
     }
