@@ -152,7 +152,7 @@ Default mapping
 
 Force WiFi Reconfiguration
 ---------------
-Set GPIO15 to ground to force a WiFi configuration reset
+Set GPIO10 to ground to force a WiFi configuration reset
 
 Minimal Output
 ---------------
