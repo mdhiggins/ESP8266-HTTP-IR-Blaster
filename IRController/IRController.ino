@@ -311,6 +311,7 @@ void setup() {
   if (MDNS.begin(host_name)) {
     Serial.println("mDNS started. Hostname is set to " + String(host_name) + ".local");
   }
+  Serial.println(ipToString(WiFi.localIP()));
   MDNS.addService("http", "tcp", port); // Announce the ESP as an HTTP service
   Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
 
