@@ -1009,11 +1009,9 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
       } else if (type == "rc6") {
         irsend.sendRC6(data, len);
       } else if (type == "denon") {
-        irsend.sendDenon(data, len);]
+        irsend.sendDenon(data, len);
       } else if (type == "lg") {
         irsend.sendLG(data, len);
-      } else if (type == "sanyo") {
-        irsend.sendSanyo(data, len);
       } else if (type == "rcmm") {
         irsend.sendRCMM(data, len);
       } else if (type == "roomba") {
