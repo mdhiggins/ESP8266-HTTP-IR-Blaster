@@ -347,7 +347,7 @@ void setup() {
       if (simple) {
         server.send(200, "text/html", "Success, code sent");
       }
-            
+
       for (int x = 0; x < root.size(); x++) {
         String type = root[x]["type"];
         String ip = root[x]["ip"];
@@ -379,7 +379,7 @@ void setup() {
           irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
         }
       }
-      
+
       if (!simple) {
         Serial.println("Sending home page");
         sendHomePage("Code sent", "Success", 1); // 200
@@ -1008,6 +1008,14 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
         irsend.sendRC5(data, len);
       } else if (type == "rc6") {
         irsend.sendRC6(data, len);
+      } else if (type == "denon") {
+        irsend.sendDenon(data, len);]
+      } else if (type == "lg") {
+        irsend.sendLG(data, len);
+      } else if (type == "sanyo") {
+        irsend.sendSanyo(data, len);
+      } else if (type == "rcmm") {
+        irsend.sendRCMM(data, len);
       } else if (type == "roomba") {
         roomba_send(atoi(dataStr.c_str()), pulse, pdelay, irsend);
       }
