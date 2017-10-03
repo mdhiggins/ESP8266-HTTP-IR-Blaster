@@ -1013,6 +1013,8 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
         irsend.sendDenon(data, len);
       } else if (type == "lg") {
         irsend.sendLG(data, len);
+      } else if (type == "sharp") {
+        irsend.sendSharp(data, len)
       } else if (type == "rcmm") {
         irsend.sendRCMM(data, len);
       } else if (type == "roomba") {
