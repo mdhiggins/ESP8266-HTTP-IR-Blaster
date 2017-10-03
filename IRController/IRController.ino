@@ -1001,7 +1001,7 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
         irsend.sendJVC(data, len, 0);
       } else if (type == "samsung") {
         irsend.sendSAMSUNG(data, len);
-      } else if (type == "sharp") {
+      } else if (type == "sharpRaw") {
         irsend.sendSharpRaw(data, len);
       } else if (type == "dish") {
         irsend.sendDISH(data, len);
@@ -1014,7 +1014,7 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
       } else if (type == "lg") {
         irsend.sendLG(data, len);
       } else if (type == "sharp") {
-        irsend.sendSharp(data, len)
+        irsend.sendSharp(data, len);
       } else if (type == "rcmm") {
         irsend.sendRCMM(data, len);
       } else if (type == "roomba") {
