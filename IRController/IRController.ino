@@ -378,6 +378,8 @@ void setup() {
         server.send(200, "text/html", "Success, code sent");
       }
 
+      String message = "Code sent";
+
       for (int x = 0; x < root.size(); x++) {
         String type = root[x]["type"];
         String ip = root[x]["ip"];
@@ -400,6 +402,7 @@ void setup() {
             int currentState = deviceState[device];
             if (state == currentState) {
               Serial.println("Not sending command to " + device + ", already in state " + state);
+              message = "Code sent. Some components of the code were held because device was already in appropriate state";
               continue;
             } else {
               Serial.println("Setting device " + device + " to state " + state);
@@ -431,7 +434,7 @@ void setup() {
 
       if (!simple) {
         Serial.println("Sending home page");
-        sendHomePage("Code sent", "Success", 1); // 200
+        sendHomePage(message, "Success", 1); // 200
       }
     }
   });
