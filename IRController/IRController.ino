@@ -35,6 +35,8 @@ JsonObject& last_send_3 = jsonBuffer.createObject();          // Stores 3rd last
 JsonObject& last_send_4 = jsonBuffer.createObject();          // Stores 4th last sent
 JsonObject& last_send_5 = jsonBuffer.createObject();          // Stores 5th last sent
 
+JsonObject& deviceState = jsonBuffer.createObject();
+
 ESP8266WebServer server(port);
 HTTPClient http;
 Ticker ticker;
@@ -269,7 +271,6 @@ bool setupWifi(bool resetConf) {
     Serial.println("");
     json.printTo(configFile);
     configFile.close();
-    //e nd save
   }
   ticker.detach();
 
@@ -363,6 +364,24 @@ void setup() {
         if (pdelay <= 0) pdelay = 100; // Default pdelay
         if (rdelay <= 0) rdelay = 1000; // Default rdelay
 
+        String device = root[x]["device"];
+        if (device != "") {
+          int state = root[x]["state"];
+          if (deviceState.containsKey(device)) {
+            int currentState = deviceState[device];
+            if (state == currentState) {
+              Serial.println("Not sending command to " + device + ", already in state " + String(state));
+              continue;
+            } else {
+              Serial.println("Setting device " + device + " to state " + String(state));
+              deviceState[device] = state;  
+            }
+          } else {
+            Serial.println("Setting device " + device + " to state " + String(state));
+            deviceState[device] = state;
+          }
+        }
+
         if (type == "delay") {
           delay(rdelay);
         } else if (type == "raw") {
@@ -407,6 +426,34 @@ void setup() {
       String type = server.arg("type");
       String data = server.arg("data");
       String ip = server.arg("ip");
+      
+      if (server.hasArg("device")) {
+        String device = server.arg("device");
+        Serial.println("Device name detected " + device);
+        int state = (server.hasArg("state")) ? server.arg("state").toInt() : 0;
+        if (deviceState.containsKey(device)) {
+          Serial.println("Contains the key!");
+          Serial.println(state);
+          int currentState = deviceState[device];
+          Serial.println(currentState);
+          if (state == currentState) {
+            if (simple) {
+              server.send(200, "text/html", "Not sending command to " + device + ", already in state " + String(state));
+            } else {
+              sendHomePage("Not sending command to " + device + ", already in state " + String(state), "Warning", 2); // 200
+            }
+            Serial.println("Not sending command to " + device + ", already in state " + String(state));
+            return;
+          } else {
+            Serial.println("Setting device " + device + " to state " + String(state));
+            deviceState[device] = state;
+          }
+        } else {
+          Serial.println("Setting device " + device + " to state " + String(state));
+          deviceState[device] = state;
+        }
+      }
+      
       int len = server.arg("length").toInt();
       long address = (server.hasArg("address")) ? server.arg("address").toInt() : 0;
       int rdelay = (server.hasArg("rdelay")) ? server.arg("rdelay").toInt() : 1000;
