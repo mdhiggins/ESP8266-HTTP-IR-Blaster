@@ -1,42 +1,31 @@
 # IR Controller
 
-ESP8266 Compatible IR Blaster that accepts HTTP commands for use with services like Amazon Echo
+ESP8266 Compatible IR Blaster that accepts HTTP commands for use with services like Amazon's Alexa
 
-<img width="400" src="https://cloud.githubusercontent.com/assets/3608298/21854472/e2b3d824-d7e8-11e6-8439-a500b73fd57e.jpg">
+<a href="https://youtu.be/JysKXOdrOlM"><img width="475" alt="Setup" src="https://user-images.githubusercontent.com/3608298/31304294-a24bb388-aaec-11e7-8061-e8c3a1556b18.png"></a>
 
-The purpose of this project was to create a Wi-Fi enabled IR blaster that could be controlled with Amazon Alexa and IFTTT
-This program uses the ESP8266 board and the ESP8266Basic firmware to achieve these goals with minimal coding overhead
+The purpose of this project was to create a Wi-Fi enabled IR blaster that could be controlled with Amazon Alexa
+This was designed with the NodeMCU board but should be compatible with multiple ESP8266 variants
 
-Version 3 drastically improves the user interface and removes the need to check scanned IR codes over serial, this can now all be accessed through the web portal. Version 3 also includes further optimizations, stability improvements, and LED feedback. Version 3 additionally makes use of the new version of the IRremoteESP8266 library
+Includes a functional web portal for code capture, output monitoring, and device state tracking
 
-Supported Signals
---------------
-- NEC
-- Sony
-- Panasonic
-- JVC
-- Samsung
-- Sharp
-- Coolix
-- Dish
-- Wynter
-- Roomba
-- RC5/RC6
-- RAW
+Device gives real time LED feedback, can handle complex code sequences for multi-device home theater control, and full integration with Amazon Alexa via the smart home entertainment devices API and the `IR Controller` Alexa skill
 
 Hardware
 --------------
-V3/V2 of the hardware includes the 2N2222 transistor for increased current and pulls directly off the USB port via the VIN pin (5V supply) to increase the overall current delivery to the IR LED to improve brightness and range. Appropriate current limiting resistors are also shown. V1 hardware still works with the new code but V2 is recommended for better performance and prolonged lifespan of your ESP8266 and LED.
+![Breadboard Build](https://user-images.githubusercontent.com/3608298/31293572-90c2e574-aaa5-11e7-99e0-7b3df2db3292.jpg)
+![Schematic](https://user-images.githubusercontent.com/3608298/30983611-f258c95a-a458-11e7-99c5-ba088727c928.PNG)
 
-![irblaster](https://user-images.githubusercontent.com/3608298/30983611-f258c95a-a458-11e7-99c5-ba088727c928.PNG)
+The hardware is based on the NodeMCU ESP8266 board and uses an infrared LED combined with the 2N2222 transistor for increased current and range. Values of the resistors seen in the schematic are variable and will depend on the specifications of your LED. If you're using the LED recommended below then a 1000 ohm resister to the 2N2222 transistor and a 10 ohm resistor to the LED itself are appropriate values, otherwise please use an LED resistance calculator. In total the parts come in around $10 so building a controller for each IR enabled device in your home is very feasible, and most components are cheaper in bulk
 
+Shopping List:
 - [ESP8266 NodeMCU Board](https://www.amazon.com/gp/product/B01IK9GEQG/)
 - [IR Receiver](https://www.amazon.com/gp/product/B00EFOQEUM/)
 - [Super bright IR Led](https://www.amazon.com/gp/product/B00ULB0U44/)
 - [2N2222 Transistor](https://www.amazon.com/gp/product/B00R1M3DA4/)
 - [Resistors](https://www.amazon.com/gp/product/B00YX75O5M/)
 
-*These are just quick Amazon references. Parts can likely be purchased cheaper elsewhere*
+*These are just quick Amazon references. Parts can be purchased cheaper with longer shipping times from places like AliExpress*
 
 Drivers
 --------------
@@ -44,27 +33,38 @@ Install the NodeMCU drivers for your respective operating system if they are not
 
 https://www.silabs.com/products/mcu/Pages/USBtoUARTBridgeVCPDrivers.aspx
 
+Alexa Skill
+--------------
+The companion skill for the Amazon Alexa service has been approved and will appear on the skill store as a free download when the V3 API goes live at the end of October
+
 Setup
 --------------
 1. Install [Arduino IDE](https://www.arduino.cc/en/main/software)
 2. Install [ESP8266 Arduino Core](https://github.com/esp8266/Arduino)
 3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson` `WiFiManager` `NTPClient` `IRremoteESP8266`
 4. Load the `IRController.ino` blueprint from this repository
-5. Upload blueprint to your ESP8266. Monitor via serial at 115200 baud rate
-6. Device will boot into WiFi access point mode initially with SSID `IRBlaster Configuration`, IP address `192.168.4.1`. Connect to this and configure your access point settings using WiFi Manager
-7. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network
-8. If your router supports mDNS/Bonjour you can now access your device on your local network via the hostname you specified (`http://hostname.local:port/`)
-9. Create an [IFTTT trigger](https://cloud.githubusercontent.com/assets/3608298/21918439/526b6ba0-d91f-11e6-9ef2-dcc8e41f7637.png) using the Maker channel using the URL format below. Make sure you use your external IP address and not your local IP address or local hostname
+5. Upload blueprint to your ESP8266 (the .ino file). Monitor via serial at 115200 baud rate
+6. Device will boot into WiFi access point mode initially with SSID `IRBlaster Configuration`, IP address `192.168.4.1`. Connect to this and configure your access point settings using WiFi Manager. If your router supports mDNS/Bonjour you can now access your device on your local network via the hostname you specified (`http://hostname.local:port/`), otherwise via its local IP address (this IP address is displayed on the serial output)
+7. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network, this is critical since Alexa commands come from Amazon's servers, not locally
+8. Download the IR Controller Alexa skill and start creating your devices. Each IR command will require a URL which can be saved. Choose whichever functionality you desire. Information on creating the URLs can be found below
+
+Alexa Setup
+---------------
+1. Download the `IR Controller` skill from the Alexa skill store
+2. Login with your Amazon account
+3. Go to https://tehpsyc.pythonanywhere.com/
+4. Login with the same Amazon account you used for the skill login
+5. Create a new device by specifying the friendlyName, endpointId, and description
+6. Add whichever functionality you want your device to have by scrolling through the options on the page
+7. Save your new device
+8. Run device discovery on your echo device by saying "Alexa, discover devices" or via https://alexa.amazon.com/
+9. Verify that your new device was discovered online or in the Alexa app and enjoy!
 
 Server Info
 ---------------
 <img width="250" src="https://user-images.githubusercontent.com/3608298/27726397-5a6f6d62-5d48-11e7-886b-1af2007d47b5.png"><img width="250" src="https://user-images.githubusercontent.com/3608298/27726396-5a6dd9f2-5d48-11e7-967f-4d76ecf479d4.png">
 
 You may access basic device information at `http://xxx.xxx.xxx.xxx:port/` (webroot)
-
-mDNS
----------------
-mDNS/Bonjour service configured on port 80
 
 Capturing Codes
 ---------------
@@ -83,7 +83,7 @@ Parameters
 - `out` - (optional) Set which IRsend present to transmit over. Default `1`. Choose between `1-4`. Corresponding output pins set in the blueprint. Useful for a single ESP8266 that needs multiple LEDs pointed in different directions to trigger different devices
 
 Example:
-`http://xxx.xxx.xxx.xxx:port/msg?code=A90:SONY:12&pulse=2&repeat=5&pass=yourpass`
+`http://xxx.xxx.xxx.xxx:port/msg?code=A90:SONY:12&pass=yourpass`
 
 JSON Scripting
 --------------
@@ -138,9 +138,18 @@ Raw Example
 ]
 ```
 
+JSON as URL
+--------------
+To send the signal using the IFTTT Maker channel or the IR Controller smart home skill, simply take your JSON payload and remove spaces and line breaks so that entire packet is on a single line, then added it to the URL using the `plain` argument.
+
+Sample URL using the same 3 button JSON sequence as above
+```
+http://xxx.xxx.xxx.xxx:port/json?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
+```
+
 Multiple LED Setup
 --------------
-If  you are setting up your ESP8266 IR Controller to handle multiple devices, for example in a home theater setup, and the IR receivers are in different directions, you may use the `out` parameter to transmit codes with different LEDs which can be arranged to face different directions. Simply wire additional LEDs to a different GPIO pin on the ESP8266 in a similar fashion to the default transmitting pin and set the corresponding pin to the `irsend1-4` objects created at the top of the blueprint. For example if you wired an additional LED to the GPIO0 pin and you wanted to send a signal via that LED instead of the primary, you would modify irsend2 in the blueprint to `IRsend irsend2(0)` corresponding to the GPIO pin. Then when sending your signal via the url simply add `&out=2` and the signal will be sent via irsend2 instead of the primary irsend1.
+If you are setting up your ESP8266 IR Controller to handle multiple devices, for example in a home theater setup, and the IR receivers are in different directions, you may use the `out` parameter to transmit codes with different LEDs which can be arranged to face different directions. Simply wire additional LEDs to a different GPIO pin on the ESP8266 in a similar fashion to the default transmitting pin and set the corresponding pin to the `irsend1-4` objects created at the top of the blueprint. For example if you wired an additional LED to the GPIO0 pin and you wanted to send a signal via that LED instead of the primary, you would modify irsend2 in the blueprint to `IRsend irsend2(0)` corresponding to the GPIO pin. Then when sending your signal via the url simply add `&out=2` and the signal will be sent via irsend2 instead of the primary irsend1.
 
 Default mapping
 - irsend1: GPIO4
@@ -148,28 +157,32 @@ Default mapping
 - irsend3: GPIO12
 - irsend4: GPIO13
 - irrecv: GPIO14
-- config: GPIO15
+- config: GPIO10
 
 Force WiFi Reconfiguration
 ---------------
-Set GPIO10 to ground to force a WiFi configuration reset
+Set GPIO10 to ground to force a WiFi configuration reset, this will boot the device into WiFi host mode with an SSID of 'IRBlaster Configuration' and IP of `192.168.4.1`
+
+Device State Memory
+---------------
+By adding the `device` and `state` parameters to your URL or JSON object, the device will remember the last sent state of the device. This is useful since Alexa has separate on and off commands, and without knowing the device state will end up turning the TV on if an off command is issued
+
+Example Turn On URL (if TV was already turned on, this command will do nothing):
+`http://xxx.xxx.xxx.xxx:port/msg?code=A90:SONY:12&pass=yourpass&device=tv&state=1`
+
+Example Turn Off URL (if TV was already turned off, this command will do nothing):
+`http://xxx.xxx.xxx.xxx:port/msg?code=A90:SONY:12&pass=yourpass&device=tv&state=0`
 
 Minimal Output
 ---------------
-For configuring URLs to work with IFTTT or other automation services where the HTML output of the device will never be seen by a human, add `&simple=1` to the URL to simplify the data sent and speed up the loading process
+For configuring URLs to work with IFTTT or the IR Controller skill, or other automation services where the HTML output of the device will never be seen by a human, add `&simple=1` to the URL to simplify the data sent and speed up the response time
 
 Example:
-`http://xxx.xxx.xxx.xxx:port/msg?code=A90:SONY:12&pulse=2&repeat=5&pass=yourpass&simple=1`
+`http://xxx.xxx.xxx.xxx:port/msg?code=A90:SONY:12&pass=yourpass&simple=1`
 
-JSON and IFTTT
+IFTTT
 --------------
-While the JSON functionality works fine with a command line based HTTP request like CURL, IFTTT's maker channel is not as robust.
-To send the signal using the IFTTT Maker channel, simply take your JSON payload and remove spaces and line breaks so that entire packet is on a single line, then added it to the URL using the `plain` argument.
-
-Sample URL using the same 3 button JSON sequence as above
-```
-http://xxx.xxx.xxx.xxx:port/json?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
-```
+If you are unable to use the Alexa skill for whatever reason, or you are using a competing voice control product or some other implementation, then IFTTT can also be used to execute commands using the Maker channel HTTP commands. Simply generate your URLs and save them in the Maker channel
 
 Smartthings
 --------------
