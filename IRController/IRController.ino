@@ -17,7 +17,7 @@
 
 const int configpin = 10;                                     // GPIO10
 const int ledpin = BUILTIN_LED;                               // Built in LED defined for WEMOS people
-const char *wifi_config_name = "IRBlaster Configuration";
+const char *wifi_config_name = "IR Controller Configuration";
 const char serverName[] = "checkip.dyndns.org";
 int port = 80;
 char passcode[40] = "";
@@ -223,7 +223,7 @@ bool setupWifi(bool resetConf) {
   }
   // end read
 
-  WiFiManagerParameter custom_hostname("hostname", "Choose a hostname to this IRBlaster", host_name, 40);
+  WiFiManagerParameter custom_hostname("hostname", "Choose a hostname to this IR Controller", host_name, 40);
   wifiManager.addParameter(&custom_hostname);
   WiFiManagerParameter custom_passcode("passcode", "Choose a passcode", passcode, 40);
   wifiManager.addParameter(&custom_passcode);
