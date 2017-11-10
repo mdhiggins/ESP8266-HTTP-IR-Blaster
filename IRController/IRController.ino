@@ -64,7 +64,7 @@ const bool getTime = true;                                     // Set to false t
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, poolServerName, timeOffset, (int)resetfrequency);
 
-const bool getExternalIP = true;                               // Set to false to disable querying external IP
+const bool getExternalIP = false;                               // Set to false to disable querying external IP
 String _ip = "";
 unsigned long lastupdate = 0;
 
@@ -223,6 +223,7 @@ bool setupWifi(bool resetConf) {
   }
   // end read
 
+  WiFi.hostname().toCharArray(host_name, 40);
   WiFiManagerParameter custom_hostname("hostname", "Choose a hostname to this IRBlaster", host_name, 40);
   wifiManager.addParameter(&custom_hostname);
   WiFiManagerParameter custom_passcode("passcode", "Choose a passcode", passcode, 40);
@@ -407,7 +408,7 @@ void setup() {
               continue;
             } else {
               Serial.println("Setting device " + device + " to state " + state);
-              deviceState[device] = state;  
+              deviceState[device] = state;
             }
           } else {
             Serial.println("Setting device " + device + " to state " + state);
@@ -487,7 +488,7 @@ void setup() {
           deviceState[device] = state;
         }
       }
-      
+
       int len = server.arg("length").toInt();
       long address = (server.hasArg("address")) ? server.arg("address").toInt() : 0;
       int rdelay = (server.hasArg("rdelay")) ? server.arg("rdelay").toInt() : 1000;
