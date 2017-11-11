@@ -147,6 +147,16 @@ Sample URL using the same 3 button JSON sequence as above
 http://xxx.xxx.xxx.xxx:port/json?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
 ```
 
+Security
+---------------
+Due to limitations imposed by the hardware in the ESP8266, there are no good native encryption libraries to make use of HTTPS protocols and the ESP8266
+The passcode system provides some basic security but this system would be trivial to bypass to a 3rd party determined to gain access. Assuming the device becomes compromised it could be used to send IR commands to your devices. If your device is being used to control a potentially dangerous device such as a space heater, you should take additional precautions
+
+There are a few options that can be used to avoid this. You can use an intermediate service such as Smartthings (see below), use a reverse proxy with HTTPS support (which should work with the native Alexa skill) such a nginx, or handle everything on the local network and not use the functionality with Alexa. Regardless if you wish to implement this project it is a risk you should be aware of as the end user
+
+This article provides some details on using nginx
+https://jjssoftware.github.io/secure-your-esp8266/
+
 Multiple LED Setup
 --------------
 If you are setting up your ESP8266 IR Controller to handle multiple devices, for example in a home theater setup, and the IR receivers are in different directions, you may use the `out` parameter to transmit codes with different LEDs which can be arranged to face different directions. Simply wire additional LEDs to a different GPIO pin on the ESP8266 in a similar fashion to the default transmitting pin and set the corresponding pin to the `irsend1-4` objects created at the top of the blueprint. For example if you wired an additional LED to the GPIO0 pin and you wanted to send a signal via that LED instead of the primary, you would modify irsend2 in the blueprint to `IRsend irsend2(0)` corresponding to the GPIO pin. Then when sending your signal via the url simply add `&out=2` and the signal will be sent via irsend2 instead of the primary irsend1.
