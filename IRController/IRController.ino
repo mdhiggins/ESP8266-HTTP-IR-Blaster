@@ -15,6 +15,15 @@
 #include <Ticker.h>                                           // For LED status
 #include <NTPClient.h>
 
+// User settings are below here
+
+const bool getExternalIP = false;                               // Set to false to disable querying external IP
+
+const bool getTime = true;                                     // Set to false to disable querying for the time
+const int timeOffset = -14400;                                 // Timezone offset in seconds
+
+// User settings are above here
+
 const int configpin = 10;                                     // GPIO10
 const int ledpin = BUILTIN_LED;                               // Built in LED defined for WEMOS people
 const char *wifi_config_name = "IRBlaster Configuration";
@@ -57,14 +66,11 @@ IRsend irsend3(pins3);
 IRsend irsend4(pins4);
 
 const unsigned long resetfrequency = 259200000;                // 72 hours in milliseconds
-const int timeOffset = -14400;                                 // Timezone offset in seconds
 const char* poolServerName = "time.nist.gov";
 
-const bool getTime = true;                                     // Set to false to disable querying for the time
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, poolServerName, timeOffset, (int)resetfrequency);
 
-const bool getExternalIP = true;                               // Set to false to disable querying external IP
 String _ip = "";
 unsigned long lastupdate = 0;
 
@@ -187,6 +193,8 @@ bool setupWifi(bool resetConf) {
   wifiManager.setAPCallback(configModeCallback);
   // set config save notify callback
   wifiManager.setSaveConfigCallback(saveConfigCallback);
+
+  wifiManager.setConfigPortalTimeout(180);
 
   if (SPIFFS.begin()) {
     Serial.println("mounted file system");
@@ -407,7 +415,7 @@ void setup() {
               continue;
             } else {
               Serial.println("Setting device " + device + " to state " + state);
-              deviceState[device] = state;  
+              deviceState[device] = state;
             }
           } else {
             Serial.println("Setting device " + device + " to state " + state);
@@ -487,7 +495,7 @@ void setup() {
           deviceState[device] = state;
         }
       }
-      
+
       int len = server.arg("length").toInt();
       long address = (server.hasArg("address")) ? server.arg("address").toInt() : 0;
       int rdelay = (server.hasArg("rdelay")) ? server.arg("rdelay").toInt() : 1000;
