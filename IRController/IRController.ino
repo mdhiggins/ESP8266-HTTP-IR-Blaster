@@ -231,6 +231,7 @@ bool setupWifi(bool resetConf) {
   }
   // end read
 
+  WiFi.hostname().toCharArray(host_name, 40);
   WiFiManagerParameter custom_hostname("hostname", "Choose a hostname to this IRBlaster", host_name, 40);
   wifiManager.addParameter(&custom_hostname);
   WiFiManagerParameter custom_passcode("passcode", "Choose a passcode", passcode, 40);
