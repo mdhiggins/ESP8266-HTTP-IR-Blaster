@@ -35,7 +35,7 @@ https://www.silabs.com/products/mcu/Pages/USBtoUARTBridgeVCPDrivers.aspx
 
 Alexa Skill
 --------------
-The companion skill for the Amazon Alexa service has been approved and will appear on the skill store as a free download when the V3 API goes live at the end of October
+The companion skill for the Amazon Alexa service is available [here](https://www.amazon.com/Michael-Higgins-IR-Controller/dp/B0762YYDS9) for US customers only. As Amazon makes the V3 smart home skill API available to additional markets I will aim to expand
 
 Setup
 --------------
@@ -146,6 +146,16 @@ Sample URL using the same 3 button JSON sequence as above
 ```
 http://xxx.xxx.xxx.xxx:port/json?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
 ```
+
+Security
+---------------
+Due to limitations imposed by the hardware in the ESP8266, there are no good native encryption libraries to make use of HTTPS protocols and the ESP8266
+The passcode system provides some basic security but this system would be trivial to bypass to a 3rd party determined to gain access. Assuming the device becomes compromised it could be used to send IR commands to your devices. If your device is being used to control a potentially dangerous device such as a space heater, you should take additional precautions
+
+There are a few options that can be used to avoid this. You can use an intermediate service such as Smartthings (see below), use a reverse proxy with HTTPS support (which should work with the native Alexa skill) such a nginx, or handle everything on the local network and not use the functionality with Alexa. Regardless if you wish to implement this project it is a risk you should be aware of as the end user
+
+This article provides some details on using nginx
+https://jjssoftware.github.io/secure-your-esp8266/
 
 Multiple LED Setup
 --------------
