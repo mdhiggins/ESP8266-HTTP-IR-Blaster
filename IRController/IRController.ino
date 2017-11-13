@@ -170,6 +170,15 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   ticker.attach(0.2, tick);
 }
 
+//+=============================================================================
+// Gets called when device loses connection to the accesspoint
+//
+void lostWifiCallback (const WiFiEventStationModeDisconnected& evt) {
+  Serial.println("Lost Wifi");
+  // reset and try again, or maybe put it to deep sleep
+  ESP.reset();
+  delay(1000);
+}
 
 //+=============================================================================
 // First setup of the Wifi.
@@ -194,6 +203,7 @@ bool setupWifi(bool resetConf) {
   // set config save notify callback
   wifiManager.setSaveConfigCallback(saveConfigCallback);
 
+  // Reset device if on config portal for greater than 3 minutes
   wifiManager.setConfigPortalTimeout(180);
 
   if (SPIFFS.begin()) {
@@ -260,6 +270,9 @@ bool setupWifi(bool resetConf) {
     server = ESP8266WebServer(port);
   }
 
+  // Reset device if lost wifi Connection
+  WiFi.onStationModeDisconnected(&lostWifiCallback);
+  
   Serial.println("WiFi connected! User chose hostname '" + String(host_name) + String("' passcode '") + String(passcode) + "' and port '" + String(port_str) + "'");
 
   // save the custom parameters to FS
