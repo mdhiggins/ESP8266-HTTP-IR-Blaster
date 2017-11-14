@@ -41,7 +41,7 @@ Setup
 --------------
 1. Install [Arduino IDE](https://www.arduino.cc/en/main/software)
 2. Install [ESP8266 Arduino Core](https://github.com/esp8266/Arduino)
-3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson` `WiFiManager` `NTPClient` `IRremoteESP8266`
+3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson` `WiFiManager` `NTPClient` `IRremoteESP8266` as well as [`Cryptosuite`](https://github.com/jjssoftware/Cryptosuite) which is not on the IDE
 4. Load the `IRController.ino` blueprint from this repository
 5. Upload blueprint to your ESP8266 (the .ino file). Monitor via serial at 115200 baud rate
 6. Device will boot into WiFi access point mode initially with SSID `IRBlaster Configuration`, IP address `192.168.4.1`. Connect to this and configure your access point settings using WiFi Manager. If your router supports mDNS/Bonjour you can now access your device on your local network via the hostname you specified (`http://hostname.local:port/`), otherwise via its local IP address (this IP address is displayed on the serial output)
@@ -149,10 +149,9 @@ http://xxx.xxx.xxx.xxx:port/json?pass=yourpass&plain=[{"type":"nec","data":"FF82
 
 Security
 ---------------
-Due to limitations imposed by the hardware in the ESP8266, there are no good native encryption libraries to make use of HTTPS protocols and the ESP8266
-The passcode system provides some basic security but this system would be trivial to bypass to a 3rd party determined to gain access. Assuming the device becomes compromised it could be used to send IR commands to your devices. If your device is being used to control a potentially dangerous device such as a space heater, you should take additional precautions
+Due to limitations imposed by the hardware in the ESP8266, there is not enough free memory to communicate over HTTPS/SSL. To protect your devices, during the WiFiManager setup process you can specify your Amazon user_id which will act as a secret key that allows SHA256 HMAC authentication to take place. Without this time sensitive signature no codes will be sent from the device. The user_id is a unique identifier tied to your account and my developer account, not shared across any other Amazon services. This unique ID can be found at the bottom of the tehpsyc.pythonanywhere.com page. Enabling this feature will prevent sending commands via other means but greatly increases the security of the device.
 
-There are a few options that can be used to avoid this. You can use an intermediate service such as Smartthings (see below), use a reverse proxy with HTTPS support (which should work with the native Alexa skill) such a nginx, or handle everything on the local network and not use the functionality with Alexa. Regardless if you wish to implement this project it is a risk you should be aware of as the end user
+To send commands over SSL you can use an intermediate service such as Smartthings (see below), use a reverse proxy with HTTPS support (which should work with the native Alexa skill) such a nginx, or handle everything on the local network and not use the functionality with Alexa.
 
 This article provides some details on using nginx
 https://jjssoftware.github.io/secure-your-esp8266/
