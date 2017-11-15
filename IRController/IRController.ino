@@ -272,7 +272,7 @@ bool setupWifi(bool resetConf) {
 
   // Reset device if lost wifi Connection
   WiFi.onStationModeDisconnected(&lostWifiCallback);
-  
+
   Serial.println("WiFi connected! User chose hostname '" + String(host_name) + String("' passcode '") + String(passcode) + "' and port '" + String(port_str) + "'");
 
   // save the custom parameters to FS
@@ -411,11 +411,13 @@ void setup() {
         int pdelay = root[x]["pdelay"];
         int repeat = root[x]["repeat"];
         int out = root[x]["out"];
+        int duty = root[x]["duty"];
 
         if (pulse <= 0) pulse = 1; // Make sure pulse isn't 0
         if (repeat <= 0) repeat = 1; // Make sure repeat isn't 0
         if (pdelay <= 0) pdelay = 100; // Default pdelay
         if (rdelay <= 0) rdelay = 1000; // Default rdelay
+        if (duty <= 0) duty = 50; // Default duty
 
         // Handle device state limitations on a per JSON object basis
         String device = root[x]["device"];
@@ -443,7 +445,7 @@ void setup() {
           JsonArray &raw = root[x]["data"]; // Array of unsigned int values for the raw signal
           int khz = root[x]["khz"];
           if (khz <= 0) khz = 38; // Default to 38khz if not set
-          rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(out));
+          rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(out),duty);
         } else if (type == "roku") {
           String data = root[x]["data"];
           rokuCommand(ip, data);
@@ -1145,7 +1147,7 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
 }
 
 
-void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int repeat, IRsend irsend) {
+void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int repeat, IRsend irsend,int duty) {
   Serial.println("Raw transmit");
   holdReceive = true;
   Serial.println("Blocking incoming IR signals");
@@ -1154,7 +1156,7 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int re
     // Pulse Loop
     for (int p = 0; p < pulse; p++) {
       Serial.println("Sending code");
-      irsend.enableIROut(khz);
+      irsend.enableIROut(khz,duty);
       for (unsigned int i = 0; i < raw.size(); i++) {
         int val = raw[i];
         if (i & 1) irsend.space(std::max(0, val));
