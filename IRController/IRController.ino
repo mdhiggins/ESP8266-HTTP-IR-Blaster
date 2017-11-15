@@ -27,6 +27,10 @@ char port_str[6] = "80";
 char user_id[60] = "";
 const char* fingerprint = "8D 83 C3 5F 0A 09 84 AE B0 64 39 23 8F 05 9E 4D 5E 08 60 06";
 
+char static_ip[16] = "10.0.1.10";
+char static_gw[16] = "10.0.1.1";
+char static_sn[16] = "255.255.255.0";
+
 DynamicJsonBuffer jsonBuffer;
 JsonObject& deviceState = jsonBuffer.createObject();
 
@@ -293,6 +297,9 @@ bool setupWifi(bool resetConf) {
             strncpy(port_str, json["port_str"], 6);
             port = atoi(json["port_str"]);
           }
+          if (json.containsKey("ip")) strncpy(static_ip, json["ip"], 16);
+          if (json.containsKey("gw")) strncpy(static_gw, json["gw"], 16);
+          if (json.containsKey("sn")) strncpy(static_sn, json["sn"], 16);
         } else {
           Serial.println("failed to load json config");
         }
@@ -301,7 +308,6 @@ bool setupWifi(bool resetConf) {
   } else {
     Serial.println("failed to mount FS");
   }
-  // end read
 
   WiFiManagerParameter custom_hostname("hostname", "Choose a hostname to this IR Controller", host_name, 20);
   wifiManager.addParameter(&custom_hostname);
@@ -311,6 +317,13 @@ bool setupWifi(bool resetConf) {
   wifiManager.addParameter(&custom_port);
   WiFiManagerParameter custom_userid("user_id", "Enter your Amazon user_id", user_id, 60);
   wifiManager.addParameter(&custom_userid);
+
+  IPAddress sip, sgw, ssn;
+  sip.fromString(static_ip);
+  sgw.fromString(static_gw);
+  ssn.fromString(static_sn);
+  Serial.println("Using Static IP");
+  wifiManager.setSTAStaticIPConfig(sip, sgw, ssn);
 
   // fetches ssid and pass and tries to connect
   // if it does not connect it starts an access point with the specified name
@@ -345,6 +358,9 @@ bool setupWifi(bool resetConf) {
     json["passcode"] = passcode;
     json["port_str"] = port_str;
     json["user_id"] = user_id;
+    json["ip"] = WiFi.localIP().toString();
+    json["gw"] = WiFi.gatewayIP().toString();
+    json["sn"] = WiFi.subnetMask().toString();
 
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) {
@@ -402,7 +418,7 @@ void setup() {
   MDNS.addService("http", "tcp", port); // Announce the ESP as an HTTP service
   Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
 
-  if (getTime) timeClient.begin(); // Get the time
+  if (getTime || strlen(user_id) != 0) timeClient.begin(); // Get the time
 
   // Configure the server
   server.on("/json", []() { // JSON handler for more complicated IR blaster routines
@@ -1336,7 +1352,7 @@ void copyCode (Code& c1, Code& c2) {
 void loop() {
   server.handleClient();
   decode_results  results;                                        // Somewhere to store the results
-  if (getTime) timeClient.update();                               // Update the time
+  if (getTime || strlen(user_id) != 0) timeClient.update();                               // Update the time
 
   if (irrecv.decode(&results) && !holdReceive) {                  // Grab an IR code
     Serial.println("Signal received:");
