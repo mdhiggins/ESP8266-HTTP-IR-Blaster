@@ -62,7 +62,7 @@ Alexa Setup
 
 Server Info
 ---------------
-<img width="250" src="https://user-images.githubusercontent.com/3608298/27726397-5a6f6d62-5d48-11e7-886b-1af2007d47b5.png"><img width="250" src="https://user-images.githubusercontent.com/3608298/27726396-5a6dd9f2-5d48-11e7-967f-4d76ecf479d4.png">
+<img width="250" src="https://user-images.githubusercontent.com/3608298/32894315-73f01848-caaa-11e7-9d4e-fade1be2c7bd.png"><img width="250" src="https://user-images.githubusercontent.com/3608298/27726396-5a6dd9f2-5d48-11e7-967f-4d76ecf479d4.png">
 
 You may access basic device information at `http://xxx.xxx.xxx.xxx:port/` (webroot)
 
