@@ -119,6 +119,12 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature) {
 
     if (abs(timethen - timenow) > 30) {
       Serial.println("Failed security check, signature is too old");
+      Serial.print("Server: ");
+      Serial.println(timethen);
+      Serial.print("Local: ");
+      Serial.println(timenow);
+      Serial.print("MID: ");
+      Serial.println(mid);
       return false;
     }
 
@@ -137,10 +143,14 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature) {
       Serial.println(signature);
       Serial.print("2: ");
       Serial.println(computedSignature);
+      Serial.print("MID: ");
+      Serial.println(mid);
       return false;
     }
     
     Serial.println("Passed security check");
+    Serial.print("MID: ");
+    Serial.println(mid);
     return true;
 }
 
