@@ -546,7 +546,8 @@ void setup() {
           rokuCommand(ip, data);
         } else {
           String data = root[x]["data"];
-          long address = root[x]["address"];
+          String addressString = root[x]["address"];
+          long address = strtoul(addressString.c_str(), 0, 0);
           int len = root[x]["length"];
           irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
         }
@@ -617,7 +618,12 @@ void setup() {
       }
       
       int len = server.arg("length").toInt();
-      long address = (server.hasArg("address")) ? server.arg("address").toInt() : 0;
+      long address = 0;
+      if (server.hasArg("address")) {
+        String addressString = server.arg("address");
+        address = strtoul(addressString.c_str(), 0, 0);
+      }
+      
       int rdelay = (server.hasArg("rdelay")) ? server.arg("rdelay").toInt() : 1000;
       int pulse = (server.hasArg("pulse")) ? server.arg("pulse").toInt() : 1;
       int pdelay = (server.hasArg("pdelay")) ? server.arg("pdelay").toInt() : 100;
@@ -1225,6 +1231,7 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
       } else if (type == "whynter") {
         irsend.sendWhynter(data, len);
       } else if (type == "panasonic") {
+        Serial.print("Address: ");
         Serial.println(address);
         irsend.sendPanasonic(address, data);
       } else if (type == "jvc") {
