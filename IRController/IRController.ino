@@ -114,6 +114,10 @@ void resetReceive() {
 // Valid command request using HMAC
 //
 bool validateHMAC(String epid, String mid, String timestamp, String signature) {
+    if (!String(user_id).startsWith("amzn1.account.")) {
+      Serial.println("Warning, user_id appears to be in the wrong format, security check will most likely fail. Should start with amzn1.account.***");
+    }
+    
     time_t timethen = timestamp.toInt();
     time_t timenow = timeClient.getEpochTime() - timeOffset;
 
