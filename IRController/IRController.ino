@@ -1300,9 +1300,9 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int re
         else       irsend.mark(val);
       }
       irsend.space(0);
-      if (p + 1 < pdelay) delay(pdelay);
+      if (p + 1 < pulse) delay(pdelay);
     }
-    if (r + 1 < rdelay) delay(rdelay);
+    if (r + 1 < repeat) delay(rdelay);
   }
 
   Serial.println("Transmission complete");
