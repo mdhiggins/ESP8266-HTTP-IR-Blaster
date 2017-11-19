@@ -1261,9 +1261,9 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
       } else if (type == "roomba") {
         roomba_send(atoi(dataStr.c_str()), pulse, pdelay, irsend);
       }
-      if (p + 1 < pdelay) delay(pdelay);
+      if (p + 1 < pulse) delay(pdelay);
     }
-    if (r + 1 < rdelay) delay(rdelay);
+    if (r + 1 < repeat) delay(rdelay);
   }
 
   Serial.println("Transmission complete");
