@@ -456,7 +456,7 @@ void setup() {
         sendHomePage("JSON parsing failed", "Error", 3, 400); // 400
       }
       jsonBuffer.clear();
-    } else if (server.arg("pass") != passcode) {
+    } else if (strlen(passcode) != 0 && server.arg("pass") != passcode) {
       Serial.println("Unauthorized access");
       if (simple) {
         server.send(401, "text/plain", "Unauthorized, invalid passcode");
@@ -577,7 +577,7 @@ void setup() {
     String mid = server.arg("mid");
     String timestamp = server.arg("time");
 
-    if (server.arg("pass") != passcode) {
+    if (strlen(passcode) != 0 && server.arg("pass") != passcode) {
       Serial.println("Unauthorized access");
       if (simple) {
         server.send(401, "text/plain", "Unauthorized, invalid passcode");
