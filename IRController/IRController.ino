@@ -428,7 +428,7 @@ void setup() {
     Serial.println("mDNS started. Hostname is set to " + String(host_name) + ".local");
   }
   Serial.print("Local IP: ");
-  Serial.println(ipToString(WiFi.localIP()));
+  Serial.println(WiFi.localIP().toString());
   MDNS.addService("http", "tcp", port); // Announce the ESP as an HTTP service
   Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
 
@@ -694,19 +694,6 @@ void setup() {
   Serial.println("Ready to send and receive IR signals");
 }
 
-
-//+=============================================================================
-// IP Address to String
-//
-String ipToString(IPAddress ip)
-{
-  String s="";
-  for (int i=0; i<4; i++)
-    s += i  ? "." + String(ip[i]) : String(ip[i]);
-  return s;
-}
-
-
 //+=============================================================================
 // Send command to local roku
 //
@@ -867,7 +854,7 @@ void sendHeader(int httpcode) {
   server.sendContent("            <li class='active'>\n");
   server.sendContent("              <a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'>Hostname <span class='badge'>" + String(host_name) + ".local" + ":" + String(port) + "</span></a></li>\n");
   server.sendContent("            <li class='active'>\n");
-  server.sendContent("              <a href='http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "'>Local <span class='badge'>" + ipToString(WiFi.localIP()) + ":" + String(port) + "</span></a></li>\n");
+  server.sendContent("              <a href='http://" + WiFi.localIP().toString() + ":" + String(port) + "'>Local <span class='badge'>" + WiFi.localIP().toString() + ":" + String(port) + "</span></a></li>\n");
   server.sendContent("            <li class='active'>\n");
   server.sendContent("              <a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>\n");
   server.sendContent("            <li class='active'>\n");
@@ -1005,7 +992,7 @@ void sendCodePage(Code selCode, int httpcode){
   server.sendContent("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
   server.sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':[" + String(selCode.raw) + "], 'type':'raw', 'khz':38}]</pre></li>\n");
   server.sendContent("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
-  server.sendContent("            <li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':[" + String(selCode.raw) + "], 'type':'raw', 'khz':38}]</pre></li>\n");
+  server.sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{'data':[" + String(selCode.raw) + "], 'type':'raw', 'khz':38}]</pre></li>\n");
   server.sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
   server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':[" + String(selCode.raw) + "], 'type':'raw', 'khz':38}]</pre></li></ul>\n");
   } else {
@@ -1015,14 +1002,14 @@ void sendCodePage(Code selCode, int httpcode){
   server.sendContent("            <li>Hostname <span class='label label-default'>MSG</span></li>\n");
   server.sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li>\n");
   server.sendContent("            <li>Local IP <span class='label label-default'>MSG</span></li>\n");
-  server.sendContent("            <li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li>\n");
+  server.sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li>\n");
   server.sendContent("            <li>External IP <span class='label label-default'>MSG</span></li>\n");
   server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode.data + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li></ul>\n");
   server.sendContent("          <ul class='list-unstyled'>\n");
   server.sendContent("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
   server.sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "', 'type':'" + String(selCode.encoding) + "', 'length':" + String(selCode.bits) + "}]</pre></li>\n");
   server.sendContent("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
-  server.sendContent("            <li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "', 'type':'" + String(selCode.encoding) + "', 'length':" + String(selCode.bits) + "}]</pre></li>\n");
+  server.sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "', 'type':'" + String(selCode.encoding) + "', 'length':" + String(selCode.bits) + "}]</pre></li>\n");
   server.sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
   server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "', 'type':'" + String(selCode.encoding) + "', 'length':" + String(selCode.bits) + "}]</pre></li></ul>\n");
   }
@@ -1276,7 +1263,7 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
   strncpy(last_send.data, dataStr.c_str(), 40);
   last_send.bits = len;
   strncpy(last_send.encoding, type.c_str(), 20);
-  strncpy(last_send.address, String(address).c_str(), 20);
+  strncpy(last_send.address, ("0x" + String(address, HEX)).c_str(), 20);
   strncpy(last_send.timestamp, String(timeClient.getFormattedTime()).c_str(), 40);
   last_send.valid = true;
 
@@ -1315,7 +1302,7 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int re
   strncpy(last_send.data, "", 40);
   last_send.bits = raw.size();
   strncpy(last_send.encoding, "RAW", 20);
-  strncpy(last_send.address, "0", 40);
+  strncpy(last_send.address, "0x0", 40);
   strncpy(last_send.timestamp, String(timeClient.getFormattedTime()).c_str(), 40);
   last_send.valid = true;
 
