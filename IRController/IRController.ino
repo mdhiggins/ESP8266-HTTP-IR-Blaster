@@ -59,7 +59,7 @@ const char* poolServerName = "time.nist.gov";
 
 const bool getTime = true;                                     // Set to false to disable querying for the time
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, poolServerName, timeOffset, (int)resetfrequency);
+NTPClient timeClient(ntpUDP, poolServerName, timeOffset, 3600000);
 
 const bool getExternalIP = true;                               // Set to false to disable querying external IP
 String _ip = "";
@@ -117,7 +117,7 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature) {
     if (!String(user_id).startsWith("amzn1.account.")) {
       Serial.println("Warning, user_id appears to be in the wrong format, security check will most likely fail. Should start with amzn1.account.***");
     }
-    
+
     time_t timethen = timestamp.toInt();
     time_t timenow = timeClient.getEpochTime() - timeOffset;
 
@@ -151,7 +151,7 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature) {
       Serial.println(mid);
       return false;
     }
-    
+
     Serial.println("Passed security check");
     Serial.print("MID: ");
     Serial.println(mid);
@@ -165,7 +165,7 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature) {
 String getUserID(String token)
 {
   http.setTimeout(5000);
-  String url = "https://api.amazon.com/user/profile?access_token=";  
+  String url = "https://api.amazon.com/user/profile?access_token=";
   String uid = "";
   http.begin(url + token, fingerprint);
   int httpCode = http.GET();
@@ -447,7 +447,7 @@ void setup() {
     String epid = server.arg("epid");
     String mid = server.arg("mid");
     String timestamp = server.arg("time");
-    
+
     if (!root.success()) {
       Serial.println("JSON parsing failed");
       if (simple) {
@@ -530,7 +530,7 @@ void setup() {
               continue;
             } else {
               Serial.println("Setting device " + device + " to state " + state);
-              deviceState[device] = state;  
+              deviceState[device] = state;
             }
           } else {
             Serial.println("Setting device " + device + " to state " + state);
@@ -569,7 +569,7 @@ void setup() {
   // Setup simple msg server to mirror version 1.0 functionality
   server.on("/msg", []() {
     Serial.println("Connection received - MSG");
-    
+
     int simple = 0;
     if (server.hasArg("simple")) simple = server.arg("simple").toInt();
     String signature = server.arg("auth");
@@ -620,14 +620,14 @@ void setup() {
           deviceState[device] = state;
         }
       }
-      
+
       int len = server.arg("length").toInt();
       long address = 0;
       if (server.hasArg("address")) {
         String addressString = server.arg("address");
         address = strtoul(addressString.c_str(), 0, 0);
       }
-      
+
       int rdelay = (server.hasArg("rdelay")) ? server.arg("rdelay").toInt() : 1000;
       int pulse = (server.hasArg("pulse")) ? server.arg("pulse").toInt() : 1;
       int pdelay = (server.hasArg("pdelay")) ? server.arg("pdelay").toInt() : 100;
@@ -1168,14 +1168,14 @@ void dumpCode(decode_results *results) {
 //
 String bin2hex(const uint8_t* bin, const int length) {
   String hex = "";
-  
+
   for (int i = 0; i < length; i++) {
     if (bin[i] < 16) {
       hex += "0";
     }
     hex += String(bin[i], HEX);
   }
-  
+
   return hex;
 }
 
@@ -1279,7 +1279,7 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
   strncpy(last_send.address, String(address).c_str(), 20);
   strncpy(last_send.timestamp, String(timeClient.getFormattedTime()).c_str(), 40);
   last_send.valid = true;
-  
+
   resetReceive();
 }
 
