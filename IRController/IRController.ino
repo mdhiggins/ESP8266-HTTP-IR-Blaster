@@ -62,7 +62,7 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, poolServerName, timeOffset, 3600000);
 
 const bool getExternalIP = true;                               // Set to false to disable querying external IP
-String _ip = "";
+char _ip[16] = "";
 unsigned long lastupdate = 0;
 
 class Code {
@@ -205,12 +205,12 @@ String externalIP()
     return "0.0.0.0"; // User doesn't want the external IP
   }
 
-  if (_ip != "") {
+  if (strlen(_ip) > 0) {
     if (millis() - lastupdate > resetfrequency || lastupdate > millis()) {
       Serial.println("Reseting cached external IP address");
-      _ip = ""; // Reset the cached external IP every 72 hours
+      strncpy(_ip, "", 16); // Reset the cached external IP every 72 hours
     } else {
-      return _ip;
+      return String(_ip); // Return the cached external IP
     }
   }
   unsigned long start = millis();
@@ -222,7 +222,7 @@ String externalIP()
     String payload = http.getString();
     int pos_start = payload.indexOf("IP Address") + 12; // add 10 for "IP Address" and 2 for ":" + "space"
     int pos_end = payload.indexOf("</body>", pos_start); // add nothing
-    _ip = payload.substring(pos_start, pos_end);
+    strncpy(_ip, payload.substring(pos_start, pos_end).c_str(), 16);
     Serial.print(F("External IP: "));
     Serial.println(_ip);
   } else {
