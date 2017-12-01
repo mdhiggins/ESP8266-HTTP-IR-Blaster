@@ -35,7 +35,7 @@ https://www.silabs.com/products/mcu/Pages/USBtoUARTBridgeVCPDrivers.aspx
 
 Alexa Skill
 --------------
-The companion skill for the Amazon Alexa service is available [here](https://www.amazon.com/Michael-Higgins-IR-Controller/dp/B0762YYDS9) for US customers only. As Amazon makes the V3 smart home skill API available to additional markets I will aim to expand
+The companion skill for the Amazon Alexa service is available [here](https://www.amazon.com/Michael-Higgins-IR-Controller/dp/B0762YYDS9) for US/CA/UK/IN/DE Alexa customers
 
 Setup
 --------------
