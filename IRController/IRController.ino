@@ -17,6 +17,15 @@
 #include <Ticker.h>                                           // For LED status
 #include <NTPClient.h>
 
+// User settings are below here
+
+const bool getExternalIP = false;                               // Set to false to disable querying external IP
+
+const bool getTime = true;                                     // Set to false to disable querying for the time
+const int timeOffset = -14400;                                 // Timezone offset in seconds
+
+// User settings are above here
+
 const int configpin = 10;                                     // GPIO10
 const int ledpin = BUILTIN_LED;                               // Built in LED defined for WEMOS people
 const char *wifi_config_name = "IR Controller Configuration";
@@ -55,15 +64,13 @@ IRsend irsend3(pins3);
 IRsend irsend4(pins4);
 
 const unsigned long resetfrequency = 259200000;                // 72 hours in milliseconds
-const int timeOffset = -14400;                                 // Timezone offset in seconds
 const char* poolServerName = "time.nist.gov";
 
-const bool getTime = true;                                     // Set to false to disable querying for the time
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, poolServerName, timeOffset, 3600000);
 
-const bool getExternalIP = true;                               // Set to false to disable querying external IP
 char _ip[16] = "";
+
 unsigned long lastupdate = 0;
 
 class Code {
@@ -262,6 +269,15 @@ void configModeCallback (WiFiManager *myWiFiManager) {
   ticker.attach(0.2, tick);
 }
 
+//+=============================================================================
+// Gets called when device loses connection to the accesspoint
+//
+void lostWifiCallback (const WiFiEventStationModeDisconnected& evt) {
+  Serial.println("Lost Wifi");
+  // reset and try again, or maybe put it to deep sleep
+  ESP.reset();
+  delay(1000);
+}
 
 //+=============================================================================
 // First setup of the Wifi.
@@ -285,6 +301,9 @@ bool setupWifi(bool resetConf) {
   wifiManager.setAPCallback(configModeCallback);
   // set config save notify callback
   wifiManager.setSaveConfigCallback(saveConfigCallback);
+
+  // Reset device if on config portal for greater than 3 minutes
+  wifiManager.setConfigPortalTimeout(180);
 
   if (SPIFFS.begin()) {
     Serial.println("mounted file system");
@@ -324,6 +343,8 @@ bool setupWifi(bool resetConf) {
     Serial.println("failed to mount FS");
   }
 
+
+  WiFi.hostname().toCharArray(host_name, 20);
   WiFiManagerParameter custom_hostname("hostname", "Choose a hostname to this IR Controller", host_name, 20);
   wifiManager.addParameter(&custom_hostname);
   WiFiManagerParameter custom_passcode("passcode", "Choose a passcode", passcode, 20);
@@ -361,6 +382,9 @@ bool setupWifi(bool resetConf) {
     Serial.println("Default port changed");
     server = ESP8266WebServer(port);
   }
+
+  // Reset device if lost wifi Connection
+  WiFi.onStationModeDisconnected(&lostWifiCallback);
 
   Serial.println("WiFi connected! User chose hostname '" + String(host_name) + String("' passcode '") + String(passcode) + "' and port '" + String(port_str) + "'");
 
@@ -535,11 +559,13 @@ void setup() {
         int pdelay = root[x]["pdelay"];
         int repeat = root[x]["repeat"];
         int out = root[x]["out"];
+        int duty = root[x]["duty"];
 
         if (pulse <= 0) pulse = 1; // Make sure pulse isn't 0
         if (repeat <= 0) repeat = 1; // Make sure repeat isn't 0
         if (pdelay <= 0) pdelay = 100; // Default pdelay
         if (rdelay <= 0) rdelay = 1000; // Default rdelay
+        if (duty <= 0) duty = 50; // Default duty
 
         // Handle device state limitations on a per JSON object basis
         String device = root[x]["device"];
@@ -567,7 +593,7 @@ void setup() {
           JsonArray &raw = root[x]["data"]; // Array of unsigned int values for the raw signal
           int khz = root[x]["khz"];
           if (khz <= 0) khz = 38; // Default to 38khz if not set
-          rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(out));
+          rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(out),duty);
         } else if (type == "roku") {
           String data = root[x]["data"];
           rokuCommand(ip, data);
@@ -1294,7 +1320,7 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
 }
 
 
-void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int repeat, IRsend irsend) {
+void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int repeat, IRsend irsend,int duty) {
   Serial.println("Raw transmit");
   holdReceive = true;
   Serial.println("Blocking incoming IR signals");
@@ -1303,7 +1329,7 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int re
     // Pulse Loop
     for (int p = 0; p < pulse; p++) {
       Serial.println("Sending code");
-      irsend.enableIROut(khz);
+      irsend.enableIROut(khz,duty);
       for (unsigned int i = 0; i < raw.size(); i++) {
         int val = raw[i];
         if (i & 1) irsend.space(std::max(0, val));
