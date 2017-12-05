@@ -11,6 +11,8 @@
 #include <ArduinoJson.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
+#include <ArduinoOTA.h>
+#include "sha256.h"
 
 #include <Ticker.h>                                           // For LED status
 #include <NTPClient.h>
@@ -29,21 +31,17 @@ const int ledpin = BUILTIN_LED;                               // Built in LED de
 const char *wifi_config_name = "IR Controller Configuration";
 const char serverName[] = "checkip.dyndns.org";
 int port = 80;
-char passcode[40] = "";
-char host_name[40] = "";
-char port_str[20] = "80";
-DynamicJsonBuffer jsonBuffer;
-JsonObject& last_code = jsonBuffer.createObject();            // Stores last code
-JsonObject& last_code_2 = jsonBuffer.createObject();          // Stores 2nd to last code
-JsonObject& last_code_3 = jsonBuffer.createObject();          // Stores 3rd to last code
-JsonObject& last_code_4 = jsonBuffer.createObject();          // Stores 4th to last code
-JsonObject& last_code_5 = jsonBuffer.createObject();          // Stores 5th to last code
-JsonObject& last_send = jsonBuffer.createObject();            // Stores last sent
-JsonObject& last_send_2 = jsonBuffer.createObject();          // Stores 2nd last sent
-JsonObject& last_send_3 = jsonBuffer.createObject();          // Stores 3rd last sent
-JsonObject& last_send_4 = jsonBuffer.createObject();          // Stores 4th last sent
-JsonObject& last_send_5 = jsonBuffer.createObject();          // Stores 5th last sent
+char passcode[20] = "";
+char host_name[20] = "";
+char port_str[6] = "80";
+char user_id[60] = "";
+const char* fingerprint = "8D 83 C3 5F 0A 09 84 AE B0 64 39 23 8F 05 9E 4D 5E 08 60 06";
 
+char static_ip[16] = "10.0.1.10";
+char static_gw[16] = "10.0.1.1";
+char static_sn[16] = "255.255.255.0";
+
+DynamicJsonBuffer jsonBuffer;
 JsonObject& deviceState = jsonBuffer.createObject();
 
 ESP8266WebServer server(port);
@@ -69,10 +67,35 @@ const unsigned long resetfrequency = 259200000;                // 72 hours in mi
 const char* poolServerName = "time.nist.gov";
 
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, poolServerName, timeOffset, (int)resetfrequency);
+NTPClient timeClient(ntpUDP, poolServerName, timeOffset, 3600000);
 
-String _ip = "";
+char _ip[16] = "";
+
 unsigned long lastupdate = 0;
+
+class Code {
+  public:
+    char encoding[14] = "";
+    char address[20] = "";
+    char command[40] = "";
+    char data[40] = "";
+    String raw = "";
+    int bits = 0;
+    char timestamp[40] = "";
+    bool valid = false;
+};
+
+Code last_recv;
+Code last_recv_2;
+Code last_recv_3;
+Code last_recv_4;
+Code last_recv_5;
+Code last_send;
+Code last_send_2;
+Code last_send_3;
+Code last_send_4;
+Code last_send_5;
+
 
 //+=============================================================================
 // Callback notifying us of the need to save config
@@ -96,6 +119,82 @@ void resetReceive() {
 
 
 //+=============================================================================
+// Valid command request using HMAC
+//
+bool validateHMAC(String epid, String mid, String timestamp, String signature) {
+    if (!String(user_id).startsWith("amzn1.account.")) {
+      Serial.println("Warning, user_id appears to be in the wrong format, security check will most likely fail. Should start with amzn1.account.***");
+    }
+
+    time_t timethen = timestamp.toInt();
+    time_t timenow = timeClient.getEpochTime() - timeOffset;
+
+    if (abs(timethen - timenow) > 30) {
+      Serial.println("Failed security check, signature is too old");
+      Serial.print("Server: ");
+      Serial.println(timethen);
+      Serial.print("Local: ");
+      Serial.println(timenow);
+      Serial.print("MID: ");
+      Serial.println(mid);
+      return false;
+    }
+
+    uint8_t *hash;
+    String key = String(user_id);
+    Sha256.initHmac((uint8_t*)key.c_str(), key.length()); // key, and length of key in bytes
+    Sha256.print(epid);
+    Sha256.print(mid);
+    Sha256.print(timestamp);
+    hash = Sha256.resultHmac();
+    String computedSignature = bin2hex(hash, HASH_LENGTH);
+
+    if (computedSignature != signature) {
+      Serial.println("Failed security check, signatures do not match");
+      Serial.print("1: ");
+      Serial.println(signature);
+      Serial.print("2: ");
+      Serial.println(computedSignature);
+      Serial.print("MID: ");
+      Serial.println(mid);
+      return false;
+    }
+
+    Serial.println("Passed security check");
+    Serial.print("MID: ");
+    Serial.println(mid);
+    return true;
+}
+
+
+//+=============================================================================
+// Get User_ID from Amazon Token (memory intensive and causes crashing)
+//
+String getUserID(String token)
+{
+  http.setTimeout(5000);
+  String url = "https://api.amazon.com/user/profile?access_token=";
+  String uid = "";
+  http.begin(url + token, fingerprint);
+  int httpCode = http.GET();
+  String payload = http.getString();
+  Serial.println(url + token);
+  Serial.println(httpCode);
+  Serial.println(payload);
+  if (httpCode > 0 && httpCode == HTTP_CODE_OK) {
+    DynamicJsonBuffer jsonBuffer;
+    JsonObject& json = jsonBuffer.parseObject(payload);
+    uid = json["user_id"].as<String>();
+  } else {
+    Serial.println("Error retrieving user_id");
+    payload = "";
+  }
+  http.end();
+  return uid;
+}
+
+
+//+=============================================================================
 // Toggle state
 //
 void tick()
@@ -114,12 +213,12 @@ String externalIP()
     return "0.0.0.0"; // User doesn't want the external IP
   }
 
-  if (_ip != "") {
+  if (strlen(_ip) > 0) {
     if (millis() - lastupdate > resetfrequency || lastupdate > millis()) {
       Serial.println("Reseting cached external IP address");
-      _ip = ""; // Reset the cached external IP every 72 hours
+      strncpy(_ip, "", 16); // Reset the cached external IP every 72 hours
     } else {
-      return _ip;
+      return String(_ip); // Return the cached external IP
     }
   }
   unsigned long start = millis();
@@ -131,14 +230,14 @@ String externalIP()
     String payload = http.getString();
     int pos_start = payload.indexOf("IP Address") + 12; // add 10 for "IP Address" and 2 for ":" + "space"
     int pos_end = payload.indexOf("</body>", pos_start); // add nothing
-    _ip = payload.substring(pos_start, pos_end);
+    strncpy(_ip, payload.substring(pos_start, pos_end).c_str(), 16);
     Serial.print(F("External IP: "));
     Serial.println(_ip);
-    http.end();
   } else {
     Serial.println("Error retrieving external IP");
   }
 
+  http.end();
   Serial.print("External IP address request took ");
   Serial.print(millis() - start);
   Serial.println(" ms");
@@ -225,12 +324,16 @@ bool setupWifi(bool resetConf) {
         if (json.success()) {
           Serial.println("\nparsed json");
 
-          if (json.containsKey("hostname")) strncpy(host_name, json["hostname"], 40);
-          if (json.containsKey("passcode")) strncpy(passcode, json["passcode"], 40);
+          if (json.containsKey("hostname")) strncpy(host_name, json["hostname"], 20);
+          if (json.containsKey("passcode")) strncpy(passcode, json["passcode"], 20);
+          if (json.containsKey("user_id")) strncpy(user_id, json["user_id"], 60);
           if (json.containsKey("port_str")) {
-            strncpy(port_str, json["port_str"], 20);
+            strncpy(port_str, json["port_str"], 6);
             port = atoi(json["port_str"]);
           }
+          if (json.containsKey("ip")) strncpy(static_ip, json["ip"], 16);
+          if (json.containsKey("gw")) strncpy(static_gw, json["gw"], 16);
+          if (json.containsKey("sn")) strncpy(static_sn, json["sn"], 16);
         } else {
           Serial.println("failed to load json config");
         }
@@ -239,15 +342,24 @@ bool setupWifi(bool resetConf) {
   } else {
     Serial.println("failed to mount FS");
   }
-  // end read
 
-  WiFi.hostname().toCharArray(host_name, 40);
-  WiFiManagerParameter custom_hostname("hostname", "Choose a hostname to this IR Controller", host_name, 40);
+
+  WiFi.hostname().toCharArray(host_name, 20);
+  WiFiManagerParameter custom_hostname("hostname", "Choose a hostname to this IR Controller", host_name, 20);
   wifiManager.addParameter(&custom_hostname);
-  WiFiManagerParameter custom_passcode("passcode", "Choose a passcode", passcode, 40);
+  WiFiManagerParameter custom_passcode("passcode", "Choose a passcode", passcode, 20);
   wifiManager.addParameter(&custom_passcode);
-  WiFiManagerParameter custom_port("port_str", "Choose a port", port_str, 40);
+  WiFiManagerParameter custom_port("port_str", "Choose a port", port_str, 6);
   wifiManager.addParameter(&custom_port);
+  WiFiManagerParameter custom_userid("user_id", "Enter your Amazon user_id", user_id, 60);
+  wifiManager.addParameter(&custom_userid);
+
+  IPAddress sip, sgw, ssn;
+  sip.fromString(static_ip);
+  sgw.fromString(static_gw);
+  ssn.fromString(static_sn);
+  Serial.println("Using Static IP");
+  wifiManager.setSTAStaticIPConfig(sip, sgw, ssn);
 
   // fetches ssid and pass and tries to connect
   // if it does not connect it starts an access point with the specified name
@@ -260,9 +372,10 @@ bool setupWifi(bool resetConf) {
   }
 
   // if you get here you have connected to the WiFi
-  strncpy(host_name, custom_hostname.getValue(), 40);
-  strncpy(passcode, custom_passcode.getValue(), 40);
-  strncpy(port_str, custom_port.getValue(), 20);
+  strncpy(host_name, custom_hostname.getValue(), 20);
+  strncpy(passcode, custom_passcode.getValue(), 20);
+  strncpy(port_str, custom_port.getValue(), 6);
+  strncpy(user_id, custom_userid.getValue(), 60);
   port = atoi(port_str);
 
   if (port != 80) {
@@ -272,7 +385,7 @@ bool setupWifi(bool resetConf) {
 
   // Reset device if lost wifi Connection
   WiFi.onStationModeDisconnected(&lostWifiCallback);
-  
+
   Serial.println("WiFi connected! User chose hostname '" + String(host_name) + String("' passcode '") + String(passcode) + "' and port '" + String(port_str) + "'");
 
   // save the custom parameters to FS
@@ -283,6 +396,10 @@ bool setupWifi(bool resetConf) {
     json["hostname"] = host_name;
     json["passcode"] = passcode;
     json["port_str"] = port_str;
+    json["user_id"] = user_id;
+    json["ip"] = WiFi.localIP().toString();
+    json["gw"] = WiFi.gatewayIP().toString();
+    json["sn"] = WiFi.subnetMask().toString();
 
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) {
@@ -293,6 +410,7 @@ bool setupWifi(bool resetConf) {
     Serial.println("");
     json.printTo(configFile);
     configFile.close();
+    jsonBuffer.clear();
   }
   ticker.detach();
 
@@ -335,11 +453,33 @@ void setup() {
     Serial.println("mDNS started. Hostname is set to " + String(host_name) + ".local");
   }
   Serial.print("Local IP: ");
-  Serial.println(ipToString(WiFi.localIP()));
+  Serial.println(WiFi.localIP().toString());
   MDNS.addService("http", "tcp", port); // Announce the ESP as an HTTP service
   Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
 
-  if (getTime) timeClient.begin(); // Get the time
+  if (getTime || strlen(user_id) != 0) timeClient.begin(); // Get the time
+
+  // Configure OTA Update
+  ArduinoOTA.setPort(8266);
+  ArduinoOTA.setHostname(host_name);
+  ArduinoOTA.onStart([]() {
+    Serial.println("Start");
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nEnd");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
+  ArduinoOTA.begin();
 
   // Configure the server
   server.on("/json", []() { // JSON handler for more complicated IR blaster routines
@@ -350,6 +490,10 @@ void setup() {
 
     int simple = 0;
     if (server.hasArg("simple")) simple = server.arg("simple").toInt();
+    String signature = server.arg("auth");
+    String epid = server.arg("epid");
+    String mid = server.arg("mid");
+    String timestamp = server.arg("time");
 
     if (!root.success()) {
       Serial.println("JSON parsing failed");
@@ -358,13 +502,17 @@ void setup() {
       } else {
         sendHomePage("JSON parsing failed", "Error", 3, 400); // 400
       }
-    } else if (server.arg("pass") != passcode) {
+      jsonBuffer.clear();
+    } else if (strlen(passcode) != 0 && server.arg("pass") != passcode) {
       Serial.println("Unauthorized access");
       if (simple) {
         server.send(401, "text/plain", "Unauthorized, invalid passcode");
       } else {
         sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
       }
+      jsonBuffer.clear();
+    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature)) {
+      server.send(401, "text/plain", "Unauthorized, HMAC security authentication failed");
     } else {
       digitalWrite(ledpin, LOW);
       ticker.attach(0.5, disableLed);
@@ -449,7 +597,8 @@ void setup() {
           rokuCommand(ip, data);
         } else {
           String data = root[x]["data"];
-          long address = root[x]["address"];
+          String addressString = root[x]["address"];
+          long address = strtoul(addressString.c_str(), 0, 0);
           int len = root[x]["length"];
           irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
         }
@@ -459,22 +608,31 @@ void setup() {
         Serial.println("Sending home page");
         sendHomePage(message, "Success", 1); // 200
       }
+
+      jsonBuffer.clear();
     }
   });
 
   // Setup simple msg server to mirror version 1.0 functionality
   server.on("/msg", []() {
     Serial.println("Connection received - MSG");
+
     int simple = 0;
     if (server.hasArg("simple")) simple = server.arg("simple").toInt();
+    String signature = server.arg("auth");
+    String epid = server.arg("epid");
+    String mid = server.arg("mid");
+    String timestamp = server.arg("time");
 
-    if (server.arg("pass") != passcode) {
+    if (strlen(passcode) != 0 && server.arg("pass") != passcode) {
       Serial.println("Unauthorized access");
       if (simple) {
         server.send(401, "text/plain", "Unauthorized, invalid passcode");
       } else {
         sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
       }
+    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature)) {
+      server.send(401, "text/plain", "Unauthorized, HMAC security authentication");
     } else {
       digitalWrite(ledpin, LOW);
       ticker.attach(0.5, disableLed);
@@ -511,7 +669,12 @@ void setup() {
       }
 
       int len = server.arg("length").toInt();
-      long address = (server.hasArg("address")) ? server.arg("address").toInt() : 0;
+      long address = 0;
+      if (server.hasArg("address")) {
+        String addressString = server.arg("address");
+        address = strtoul(addressString.c_str(), 0, 0);
+      }
+
       int rdelay = (server.hasArg("rdelay")) ? server.arg("rdelay").toInt() : 1000;
       int pulse = (server.hasArg("pulse")) ? server.arg("pulse").toInt() : 1;
       int pdelay = (server.hasArg("pdelay")) ? server.arg("pdelay").toInt() : 100;
@@ -545,16 +708,16 @@ void setup() {
     Serial.println("Connection received");
     int id = server.arg("id").toInt();
     String output;
-    if (id == 1 && last_code.containsKey("time")) {
-      sendCodePage(last_code);
-    } else if (id == 2 && last_code_2.containsKey("time")) {
-      sendCodePage(last_code_2);
-    } else if (id == 3 && last_code_3.containsKey("time")) {
-      sendCodePage(last_code_3);
-    } else if (id == 4 && last_code_4.containsKey("time")) {
-      sendCodePage(last_code_4);
-    } else if (id == 5 && last_code_5.containsKey("time")) {
-      sendCodePage(last_code_5);
+    if (id == 1 && last_recv.valid) {
+      sendCodePage(last_recv);
+    } else if (id == 2 && last_recv_2.valid) {
+      sendCodePage(last_recv_2);
+    } else if (id == 3 && last_recv_3.valid) {
+      sendCodePage(last_recv_3);
+    } else if (id == 4 && last_recv_4.valid) {
+      sendCodePage(last_recv_4);
+    } else if (id == 5 && last_recv_5.valid) {
+      sendCodePage(last_recv_5);
     } else {
       sendHomePage("Code does not exist", "Alert", 2, 404); // 404
     }
@@ -578,19 +741,6 @@ void setup() {
   Serial.println("Ready to send and receive IR signals");
 }
 
-
-//+=============================================================================
-// IP Address to String
-//
-String ipToString(IPAddress ip)
-{
-  String s="";
-  for (int i=0; i<4; i++)
-    s += i  ? "." + String(ip[i]) : String(ip[i]);
-  return s;
-}
-
-
 //+=============================================================================
 // Send command to local roku
 //
@@ -600,20 +750,22 @@ int rokuCommand(String ip, String data) {
   Serial.println(url);
   Serial.println("Sending roku command");
 
-  copyJsonSend(last_send_4, last_send_5);
-  copyJsonSend(last_send_3, last_send_4);
-  copyJsonSend(last_send_2, last_send_3);
-  copyJsonSend(last_send, last_send_2);
+  copyCode(last_send_4, last_send_5);
+  copyCode(last_send_3, last_send_4);
+  copyCode(last_send_2, last_send_3);
+  copyCode(last_send, last_send_2);
 
-  last_send["data"] = data;
-  last_send["len"] = 1;
-  last_send["type"] = "roku";
-  last_send["address"] = ip;
-  last_send["time"] = String(timeClient.getFormattedTime());
-  return http.POST("");
+  strncpy(last_send.data, data.c_str(), 40);
+  last_send.bits = 1;
+  strncpy(last_send.encoding, "roku", 20);
+  strncpy(last_send.address, ip.c_str(), 40);
+  strncpy(last_recv.timestamp, String(timeClient.getFormattedTime()).c_str(), 40);
+  last_send.valid = true;
+
+  int output = http.POST("");
   http.end();
+  return output;
 }
-
 
 //+=============================================================================
 // Split string by character
@@ -749,7 +901,7 @@ void sendHeader(int httpcode) {
   server.sendContent("            <li class='active'>\n");
   server.sendContent("              <a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'>Hostname <span class='badge'>" + String(host_name) + ".local" + ":" + String(port) + "</span></a></li>\n");
   server.sendContent("            <li class='active'>\n");
-  server.sendContent("              <a href='http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "'>Local <span class='badge'>" + ipToString(WiFi.localIP()) + ":" + String(port) + "</span></a></li>\n");
+  server.sendContent("              <a href='http://" + WiFi.localIP().toString() + ":" + String(port) + "'>Local <span class='badge'>" + WiFi.localIP().toString() + ":" + String(port) + "</span></a></li>\n");
   server.sendContent("            <li class='active'>\n");
   server.sendContent("              <a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>\n");
   server.sendContent("            <li class='active'>\n");
@@ -764,6 +916,8 @@ void sendHeader(int httpcode) {
 //
 void sendFooter() {
   server.sendContent("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime</em></div></div>\n");
+  if (strlen(user_id) != 0)
+  server.sendContent("      <div class='row'><div class='col-md-12'><em>Device secured with SHA256 authentication. Only commands sent and verified with Amazon Alexa and the IR Controller Skill will be processed</em></div></div>");
   server.sendContent("    </div>\n");
   server.sendContent("  </body>\n");
   server.sendContent("</html>\n");
@@ -799,17 +953,17 @@ void sendHomePage(String message, String header, int type, int httpcode) {
   server.sendContent("          <table class='table table-striped' style='table-layout: fixed;'>\n");
   server.sendContent("            <thead><tr><th>Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>\n"); //Title
   server.sendContent("            <tbody>\n");
-  if (last_send.containsKey("time"))
-  server.sendContent("              <tr class='text-uppercase'><td>" + last_send["time"].as<String>() + "</td><td><code>" + last_send["data"].as<String>() + "</code></td><td><code>" + last_send["type"].as<String>() + "</code></td><td><code>" + last_send["len"].as<String>() + "</code></td><td><code>" + last_send["address"].as<String>() + "</code></td></tr>\n");
-  if (last_send_2.containsKey("time"))
-  server.sendContent("              <tr class='text-uppercase'><td>" + last_send_2["time"].as<String>() + "</td><td><code>" + last_send_2["data"].as<String>() + "</code></td><td><code>" + last_send_2["type"].as<String>() + "</code></td><td><code>" + last_send_2["len"].as<String>() + "</code></td><td><code>" + last_send_2["address"].as<String>() + "</code></td></tr>\n");
-  if (last_send_3.containsKey("time"))
-  server.sendContent("              <tr class='text-uppercase'><td>" + last_send_3["time"].as<String>() + "</td><td><code>" + last_send_3["data"].as<String>() + "</code></td><td><code>" + last_send_3["type"].as<String>() + "</code></td><td><code>" + last_send_3["len"].as<String>() + "</code></td><td><code>" + last_send_3["address"].as<String>() + "</code></td></tr>\n");
-  if (last_send_4.containsKey("time"))
-  server.sendContent("              <tr class='text-uppercase'><td>" + last_send_4["time"].as<String>() + "</td><td><code>" + last_send_4["data"].as<String>() + "</code></td><td><code>" + last_send_4["type"].as<String>() + "</code></td><td><code>" + last_send_4["len"].as<String>() + "</code></td><td><code>" + last_send_4["address"].as<String>() + "</code></td></tr>\n");
-  if (last_send_5.containsKey("time"))
-  server.sendContent("              <tr class='text-uppercase'><td>" + last_send_5["time"].as<String>() + "</td><td><code>" + last_send_5["data"].as<String>() + "</code></td><td><code>" + last_send_5["type"].as<String>() + "</code></td><td><code>" + last_send_5["len"].as<String>() + "</code></td><td><code>" + last_send_5["address"].as<String>() + "</code></td></tr>\n");
-  if (!last_send.containsKey("time") && !last_send_2.containsKey("time") && !last_send_3.containsKey("time") && !last_send_4.containsKey("time") && !last_send_5.containsKey("time"))
+  if (last_send.valid)
+  server.sendContent("              <tr class='text-uppercase'><td>" + String(last_send.timestamp) + "</td><td><code>" + String(last_send.data) + "</code></td><td><code>" + String(last_send.encoding) + "</code></td><td><code>" + String(last_send.bits) + "</code></td><td><code>" + String(last_send.address) + "</code></td></tr>\n");
+  if (last_send_2.valid)
+  server.sendContent("              <tr class='text-uppercase'><td>" + String(last_send_2.timestamp) + "</td><td><code>" + String(last_send_2.data) + "</code></td><td><code>" + String(last_send_2.encoding) + "</code></td><td><code>" + String(last_send_2.bits) + "</code></td><td><code>" + String(last_send_2.address) + "</code></td></tr>\n");
+  if (last_send_3.valid)
+  server.sendContent("              <tr class='text-uppercase'><td>" + String(last_send_3.timestamp) + "</td><td><code>" + String(last_send_3.data) + "</code></td><td><code>" + String(last_send_3.encoding) + "</code></td><td><code>" + String(last_send_3.bits) + "</code></td><td><code>" + String(last_send_3.address) + "</code></td></tr>\n");
+  if (last_send_4.valid)
+  server.sendContent("              <tr class='text-uppercase'><td>" + String(last_send_4.timestamp) + "</td><td><code>" + String(last_send_4.data) + "</code></td><td><code>" + String(last_send_4.encoding) + "</code></td><td><code>" + String(last_send_4.bits) + "</code></td><td><code>" + String(last_send_4.address) + "</code></td></tr>\n");
+  if (last_send_5.valid)
+  server.sendContent("              <tr class='text-uppercase'><td>" + String(last_send_5.timestamp) + "</td><td><code>" + String(last_send_5.data) + "</code></td><td><code>" + String(last_send_5.encoding) + "</code></td><td><code>" + String(last_send_5.bits) + "</code></td><td><code>" + String(last_send_5.address) + "</code></td></tr>\n");
+  if (!last_send.valid && !last_send_2.valid && !last_send_3.valid && !last_send_4.valid && !last_send_5.valid)
   server.sendContent("              <tr><td colspan='5' class='text-center'><em>No codes sent</em></td></tr>");
   server.sendContent("            </tbody></table>\n");
   server.sendContent("          </div></div>\n");
@@ -819,17 +973,17 @@ void sendHomePage(String message, String header, int type, int httpcode) {
   server.sendContent("          <table class='table table-striped' style='table-layout: fixed;'>\n");
   server.sendContent("            <thead><tr><th>Time Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>\n"); //Title
   server.sendContent("            <tbody>\n");
-  if (last_code.containsKey("time"))
-  server.sendContent("              <tr class='text-uppercase'><td><a href='/received?id=1'>" + last_code["time"].as<String>() + "</a></td><td><code>" + last_code["data"].as<String>() + "</code></td><td><code>" + last_code["encoding"].as<String>() + "</code></td><td><code>" + last_code["bits"].as<String>() + "</code></td><td><code>" + last_code["address"].as<String>() + "</code></td></tr>\n");
-  if (last_code_2.containsKey("time"))
-  server.sendContent("              <tr class='text-uppercase'><td><a href='/received?id=2'>" + last_code_2["time"].as<String>() + "</a></td><td><code>" + last_code_2["data"].as<String>() + "</code></td><td><code>" + last_code_2["encoding"].as<String>() + "</code></td><td><code>" + last_code_2["bits"].as<String>() + "</code></td><td><code>" + last_code_2["address"].as<String>() + "</code></td></tr>\n");
-  if (last_code_3.containsKey("time"))
-  server.sendContent("              <tr class='text-uppercase'><td><a href='/received?id=3'>" + last_code_3["time"].as<String>() + "</a></td><td><code>" + last_code_3["data"].as<String>() + "</code></td><td><code>" + last_code_3["encoding"].as<String>() + "</code></td><td><code>" + last_code_3["bits"].as<String>() + "</code></td><td><code>" + last_code_3["address"].as<String>() + "</code></td></tr>\n");
-  if (last_code_4.containsKey("time"))
-  server.sendContent("              <tr class='text-uppercase'><td><a href='/received?id=4'>" + last_code_4["time"].as<String>() + "</a></td><td><code>" + last_code_4["data"].as<String>() + "</code></td><td><code>" + last_code_4["encoding"].as<String>() + "</code></td><td><code>" + last_code_4["bits"].as<String>() + "</code></td><td><code>" + last_code_4["address"].as<String>() + "</code></td></tr>\n");
-  if (last_code_5.containsKey("time"))
-  server.sendContent("              <tr class='text-uppercase'><td><a href='/received?id=5'>" + last_code_5["time"].as<String>() + "</a></td><td><code>" + last_code_5["data"].as<String>() + "</code></td><td><code>" + last_code_5["encoding"].as<String>() + "</code></td><td><code>" + last_code_5["bits"].as<String>() + "</code></td><td><code>" + last_code_5["address"].as<String>() + "</code></td></tr>\n");
-  if (!last_code.containsKey("time") && !last_code_2.containsKey("time") && !last_code_3.containsKey("time") && !last_code_4.containsKey("time") && !last_code_5.containsKey("time"))
+  if (last_recv.valid)
+  server.sendContent("              <tr class='text-uppercase'><td><a href='/received?id=1'>" + String(last_recv.timestamp) + "</a></td><td><code>" + String(last_recv.data) + "</code></td><td><code>" + String(last_recv.encoding) + "</code></td><td><code>" + String(last_recv.bits) + "</code></td><td><code>" + String(last_recv.address) + "</code></td></tr>\n");
+  if (last_recv_2.valid)
+  server.sendContent("              <tr class='text-uppercase'><td><a href='/received?id=2'>" + String(last_recv_2.timestamp) + "</a></td><td><code>" + String(last_recv_2.data) + "</code></td><td><code>" + String(last_recv_2.encoding) + "</code></td><td><code>" + String(last_recv_2.bits) + "</code></td><td><code>" + String(last_recv_2.address) + "</code></td></tr>\n");
+  if (last_recv_3.valid)
+  server.sendContent("              <tr class='text-uppercase'><td><a href='/received?id=2'>" + String(last_recv_3.timestamp) + "</a></td><td><code>" + String(last_recv_3.data) + "</code></td><td><code>" + String(last_recv_3.encoding) + "</code></td><td><code>" + String(last_recv_3.bits) + "</code></td><td><code>" + String(last_recv_3.address) + "</code></td></tr>\n");
+  if (last_recv_4.valid)
+  server.sendContent("              <tr class='text-uppercase'><td><a href='/received?id=2'>" + String(last_recv_4.timestamp) + "</a></td><td><code>" + String(last_recv_4.data) + "</code></td><td><code>" + String(last_recv_4.encoding) + "</code></td><td><code>" + String(last_recv_4.bits) + "</code></td><td><code>" + String(last_recv_4.address) + "</code></td></tr>\n");
+  if (last_recv_5.valid)
+  server.sendContent("              <tr class='text-uppercase'><td><a href='/received?id=2'>" + String(last_recv_5.timestamp) + "</a></td><td><code>" + String(last_recv_5.data) + "</code></td><td><code>" + String(last_recv_5.encoding) + "</code></td><td><code>" + String(last_recv_5.bits) + "</code></td><td><code>" + String(last_recv_5.address) + "</code></td></tr>\n");
+  if (!last_recv.valid && !last_recv_2.valid && !last_recv_3.valid && !last_recv_4.valid && !last_recv_5.valid)
   server.sendContent("              <tr><td colspan='5' class='text-center'><em>No codes received</em></td></tr>");
   server.sendContent("            </tbody></table>\n");
   server.sendContent("          </div></div>\n");
@@ -849,62 +1003,62 @@ void sendHomePage(String message, String header, int type, int httpcode) {
 //+=============================================================================
 // Stream code page HTML
 //
-void sendCodePage(JsonObject& selCode) {
+void sendCodePage(Code selCode) {
   sendCodePage(selCode, 200);
 }
 
-void sendCodePage(JsonObject& selCode, int httpcode){
+void sendCodePage(Code selCode, int httpcode){
   sendHeader(httpcode);
   server.sendContent("      <div class='row'>\n");
   server.sendContent("        <div class='col-md-12'>\n");
-  server.sendContent("          <h2><span class='label label-success'>" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</span></h2><br/>\n");
+  server.sendContent("          <h2><span class='label label-success'>" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</span></h2><br/>\n");
   server.sendContent("          <dl class='dl-horizontal'>\n");
   server.sendContent("            <dt>Data</dt>\n");
-  server.sendContent("            <dd><code>" + selCode["data"].as<String>()  + "</code></dd></dl>\n");
+  server.sendContent("            <dd><code>" + String(selCode.data)  + "</code></dd></dl>\n");
   server.sendContent("          <dl class='dl-horizontal'>\n");
   server.sendContent("            <dt>Type</dt>\n");
-  server.sendContent("            <dd><code>" + selCode["encoding"].as<String>()  + "</code></dd></dl>\n");
+  server.sendContent("            <dd><code>" + String(selCode.encoding)  + "</code></dd></dl>\n");
   server.sendContent("          <dl class='dl-horizontal'>\n");
   server.sendContent("            <dt>Length</dt>\n");
-  server.sendContent("            <dd><code>" + selCode["bits"].as<String>()  + "</code></dd></dl>\n");
+  server.sendContent("            <dd><code>" + String(selCode.bits)  + "</code></dd></dl>\n");
   server.sendContent("          <dl class='dl-horizontal'>\n");
   server.sendContent("            <dt>Address</dt>\n");
-  server.sendContent("            <dd><code>" + selCode["address"].as<String>()  + "</code></dd></dl>\n");
+  server.sendContent("            <dd><code>" + String(selCode.address)  + "</code></dd></dl>\n");
   server.sendContent("          <dl class='dl-horizontal'>\n");
   server.sendContent("            <dt>Raw</dt>\n");
-  server.sendContent("            <dd><code>" + selCode["uint16_t"].as<String>()  + "</code></dd></dl>\n");
+  server.sendContent("            <dd><code>" + String(selCode.raw)  + "</code></dd></dl>\n");
   server.sendContent("        </div></div>\n");
   server.sendContent("      <div class='row'>\n");
   server.sendContent("        <div class='col-md-12'>\n");
   server.sendContent("          <div class='alert alert-warning'>Don't forget to add your passcode to the URLs below if you set one</div>\n");
   server.sendContent("      </div></div>\n");
-  if (selCode["encoding"] == "UNKNOWN") {
+  if (selCode.encoding == "UNKNOWN") {
   server.sendContent("      <div class='row'>\n");
   server.sendContent("        <div class='col-md-12'>\n");
   server.sendContent("          <ul class='list-unstyled'>\n");
   server.sendContent("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
-  server.sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>\n");
+  server.sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':[" + String(selCode.raw) + "], 'type':'raw', 'khz':38}]</pre></li>\n");
   server.sendContent("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
-  server.sendContent("            <li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li>\n");
+  server.sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{'data':[" + String(selCode.raw) + "], 'type':'raw', 'khz':38}]</pre></li>\n");
   server.sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
-  server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':[" + selCode["uint16_t"].as<String>() + "], 'type':'raw', 'khz':38}]</pre></li></ul>\n");
+  server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':[" + String(selCode.raw) + "], 'type':'raw', 'khz':38}]</pre></li></ul>\n");
   } else {
   server.sendContent("      <div class='row'>\n");
   server.sendContent("        <div class='col-md-12'>\n");
   server.sendContent("          <ul class='list-unstyled'>\n");
   server.sendContent("            <li>Hostname <span class='label label-default'>MSG</span></li>\n");
-  server.sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>\n");
+  server.sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li>\n");
   server.sendContent("            <li>Local IP <span class='label label-default'>MSG</span></li>\n");
-  server.sendContent("            <li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li>\n");
+  server.sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li>\n");
   server.sendContent("            <li>External IP <span class='label label-default'>MSG</span></li>\n");
-  server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode["data"].as<String>() + ":" + selCode["encoding"].as<String>() + ":" + selCode["bits"].as<String>() + "</pre></li></ul>\n");
+  server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode.data + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li></ul>\n");
   server.sendContent("          <ul class='list-unstyled'>\n");
   server.sendContent("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
-  server.sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>\n");
+  server.sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "', 'type':'" + String(selCode.encoding) + "', 'length':" + String(selCode.bits) + "}]</pre></li>\n");
   server.sendContent("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
-  server.sendContent("            <li><pre>http://" + ipToString(WiFi.localIP()) + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li>\n");
+  server.sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "', 'type':'" + String(selCode.encoding) + "', 'length':" + String(selCode.bits) + "}]</pre></li>\n");
   server.sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
-  server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':'" + selCode["data"].as<String>() + "', 'type':'" + selCode["encoding"].as<String>() + "', 'length':" + selCode["bits"].as<String>() + "}]</pre></li></ul>\n");
+  server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "', 'type':'" + String(selCode.encoding) + "', 'length':" + String(selCode.bits) + "}]</pre></li></ul>\n");
   }
   server.sendContent("        </div>\n");
   server.sendContent("     </div>\n");
@@ -914,25 +1068,25 @@ void sendCodePage(JsonObject& selCode, int httpcode){
 //+=============================================================================
 // Code to JsonObject
 //
-void codeJson(JsonObject &codeData, decode_results *results)
+void cvrtCode(Code& codeData, decode_results *results)
 {
-  codeData["data"] = Uint64toString(results->value, 16);
-  codeData["encoding"] = encoding(results);
-  codeData["bits"] = results->bits;
+  strncpy(codeData.data, Uint64toString(results->value, 16).c_str(), 40);
+  strncpy(codeData.encoding, encoding(results).c_str(), 20);
+  codeData.bits = results->bits;
   String r = "";
       for (uint16_t i = 1; i < results->rawlen; i++) {
       r += results->rawbuf[i] * RAWTICK;
       if (i < results->rawlen - 1)
         r += ",";                           // ',' not needed on last one
-      if (!(i & 1)) r += " ";
+      //if (!(i & 1)) r += " ";
     }
-  codeData["uint16_t"] = r;
+  codeData.raw = r;
   if (results->decode_type != UNKNOWN) {
-    codeData["address"] = "0x" + String(results->address, HEX);
-    codeData["command"] = "0x" + String(results->command, HEX);
+    strncpy(codeData.address, ("0x" + String(results->address, HEX)).c_str(), 40);
+    strncpy(codeData.command, ("0x" + String(results->command, HEX)).c_str(), 40);
   } else {
-    codeData["address"] = "0x";
-    codeData["command"] = "0x";
+    strncpy(codeData.address, "0x", 40);
+    strncpy(codeData.command, "0x", 40);
   }
 }
 
@@ -1044,6 +1198,23 @@ void dumpCode(decode_results *results) {
 
 
 //+=============================================================================
+// Binary value to hex
+//
+String bin2hex(const uint8_t* bin, const int length) {
+  String hex = "";
+
+  for (int i = 0; i < length; i++) {
+    if (bin[i] < 16) {
+      hex += "0";
+    }
+    hex += String(bin[i], HEX);
+  }
+
+  return hex;
+}
+
+
+//+=============================================================================
 // Convert string to hex, borrowed from ESPBasic
 //
 unsigned long HexToLongInt(String h)
@@ -1098,6 +1269,7 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
       } else if (type == "whynter") {
         irsend.sendWhynter(data, len);
       } else if (type == "panasonic") {
+        Serial.print("Address: ");
         Serial.println(address);
         irsend.sendPanasonic(address, data);
       } else if (type == "jvc") {
@@ -1123,23 +1295,24 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
       } else if (type == "roomba") {
         roomba_send(atoi(dataStr.c_str()), pulse, pdelay, irsend);
       }
-      if (p + 1 < pdelay) delay(pdelay);
+      if (p + 1 < pulse) delay(pdelay);
     }
-    if (r + 1 < rdelay) delay(rdelay);
+    if (r + 1 < repeat) delay(rdelay);
   }
 
   Serial.println("Transmission complete");
 
-  copyJsonSend(last_send_4, last_send_5);
-  copyJsonSend(last_send_3, last_send_4);
-  copyJsonSend(last_send_2, last_send_3);
-  copyJsonSend(last_send, last_send_2);
+  copyCode(last_send_4, last_send_5);
+  copyCode(last_send_3, last_send_4);
+  copyCode(last_send_2, last_send_3);
+  copyCode(last_send, last_send_2);
 
-  last_send["data"] = dataStr;
-  last_send["len"] = len;
-  last_send["type"] = type;
-  last_send["address"] = address;
-  last_send["time"] = String(timeClient.getFormattedTime());
+  strncpy(last_send.data, dataStr.c_str(), 40);
+  last_send.bits = len;
+  strncpy(last_send.encoding, type.c_str(), 20);
+  strncpy(last_send.address, ("0x" + String(address, HEX)).c_str(), 20);
+  strncpy(last_send.timestamp, String(timeClient.getFormattedTime()).c_str(), 40);
+  last_send.valid = true;
 
   resetReceive();
 }
@@ -1161,23 +1334,24 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int re
         else       irsend.mark(val);
       }
       irsend.space(0);
-      if (p + 1 < pdelay) delay(pdelay);
+      if (p + 1 < pulse) delay(pdelay);
     }
-    if (r + 1 < rdelay) delay(rdelay);
+    if (r + 1 < repeat) delay(rdelay);
   }
 
   Serial.println("Transmission complete");
 
-  copyJsonSend(last_send_4, last_send_5);
-  copyJsonSend(last_send_3, last_send_4);
-  copyJsonSend(last_send_2, last_send_3);
-  copyJsonSend(last_send, last_send_2);
+  copyCode(last_send_4, last_send_5);
+  copyCode(last_send_3, last_send_4);
+  copyCode(last_send_2, last_send_3);
+  copyCode(last_send, last_send_2);
 
-  last_send["data"] = NULL;
-  last_send["len"] = raw.size();
-  last_send["type"] = "RAW";
-  last_send["address"] = 0;
-  last_send["time"] = String(timeClient.getFormattedTime());
+  strncpy(last_send.data, "", 40);
+  last_send.bits = raw.size();
+  strncpy(last_send.encoding, "RAW", 20);
+  strncpy(last_send.address, "0x0", 40);
+  strncpy(last_send.timestamp, String(timeClient.getFormattedTime()).c_str(), 40);
+  last_send.valid = true;
 
   resetReceive();
 }
@@ -1219,39 +1393,34 @@ void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
   resetReceive();
 }
 
-void copyJson(JsonObject& j1, JsonObject& j2) {
-  if (j1.containsKey("data"))     j2["data"]     = j1["data"];     else j2["data"]     = NULL;
-  if (j1.containsKey("encoding")) j2["encoding"] = j1["encoding"]; else j2["encoding"] = "";
-  if (j1.containsKey("bits"))     j2["bits"]     = j1["bits"];     else j2["bits"]     = 0;
-  if (j1.containsKey("address"))  j2["address"]  = j1["address"];  else j2["address"]  = 0;
-  if (j1.containsKey("command"))  j2["command"]  = j1["command"];  else j2["command"]  = 0;
-  if (j1.containsKey("time"))     j2["time"]     = j1["time"];
-  if (j1.containsKey("uint16_t")) j2["uint16_t"] = j1["uint16_t"]; else j2["uint16_t"] = NULL;
-}
-
-void copyJsonSend(JsonObject& j1, JsonObject& j2) {
-  if (j1.containsKey("data"))     j2["data"]     = j1["data"];     else j2["data"]     = NULL;
-  if (j1.containsKey("type"))     j2["type"]     = j1["type"];     else j2["type"]     = "";
-  if (j1.containsKey("len"))      j2["len"]      = j1["len"];      else j2["len"]      = 0;
-  if (j1.containsKey("address"))  j2["address"]  = j1["address"];  else j2["address"]  = 0;
-  if (j1.containsKey("time"))     j2["time"]     = j1["time"];
+void copyCode (Code& c1, Code& c2) {
+  strncpy(c2.data, c1.data, 40);
+  strncpy(c2.encoding, c1.encoding, 20);
+  strncpy(c2.timestamp, c1.timestamp, 40);
+  strncpy(c2.address, c1.address, 40);
+  strncpy(c2.command, c1.command, 40);
+  c2.bits = c1.bits;
+  c2.raw = c1.raw;
+  c2.valid = c1.valid;
 }
 
 void loop() {
   server.handleClient();
+  ArduinoOTA.handle();
   decode_results  results;                                        // Somewhere to store the results
-  if (getTime) timeClient.update();                               // Update the time
+  if (getTime || strlen(user_id) != 0) timeClient.update();                               // Update the time
 
   if (irrecv.decode(&results) && !holdReceive) {                  // Grab an IR code
     Serial.println("Signal received:");
     fullCode(&results);                                           // Print the singleline value
     dumpCode(&results);                                           // Output the results as source code
-    copyJson(last_code_4, last_code_5);                           // Pass
-    copyJson(last_code_3, last_code_4);                           // Pass
-    copyJson(last_code_2, last_code_3);                           // Pass
-    copyJson(last_code, last_code_2);                             // Pass
-    codeJson(last_code, &results);                                // Store the results
-    last_code["time"] = String(timeClient.getFormattedTime());    // Set the new update time
+    copyCode(last_recv_4, last_recv_5);                           // Pass
+    copyCode(last_recv_3, last_recv_4);                           // Pass
+    copyCode(last_recv_2, last_recv_3);                           // Pass
+    copyCode(last_recv, last_recv_2);                             // Pass
+    cvrtCode(last_recv, &results);                                // Store the results
+    strncpy(last_recv.timestamp, String(timeClient.getFormattedTime()).c_str(), 40);  // Set the new update time
+    last_recv.valid = true;
     Serial.println("");                                           // Blank line between entries
     irrecv.resume();                                              // Prepare for the next value
     digitalWrite(ledpin, LOW);                                    // Turn on the LED for 0.5 seconds
