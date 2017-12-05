@@ -19,10 +19,16 @@
 
 // User settings are below here
 
-const bool getExternalIP = false;                               // Set to false to disable querying external IP
+const bool getExternalIP = false;                             // Set to false to disable querying external IP
 
-const bool getTime = true;                                     // Set to false to disable querying for the time
-const int timeOffset = -14400;                                 // Timezone offset in seconds
+const bool getTime = true;                                    // Set to false to disable querying for the time
+const int timeOffset = -14400;                                // Timezone offset in seconds
+
+int pinr1 = 14;                                               // Receiving pin
+int pins1 = 4;                                                // Transmitting preset 1
+int pins2 = 5;                                                // Transmitting preset 2
+int pins3 = 12;                                               // Transmitting preset 3
+int pins4 = 13;                                               // Transmitting preset 4
 
 // User settings are above here
 
@@ -50,12 +56,6 @@ Ticker ticker;
 
 bool shouldSaveConfig = false;                                // Flag for saving data
 bool holdReceive = false;                                     // Flag to prevent IR receiving while transmitting
-
-int pinr1 = 14;                                               // Receiving pin
-int pins1 = 4;                                                // Transmitting preset 1
-int pins2 = 5;                                                // Transmitting preset 2
-int pins3 = 12;                                               // Transmitting preset 3
-int pins4 = 13;                                               // Transmitting preset 4
 
 IRrecv irrecv(pinr1);
 IRsend irsend1(pins1);
