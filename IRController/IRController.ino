@@ -297,6 +297,8 @@ bool setupWifi(bool resetConf) {
   if (resetConf)
     wifiManager.resetSettings();
 
+  WiFi.hostname().toCharArray(host_name, 20);
+
   // set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
   wifiManager.setAPCallback(configModeCallback);
   // set config save notify callback
@@ -343,8 +345,6 @@ bool setupWifi(bool resetConf) {
     Serial.println("failed to mount FS");
   }
 
-
-  WiFi.hostname().toCharArray(host_name, 20);
   WiFiManagerParameter custom_hostname("hostname", "Choose a hostname to this IR Controller", host_name, 20);
   wifiManager.addParameter(&custom_hostname);
   WiFiManagerParameter custom_passcode("passcode", "Choose a passcode", passcode, 20);
