@@ -13,7 +13,7 @@ Device gives real time LED feedback, can handle complex code sequences for multi
 
 Hardware
 --------------
-![Fancy](https://user-images.githubusercontent.com/3608298/33769426-312e86b6-dbf8-11e7-8e2a-7926d04c800f.jpg)
+![Fancy](https://user-images.githubusercontent.com/3608298/33769535-93793c30-dbf8-11e7-97ef-263cef2ec0c4.jpg)
 ![Breadboard Build](https://user-images.githubusercontent.com/3608298/31293572-90c2e574-aaa5-11e7-99e0-7b3df2db3292.jpg)
 ![Schematic](https://user-images.githubusercontent.com/3608298/30983611-f258c95a-a458-11e7-99c5-ba088727c928.PNG)
 
