@@ -67,7 +67,7 @@ const unsigned long resetfrequency = 259200000;                // 72 hours in mi
 const char* poolServerName = "time.nist.gov";
 
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, poolServerName, timeOffset, 3600000);
+NTPClient timeClient(ntpUDP, poolServerName, timeOffset, 1800000);
 
 char _ip[16] = "";
 
