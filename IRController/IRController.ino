@@ -494,6 +494,7 @@ void setup() {
     String epid = server.arg("epid");
     String mid = server.arg("mid");
     String timestamp = server.arg("time");
+    int out = (server.hasArg("out")) ? server.arg("out").toInt() : 1;
 
     if (!root.success()) {
       Serial.println("JSON parsing failed");
@@ -558,7 +559,10 @@ void setup() {
         int pulse = root[x]["pulse"];
         int pdelay = root[x]["pdelay"];
         int repeat = root[x]["repeat"];
-        int out = root[x]["out"];
+        int xout = root[x]["out"];
+        if (xout == 0) {
+          xout = out;
+        }
         int duty = root[x]["duty"];
 
         if (pulse <= 0) pulse = 1; // Make sure pulse isn't 0
@@ -593,7 +597,7 @@ void setup() {
           JsonArray &raw = root[x]["data"]; // Array of unsigned int values for the raw signal
           int khz = root[x]["khz"];
           if (khz <= 0) khz = 38; // Default to 38khz if not set
-          rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(out),duty);
+          rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(xout),duty);
         } else if (type == "roku") {
           String data = root[x]["data"];
           rokuCommand(ip, data);
@@ -602,7 +606,7 @@ void setup() {
           String addressString = root[x]["address"];
           long address = strtoul(addressString.c_str(), 0, 0);
           int len = root[x]["length"];
-          irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
+          irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(xout));
         }
       }
 
@@ -681,7 +685,7 @@ void setup() {
       int pulse = (server.hasArg("pulse")) ? server.arg("pulse").toInt() : 1;
       int pdelay = (server.hasArg("pdelay")) ? server.arg("pdelay").toInt() : 100;
       int repeat = (server.hasArg("repeat")) ? server.arg("repeat").toInt() : 1;
-      int out = (server.hasArg("out")) ? server.arg("out").toInt() : 0;
+      int out = (server.hasArg("out")) ? server.arg("out").toInt() : 1;
       if (server.hasArg("code")) {
         String code = server.arg("code");
         char separator = ':';
