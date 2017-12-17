@@ -19,7 +19,7 @@
 
 // User settings are below here
 
-const bool getExternalIP = false;                             // Set to false to disable querying external IP
+const bool getExternalIP = true;                             // Set to false to disable querying external IP
 
 const bool getTime = true;                                    // Set to false to disable querying for the time
 const int timeOffset = -14400;                                // Timezone offset in seconds
