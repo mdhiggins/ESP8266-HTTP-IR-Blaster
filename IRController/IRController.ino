@@ -835,6 +835,7 @@ String encoding(decode_results *results) {
     case PANASONIC:    output = "PANASONIC";          break;
     case DENON:        output = "DENON";              break;
     case COOLIX:       output = "COOLIX";             break;
+    case GREE:         output = "GREE";               break;
   }
   return output;
   if (results->repeat) Serial.print(" (Repeat)");
@@ -1298,6 +1299,8 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
         irsend.sendSharpRaw(data, len);
       } else if (type == "rcmm") {
         irsend.sendRCMM(data, len);
+      } else if (type == "gree") {
+        irsend.sendGree(data, len);
       } else if (type == "roomba") {
         roomba_send(atoi(dataStr.c_str()), pulse, pdelay, irsend);
       }
