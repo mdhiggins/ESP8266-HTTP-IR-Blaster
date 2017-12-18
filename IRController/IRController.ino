@@ -297,8 +297,6 @@ bool setupWifi(bool resetConf) {
   if (resetConf)
     wifiManager.resetSettings();
 
-  WiFi.hostname().toCharArray(host_name, 20);
-
   // set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
   wifiManager.setAPCallback(configModeCallback);
   // set config save notify callback
@@ -437,7 +435,12 @@ void setup() {
   if (!setupWifi(digitalRead(configpin) == LOW))
     return;
 
-  WiFi.hostname(host_name);
+  if (strlen(host_name) > 0) {
+    WiFi.hostname(host_name);
+  } else {
+    WiFi.hostname().toCharArray(host_name, 20);
+  }
+  
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
