@@ -1038,7 +1038,7 @@ void sendCodePage(Code selCode, int httpcode){
   server.sendContent("        <div class='col-md-12'>\n");
   server.sendContent("          <div class='alert alert-warning'>Don't forget to add your passcode to the URLs below if you set one</div>\n");
   server.sendContent("      </div></div>\n");
-  if (selCode.encoding == "UNKNOWN") {
+  if (String(selCode.encoding) == "UNKNOWN") {
   server.sendContent("      <div class='row'>\n");
   server.sendContent("        <div class='col-md-12'>\n");
   server.sendContent("          <ul class='list-unstyled'>\n");
