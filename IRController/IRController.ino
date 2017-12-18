@@ -874,10 +874,10 @@ void fullCode (decode_results *results)
   Serial.print(encoding(results));
   Serial.print(":");
   Serial.print(results->bits, DEC);
-  if (results->overflow)
-    Serial.println("WARNING: IR code too long."
-                   "Edit IRrecv.h and increase RAWBUF");
   Serial.println("");
+  if (results->overflow)
+    Serial.println("WARNING: IR code too long. "
+                   "Edit IRrecv.h and increase RAWBUF");
 }
 
 //+=============================================================================
@@ -1101,7 +1101,7 @@ void cvrtCode(Code& codeData, decode_results *results)
 //
 void dumpInfo(decode_results *results) {
   if (results->overflow)
-    Serial.println("WARNING: IR code too long."
+    Serial.println("WARNING: IR code too long. "
                    "Edit IRrecv.h and increase RAWBUF");
 
   // Show Encoding standard
