@@ -71,6 +71,11 @@ Capturing Codes
 ---------------
 Your last scanned code can be accessed via web at `http://xxx.xxx.xxx.xxx:port/` or via serial monitoring over USB at 115200 baud. Most codes will be recognized and displayed in the format `A90:SONY:12`. Make a note of the code displayed in the serial output as you will need it for your maker channel URL. If your code is not recognized scroll down the JSON section of this read me.
 
+NodeMCU PCU
+---------------
+@raptordemon has created a PCB that works great with this project. Use version 1.5
+https://easyeda.com/raptordemon/ESP8266_IR_blaster-f8f224faba554bf3bb6ce0e32759fc23
+
 Basic Output
 --------------
 For sending simple commands such as a single button press, or a repeating sequence of the same button press, use the logic below. This is unchanged from version 1.
