@@ -811,8 +811,6 @@ IRsend pickIRsend (int out) {
 //+=============================================================================
 // Display encoding type
 //
-// Display encoding type
-//
 String encoding(decode_results *results) {
   String output;
   switch (results->decode_type) {
