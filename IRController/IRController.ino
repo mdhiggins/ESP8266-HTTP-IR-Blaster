@@ -440,7 +440,7 @@ void setup() {
   } else {
     WiFi.hostname().toCharArray(host_name, 20);
   }
-  
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -1066,7 +1066,7 @@ void sendCodePage(Code selCode, int httpcode){
   server.sendContent("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
   server.sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "','type':'" + String(selCode.encoding) + "','length':" + String(selCode.bits) + ",'address':'" + String(selCode.address) + "'}]</pre></li>\n");
   server.sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
-  server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "','type':'" + String(selCode.encoding) + "','length':" + String(selCode.bits) + ",'address':'" + String(selCode.address) + "'}]</pre></li></ul>\n");  
+  server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':'" + String(selCode.data) + "','type':'" + String(selCode.encoding) + "','length':" + String(selCode.bits) + ",'address':'" + String(selCode.address) + "'}]</pre></li></ul>\n");
   } else {
   server.sendContent("      <div class='row'>\n");
   server.sendContent("        <div class='col-md-12'>\n");
@@ -1110,8 +1110,8 @@ void cvrtCode(Code& codeData, decode_results *results)
     strncpy(codeData.address, ("0x" + String(results->address, HEX)).c_str(), 40);
     strncpy(codeData.command, ("0x" + String(results->command, HEX)).c_str(), 40);
   } else {
-    strncpy(codeData.address, "0x", 40);
-    strncpy(codeData.command, "0x", 40);
+    strncpy(codeData.address, "0x0", 40);
+    strncpy(codeData.command, "0x0", 40);
   }
 }
 
