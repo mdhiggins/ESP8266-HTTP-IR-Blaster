@@ -1051,6 +1051,7 @@ void sendCodePage(Code selCode, int httpcode){
   server.sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
   server.sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{'data':[" + String(selCode.raw) + "],'type':'raw','khz':38}]</pre></li></ul>\n");
   } else if (String(selCode.encoding) == "PANASONIC") {
+  //} else if (strtoul(selCode.address, 0, 0) > 0) {
   server.sendContent("      <div class='row'>\n");
   server.sendContent("        <div class='col-md-12'>\n");
   server.sendContent("          <ul class='list-unstyled'>\n");
