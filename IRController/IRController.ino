@@ -766,8 +766,8 @@ int rokuCommand(String ip, String data) {
 
   strncpy(last_send.data, data.c_str(), 40);
   last_send.bits = 1;
-  strncpy(last_send.encoding, "roku", 20);
-  strncpy(last_send.address, ip.c_str(), 40);
+  strncpy(last_send.encoding, "roku", 14);
+  strncpy(last_send.address, ip.c_str(), 20);
   strncpy(last_recv.timestamp, String(timeClient.getFormattedTime()).c_str(), 40);
   last_send.valid = true;
 
@@ -1097,7 +1097,7 @@ void sendCodePage(Code selCode, int httpcode){
 void cvrtCode(Code& codeData, decode_results *results)
 {
   strncpy(codeData.data, Uint64toString(results->value, 16).c_str(), 40);
-  strncpy(codeData.encoding, encoding(results).c_str(), 20);
+  strncpy(codeData.encoding, encoding(results).c_str(), 14);
   codeData.bits = results->bits;
   String r = "";
       for (uint16_t i = 1; i < results->rawlen; i++) {
@@ -1108,10 +1108,10 @@ void cvrtCode(Code& codeData, decode_results *results)
     }
   codeData.raw = r;
   if (results->decode_type != UNKNOWN) {
-    strncpy(codeData.address, ("0x" + String(results->address, HEX)).c_str(), 40);
+    strncpy(codeData.address, ("0x" + String(results->address, HEX)).c_str(), 20);
     strncpy(codeData.command, ("0x" + String(results->command, HEX)).c_str(), 40);
   } else {
-    strncpy(codeData.address, "0x0", 40);
+    strncpy(codeData.address, "0x0", 20);
     strncpy(codeData.command, "0x0", 40);
   }
 }
@@ -1309,7 +1309,7 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
 
   strncpy(last_send.data, dataStr.c_str(), 40);
   last_send.bits = len;
-  strncpy(last_send.encoding, type.c_str(), 20);
+  strncpy(last_send.encoding, type.c_str(), 14);
   strncpy(last_send.address, ("0x" + String(address, HEX)).c_str(), 20);
   strncpy(last_send.timestamp, String(timeClient.getFormattedTime()).c_str(), 40);
   last_send.valid = true;
@@ -1348,8 +1348,8 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int re
 
   strncpy(last_send.data, "", 40);
   last_send.bits = raw.size();
-  strncpy(last_send.encoding, "RAW", 20);
-  strncpy(last_send.address, "0x0", 40);
+  strncpy(last_send.encoding, "RAW", 14);
+  strncpy(last_send.address, "0x0", 20);
   strncpy(last_send.timestamp, String(timeClient.getFormattedTime()).c_str(), 40);
   last_send.valid = true;
 
@@ -1395,9 +1395,9 @@ void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
 
 void copyCode (Code& c1, Code& c2) {
   strncpy(c2.data, c1.data, 40);
-  strncpy(c2.encoding, c1.encoding, 20);
+  strncpy(c2.encoding, c1.encoding, 14);
   strncpy(c2.timestamp, c1.timestamp, 40);
-  strncpy(c2.address, c1.address, 40);
+  strncpy(c2.address, c1.address, 20);
   strncpy(c2.command, c1.command, 40);
   c2.bits = c1.bits;
   c2.raw = c1.raw;
