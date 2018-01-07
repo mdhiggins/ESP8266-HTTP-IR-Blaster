@@ -73,6 +73,11 @@ char _ip[16] = "";
 
 unsigned long lastupdate = 0;
 
+bool authError = false;
+bool timeAuthError = false;
+bool externalIPError = false;
+bool userIDError = false;
+
 class Code {
   public:
     char encoding[14] = "";
@@ -122,8 +127,13 @@ void resetReceive() {
 // Valid command request using HMAC
 //
 bool validateHMAC(String epid, String mid, String timestamp, String signature) {
+    userIDError = false;
+    authError = false;
+    timeAuthError = false;
+  
     if (!String(user_id).startsWith("amzn1.account.")) {
       Serial.println("Warning, user_id appears to be in the wrong format, security check will most likely fail. Should start with amzn1.account.***");
+      userIDError = true;
     }
 
     time_t timethen = timestamp.toInt();
@@ -137,6 +147,7 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature) {
       Serial.println(timenow);
       Serial.print("MID: ");
       Serial.println(mid);
+      timeAuthError = true;
       if (timenow < 922838400)
         Serial.println("Epoch time from timeServer is unexpectedly old, probably failed connection to the time server. Check your network settings");
       return false;
@@ -159,6 +170,7 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature) {
       Serial.println(computedSignature);
       Serial.print("MID: ");
       Serial.println(mid);
+      authError = true;
       return false;
     }
 
@@ -223,6 +235,8 @@ String externalIP()
       return String(_ip); // Return the cached external IP
     }
   }
+
+  externalIPError = false;
   unsigned long start = millis();
   http.setTimeout(5000);
   http.begin(serverName, 8245);
@@ -237,6 +251,7 @@ String externalIP()
     Serial.println(_ip);
   } else {
     Serial.println("Error retrieving external IP");
+    externalIPError = true;
   }
 
   http.end();
@@ -927,6 +942,14 @@ void sendFooter() {
   server->sendContent("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime</em></div></div>\n");
   if (strlen(user_id) != 0)
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Device secured with SHA256 authentication. Only commands sent and verified with Amazon Alexa and the IR Controller Skill will be processed</em></div></div>");
+  if (authError)
+  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - last authentication failed because HMAC signatures did not match, see serial output for debugging details</em></div></div>");
+  if (timeAuthError)
+  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - last authentication failed because your timestamps are out of sync, see serial output for debugging details</em></div></div>");
+  if (externalIPError)
+  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - unable to retrieve external IP address, this is likely due to improper network settings</em></div></div>");
+  if (userIDError)
+  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - your userID is in the wrong format and authentication will not work</em></div></div>");
   server->sendContent("    </div>\n");
   server->sendContent("  </body>\n");
   server->sendContent("</html>\n");
