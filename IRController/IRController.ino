@@ -249,6 +249,7 @@ String externalIP()
     strncpy(_ip, payload.substring(pos_start, pos_end).c_str(), 16);
     Serial.print(F("External IP: "));
     Serial.println(_ip);
+    lastupdate = millis();
   } else {
     Serial.println("Error retrieving external IP");
     externalIPError = true;
