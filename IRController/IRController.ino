@@ -137,6 +137,8 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature) {
       Serial.println(timenow);
       Serial.print("MID: ");
       Serial.println(mid);
+      if (timenow < 922838400)
+        Serial.println("Epoch time from timeServer is unexpectedly old, probably failed connection to the time server. Check your network settings");
       return false;
     }
 
