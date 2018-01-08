@@ -19,10 +19,12 @@
 
 // User settings are below here
 
-const bool getExternalIP = true;                             // Set to false to disable querying external IP
+const bool getExternalIP = true;                              // Set to false to disable querying external IP
 
 const bool getTime = true;                                    // Set to false to disable querying for the time
 const int timeOffset = -14400;                                // Timezone offset in seconds
+
+const bool enableMDNSServices = true;                         // Use mDNS services, must be enabled for ArduinoOTA
 
 int pinr1 = 14;                                               // Receiving pin
 int pins1 = 4;                                                // Transmitting preset 1
@@ -485,35 +487,34 @@ void setup() {
 
   if (getTime || strlen(user_id) != 0) timeClient.begin(); // Get the time
 
-  
-  // Configure mDNS
-  if (MDNS.begin(host_name)) {
-    Serial.println("mDNS started. Hostname is set to " + String(host_name) + ".local:" + String(port));
+  if (enableMDNSServices) {
+    // Configure OTA Update
+    ArduinoOTA.setPort(8266);
+    ArduinoOTA.setHostname(host_name);
+    ArduinoOTA.onStart([]() {
+      Serial.println("Start");
+    });
+    ArduinoOTA.onEnd([]() {
+      Serial.println("\nEnd");
+    });
+    ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+      Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+    });
+    ArduinoOTA.onError([](ota_error_t error) {
+      Serial.printf("Error[%u]: ", error);
+      if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+      else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+      else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+      else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+      else if (error == OTA_END_ERROR) Serial.println("End Failed");
+    });
+    ArduinoOTA.begin();
+    Serial.println("ArduinoOTA started");
+
+    // Configure mDNS
     MDNS.addService("http", "tcp", port); // Announce the ESP as an HTTP service
+    Serial.println("MDNS http service added. Hostname is set to " + String(host_name) + ".local:" + String(port));
   }
-  
-  // Configure OTA Update
-  ArduinoOTA.setPort(8266);
-  ArduinoOTA.setHostname(host_name);
-  ArduinoOTA.onStart([]() {
-    Serial.println("Start");
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("\nEnd");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
-  ArduinoOTA.begin();
-  Serial.println("ArduinoOTA started");
 
   // Configure the server
   server->on("/json", []() { // JSON handler for more complicated IR blaster routines
