@@ -238,7 +238,7 @@ String externalIP()
 
   externalIPError = false;
   unsigned long start = millis();
-  http.setTimeout(5000);
+  http.setTimeout(10000);
   http.begin(serverName, 8245);
   int httpCode = http.GET();
 
@@ -252,6 +252,8 @@ String externalIP()
     lastupdate = millis();
   } else {
     Serial.println("Error retrieving external IP");
+    Serial.print("HTTP Code: ");
+    Serial.println(httpCode);
     externalIPError = true;
   }
 
@@ -305,10 +307,8 @@ void lostWifiCallback (const WiFiEventStationModeDisconnected& evt) {
 // Should not return false if Wifi cannot be connected, it will loop
 //
 bool setupWifi(bool resetConf) {
-  // set led pin as output
-  pinMode(ledpin, OUTPUT);
   // start ticker with 0.5 because we start in AP mode and try to connect
-  ticker.attach(0.6, tick);
+  ticker.attach(0.5, tick);
 
   // WiFiManager
   // Local intialization. Once its business is done, there is no need to keep it around
@@ -396,6 +396,9 @@ bool setupWifi(bool resetConf) {
   strncpy(user_id, custom_userid.getValue(), 60);
   port = atoi(port_str);
 
+  if (server != NULL) {
+    delete server;
+  }
   server = new ESP8266WebServer(port);
 
   // Reset device if lost wifi Connection
@@ -423,9 +426,11 @@ bool setupWifi(bool resetConf) {
 
     json.printTo(Serial);
     Serial.println("");
+    Serial.println("Writing config file");
     json.printTo(configFile);
     configFile.close();
     jsonBuffer.clear();
+    Serial.println("Config written successfully");
   }
   ticker.detach();
 
@@ -442,6 +447,10 @@ void setup() {
 
   // Initialize serial
   Serial.begin(115200);
+  
+  // set led pin as output
+  pinMode(ledpin, OUTPUT);
+  
   Serial.println("");
   Serial.println("ESP8266 IR Controller");
   pinMode(configpin, INPUT_PULLUP);
@@ -452,12 +461,14 @@ void setup() {
   if (!setupWifi(digitalRead(configpin) == LOW))
     return;
 
+  Serial.println("WiFi configuration complete");
+
   if (strlen(host_name) > 0) {
     WiFi.hostname(host_name);
   } else {
     WiFi.hostname().toCharArray(host_name, 20);
   }
-
+  
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -467,18 +478,20 @@ void setup() {
   digitalWrite(ledpin, LOW);
   // Turn off the led in 2s
   ticker.attach(2, disableLed);
-
-  // Configure mDNS
-  if (MDNS.begin(host_name)) {
-    Serial.println("mDNS started. Hostname is set to " + String(host_name) + ".local");
-  }
+  
   Serial.print("Local IP: ");
   Serial.println(WiFi.localIP().toString());
-  MDNS.addService("http", "tcp", port); // Announce the ESP as an HTTP service
   Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
 
   if (getTime || strlen(user_id) != 0) timeClient.begin(); // Get the time
 
+  
+  // Configure mDNS
+  if (MDNS.begin(host_name)) {
+    Serial.println("mDNS started. Hostname is set to " + String(host_name) + ".local:" + String(port));
+    MDNS.addService("http", "tcp", port); // Announce the ESP as an HTTP service
+  }
+  
   // Configure OTA Update
   ArduinoOTA.setPort(8266);
   ArduinoOTA.setHostname(host_name);
@@ -500,6 +513,7 @@ void setup() {
     else if (error == OTA_END_ERROR) Serial.println("End Failed");
   });
   ArduinoOTA.begin();
+  Serial.println("ArduinoOTA started");
 
   // Configure the server
   server->on("/json", []() { // JSON handler for more complicated IR blaster routines
