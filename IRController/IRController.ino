@@ -53,7 +53,6 @@ DynamicJsonBuffer jsonBuffer;
 JsonObject& deviceState = jsonBuffer.createObject();
 
 ESP8266WebServer *server = NULL;
-HTTPClient http;
 Ticker ticker;
 
 bool shouldSaveConfig = false;                                // Flag for saving data
@@ -188,6 +187,7 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature) {
 //
 String getUserID(String token)
 {
+  HTTPClient http;
   http.setTimeout(5000);
   String url = "https://api.amazon.com/user/profile?access_token=";
   String uid = "";
@@ -238,9 +238,10 @@ String externalIP()
     }
   }
 
+  HTTPClient http;
   externalIPError = false;
   unsigned long start = millis();
-  http.setTimeout(10000);
+  http.setTimeout(5000);
   http.begin(serverName, 8245);
   int httpCode = http.GET();
 
@@ -256,6 +257,7 @@ String externalIP()
     Serial.println("Error retrieving external IP");
     Serial.print("HTTP Code: ");
     Serial.println(httpCode);
+    Serial.println(http.errorToString(httpCode));
     externalIPError = true;
   }
 
@@ -790,6 +792,7 @@ void setup() {
 //
 int rokuCommand(String ip, String data) {
   String url = "http://" + ip + ":8060/" + data;
+  HTTPClient http;
   http.begin(url);
   Serial.println(url);
   Serial.println("Sending roku command");
