@@ -125,17 +125,38 @@ void resetReceive() {
 
 
 //+=============================================================================
+// Valid user_id formatting
+//
+bool validUID(char* user_id) {
+  if (!String(user_id).startsWith("amzn1.account.")) {
+      Serial.println("Warning, user_id appears to be in the wrong format, security check will most likely fail. Should start with amzn1.account.***");
+      return false;
+    }
+    return true;
+}
+
+
+//+=============================================================================
+// Valid EPOCH time retrieval
+//
+bool validEPOCH(time_t timenow) {
+  if (timenow < 922838400) {
+    Serial.println("Epoch time from timeServer is unexpectedly old, probably failed connection to the time server. Check your network settings");
+    Serial.println(timenow);
+    return false;
+  }
+  return true;
+}
+
+//+=============================================================================
 // Valid command request using HMAC
 //
 bool validateHMAC(String epid, String mid, String timestamp, String signature) {
     userIDError = false;
     authError = false;
     timeAuthError = false;
-  
-    if (!String(user_id).startsWith("amzn1.account.")) {
-      Serial.println("Warning, user_id appears to be in the wrong format, security check will most likely fail. Should start with amzn1.account.***");
-      userIDError = true;
-    }
+
+    userIDError = !(validUID(user_id));
 
     time_t timethen = timestamp.toInt();
     time_t timenow = timeClient.getEpochTime() - timeOffset;
@@ -149,8 +170,7 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature) {
       Serial.print("MID: ");
       Serial.println(mid);
       timeAuthError = true;
-      if (timenow < 922838400)
-        Serial.println("Epoch time from timeServer is unexpectedly old, probably failed connection to the time server. Check your network settings");
+      validEPOCH(timenow);
       return false;
     }
 
@@ -409,7 +429,7 @@ bool setupWifi(bool resetConf) {
   WiFi.onStationModeDisconnected(&lostWifiCallback);
 
   // DNS fix for lwIP 2.0 (was not required in 1.4)
-  WiFi.config(WiFi.localIP(), WiFi.gatewayIP(), WiFi.gatewayIP(), WiFi.subnetMask());
+  WiFi.config(sip, sgw, sgw, ssn);
 
   Serial.println("WiFi connected! User chose hostname '" + String(host_name) + String("' passcode '") + String(passcode) + "' and port '" + String(port_str) + "'");
 
@@ -778,6 +798,17 @@ void setup() {
   Serial.println("HTTP Server started on port " + String(port));
 
   externalIP();
+
+  if (strlen(user_id) > 0) {
+    // Validation check time
+    timeClient.update();
+    time_t timenow = timeClient.getEpochTime() - timeOffset;
+    userIDError = !validUID(user_id);
+    timeAuthError = !validEPOCH(timenow);
+    if (!userIDError && !timeAuthError) {
+      Serial.println("No errors detected with security configuration or access to external validation servers during startup");
+    }
+  }
 
   irsend1.begin();
   irsend2.begin();
