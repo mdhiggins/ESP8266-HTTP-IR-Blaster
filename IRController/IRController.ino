@@ -26,15 +26,15 @@ const int timeOffset = -14400;                                // Timezone offset
 
 const bool enableMDNSServices = true;                         // Use mDNS services, must be enabled for ArduinoOTA
 
-int pinr1 = 14;                                               // Receiving pin
-int pins1 = 4;                                                // Transmitting preset 1
-int pins2 = 5;                                                // Transmitting preset 2
-int pins3 = 12;                                               // Transmitting preset 3
-int pins4 = 13;                                               // Transmitting preset 4
+// WEMOS users may need to adjust pins for compatability
+const int pinr1 = 14;                                         // Receiving pin
+const int pins1 = 4;                                          // Transmitting preset 1
+const int pins2 = 5;                                          // Transmitting preset 2
+const int pins3 = 12;                                         // Transmitting preset 3
+const int pins4 = 13;                                         // Transmitting preset 4
+const int configpin = 13;                                     // Reset Pin
 
 // User settings are above here
-
-const int configpin = 10;                                     // GPIO10
 const int ledpin = BUILTIN_LED;                               // Built in LED defined for WEMOS people
 const char *wifi_config_name = "IR Controller Configuration";
 const char serverName[] = "checkip.dyndns.org";
