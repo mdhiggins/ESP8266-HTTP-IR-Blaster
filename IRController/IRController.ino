@@ -32,7 +32,7 @@ const int pins1 = 4;                                          // Transmitting pr
 const int pins2 = 5;                                          // Transmitting preset 2
 const int pins3 = 12;                                         // Transmitting preset 3
 const int pins4 = 13;                                         // Transmitting preset 4
-const int configpin = 13;                                     // Reset Pin
+const int configpin = 10;                                     // Reset Pin
 
 // User settings are above here
 const int ledpin = BUILTIN_LED;                               // Built in LED defined for WEMOS people
