@@ -1351,7 +1351,7 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
         irsend.sendJVC(data, len, 0);
       } else if (type == "samsung") {
         irsend.sendSAMSUNG(data, len);
-      } else if (type == "sharpRaw") {
+      } else if (type == "sharpraw") {
         irsend.sendSharpRaw(data, len);
       } else if (type == "dish") {
         irsend.sendDISH(data, len);
