@@ -982,7 +982,7 @@ void sendHeader(int httpcode) {
   server->sendContent("            <li class='active'>\n");
   server->sendContent("              <a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>\n");
   server->sendContent("            <li class='active'>\n");
-  server->sendContent("              <a href='#'>MAC <span class='badge'>" + String(WiFi.macAddress()) + "</span></a></li>\n");
+  server->sendContent("              <a>MAC <span class='badge'>" + String(WiFi.macAddress()) + "</span></a></li>\n");
   server->sendContent("          </ul>\n");
   server->sendContent("        </div>\n");
   server->sendContent("      </div><hr />\n");
