@@ -908,7 +908,6 @@ String encoding(decode_results *results) {
     case GREE:         output = "GREE";               break;
   }
   return output;
-  if (results->repeat) Serial.print(" (Repeat)");
 }
 
 //+=============================================================================
@@ -945,6 +944,7 @@ void fullCode (decode_results *results)
   Serial.print(encoding(results));
   Serial.print(":");
   Serial.print(results->bits, DEC);
+  if (results->repeat) Serial.print(" (Repeat)");
   Serial.println("");
   if (results->overflow)
     Serial.println("WARNING: IR code too long. "
