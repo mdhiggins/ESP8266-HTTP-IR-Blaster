@@ -1300,14 +1300,14 @@ String bin2hex(const uint8_t* bin, const int length) {
 void irblast(String type, String dataStr, unsigned int len, int rdelay, int pulse, int pdelay, int repeat, long address, IRsend irsend) {
   Serial.println("Blasting off");
   type.toLowerCase();
-  unsigned long data = strtoul(("0x" + dataStr).c_str(), 0, 0);
+  uint64_t data = strtoull(("0x" + dataStr).c_str(), 0, 0);
   holdReceive = true;
   Serial.println("Blocking incoming IR signals");
   // Repeat Loop
   for (int r = 0; r < repeat; r++) {
     // Pulse Loop
     for (int p = 0; p < pulse; p++) {
-      Serial.print(data, HEX);
+      serialPrintUint64(data, HEX);
       Serial.print(":");
       Serial.print(type);
       Serial.print(":");
