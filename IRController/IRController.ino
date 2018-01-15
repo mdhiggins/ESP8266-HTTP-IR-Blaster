@@ -911,29 +911,6 @@ String encoding(decode_results *results) {
 }
 
 //+=============================================================================
-// Uint64 to String
-//
-String Uint64toString(uint64_t input, uint8_t base) {
-  char buf[8 * sizeof(input) + 1];  // Assumes 8-bit chars plus zero byte.
-  char *str = &buf[sizeof(buf) - 1];
-
-  *str = '\0';
-
-  // prevent crash if called with base == 1
-  if (base < 2) base = 10;
-
-  do {
-    char c = input % base;
-    input /= base;
-
-    *--str = c < 10 ? c + '0' : c + 'A' - 10;
-  } while (input);
-
-  std::string s(str);
-  return s.c_str();
-}
-
-//+=============================================================================
 // Code to string
 //
 void fullCode (decode_results *results)
@@ -1173,7 +1150,7 @@ void sendCodePage(Code selCode, int httpcode){
 //
 void cvrtCode(Code& codeData, decode_results *results)
 {
-  strncpy(codeData.data, Uint64toString(results->value, 16).c_str(), 40);
+  strncpy(codeData.data, uint64ToString(results->value, 16).c_str(), 40);
   strncpy(codeData.encoding, encoding(results).c_str(), 14);
   codeData.bits = results->bits;
   String r = "";
