@@ -802,9 +802,7 @@ void setup() {
   if (strlen(user_id) > 0) {
     // Validation check time
     timeClient.update();
-    time_t timenow = timeClient.getEpochTime() - timeOffset;
     userIDError = !validUID(user_id);
-    timeAuthError = !validEPOCH(timenow);
     if (!userIDError && !timeAuthError) {
       Serial.println("No errors detected with security configuration or access to external validation servers during startup");
     }
@@ -992,7 +990,7 @@ void sendHeader(int httpcode) {
 // Send footer HTML
 //
 void sendFooter() {
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime</em></div></div>\n");
+  server->sendContent("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime; EPOCH " + String(timeClient.getEpochTime() - timeOffset) + "</em></div></div>\n");
   if (strlen(user_id) != 0)
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Device secured with SHA256 authentication. Only commands sent and verified with Amazon Alexa and the IR Controller Skill will be processed</em></div></div>");
   if (authError)
@@ -1001,6 +999,9 @@ void sendFooter() {
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - last authentication failed because your timestamps are out of sync, see serial output for debugging details</em></div></div>");
   if (externalIPError)
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - unable to retrieve external IP address, this is likely due to improper network settings</em></div></div>");
+  time_t timenow = timeClient.getEpochTime() - timeOffset;
+  if (!validEPOCH(timenow))
+  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - EPOCH time is inappropraitely low, likely connection to external time server has failed, check your network settings</em></div></div>");
   if (userIDError)
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - your userID is in the wrong format and authentication will not work</em></div></div>");
   server->sendContent("    </div>\n");
