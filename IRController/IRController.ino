@@ -1301,7 +1301,7 @@ String bin2hex(const uint8_t* bin, const int length) {
 void irblast(String type, String dataStr, unsigned int len, int rdelay, int pulse, int pdelay, int repeat, long address, IRsend irsend) {
   Serial.println("Blasting off");
   type.toLowerCase();
-  uint64_t data = strtoul(("0x" + dataStr).c_str(), 0, 0);
+  uint64_t data = strtoull(("0x" + dataStr).c_str(), 0, 0);
   holdReceive = true;
   Serial.println("Blocking incoming IR signals");
   // Repeat Loop
