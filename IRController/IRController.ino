@@ -428,9 +428,6 @@ bool setupWifi(bool resetConf) {
   // Reset device if lost wifi Connection
   WiFi.onStationModeDisconnected(&lostWifiCallback);
 
-  // DNS fix for lwIP 2.0 (was not required in 1.4)
-  WiFi.config(sip, sgw, sgw, ssn);
-
   Serial.println("WiFi connected! User chose hostname '" + String(host_name) + String("' passcode '") + String(passcode) + "' and port '" + String(port_str) + "'");
 
   // save the custom parameters to FS
