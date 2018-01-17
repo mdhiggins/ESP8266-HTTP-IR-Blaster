@@ -26,6 +26,8 @@ const int timeOffset = -14400;                                // Timezone offset
 
 const bool enableMDNSServices = true;                         // Use mDNS services, must be enabled for ArduinoOTA
 
+cost unsigned int captureBufSize = 150;                       // Size of the IR capture buffer.
+
 // WEMOS users may need to adjust pins for compatability
 const int pinr1 = 14;                                         // Receiving pin
 const int pins1 = 4;                                          // Transmitting preset 1
@@ -58,7 +60,7 @@ Ticker ticker;
 bool shouldSaveConfig = false;                                // Flag for saving data
 bool holdReceive = false;                                     // Flag to prevent IR receiving while transmitting
 
-IRrecv irrecv(pinr1);
+IRrecv irrecv(pinr1, captureBufSize);
 IRsend irsend1(pins1);
 IRsend irsend2(pins2);
 IRsend irsend3(pins3);
@@ -920,7 +922,7 @@ void fullCode (decode_results *results)
   Serial.println("");
   if (results->overflow)
     Serial.println("WARNING: IR code too long. "
-                   "Edit IRrecv.h and increase RAWBUF");
+                   "Edit IRController.ino and increase captureBufSize");
 }
 
 //+=============================================================================
