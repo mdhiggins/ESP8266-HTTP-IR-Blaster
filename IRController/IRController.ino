@@ -70,14 +70,14 @@ const unsigned long resetfrequency = 259200000;                // 72 hours in mi
 const char* poolServerName = "time.nist.gov";
 
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, poolServerName, timeOffset, 1800000);
+NTPClient timeClient(ntpUDP, poolServerName, timeOffset, 600000);
 
 char _ip[16] = "";
 
 unsigned long lastupdate = 0;
 
 bool authError = false;
-bool timeAuthError = false;
+time_t timeAuthError = 0;
 bool externalIPError = false;
 bool userIDError = false;
 
@@ -156,24 +156,31 @@ bool validEPOCH(time_t timenow) {
 bool validateHMAC(String epid, String mid, String timestamp, String signature) {
     userIDError = false;
     authError = false;
-    timeAuthError = false;
+    timeAuthError = 0;
 
     userIDError = !(validUID(user_id));
 
     time_t timethen = timestamp.toInt();
     time_t timenow = timeClient.getEpochTime() - timeOffset;
-
-    if (abs(timethen - timenow) > 30) {
-      Serial.println("Failed security check, signature is too old");
-      Serial.print("Server: ");
-      Serial.println(timethen);
-      Serial.print("Local: ");
-      Serial.println(timenow);
-      Serial.print("MID: ");
-      Serial.println(mid);
-      timeAuthError = true;
-      validEPOCH(timenow);
-      return false;
+    time_t timediff = abs(timethen - timenow);
+    if (timediff > 30) {
+      // Try and force a timeClient update to see if things were just out of sync
+      bool force = timeClient.forceUpdate();
+      if (force) Serial.println("Timestamps out of sync from request, resynced with timeClient server successfully");
+      timenow = timeClient.getEpochTime() - timeOffset;
+      timediff = abs(timethen - timenow);
+      if (timediff > 30) {
+        Serial.println("Failed security check, signature is too old");
+        Serial.print("Server: ");
+        Serial.println(timethen);
+        Serial.print("Local: ");
+        Serial.println(timenow);
+        Serial.print("MID: ");
+        Serial.println(mid);
+        timeAuthError = timediff;
+        validEPOCH(timenow);
+        return false;  
+      }
     }
 
     uint8_t *hash;
@@ -802,7 +809,7 @@ void setup() {
     // Validation check time
     timeClient.update();
     userIDError = !validUID(user_id);
-    if (!userIDError && !timeAuthError) {
+    if (!userIDError && timeAuthError == 0) {
       Serial.println("No errors detected with security configuration or access to external validation servers during startup");
     }
   }
@@ -971,8 +978,8 @@ void sendFooter() {
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Device secured with SHA256 authentication. Only commands sent and verified with Amazon Alexa and the IR Controller Skill will be processed</em></div></div>");
   if (authError)
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - last authentication failed because HMAC signatures did not match, see serial output for debugging details</em></div></div>");
-  if (timeAuthError)
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - last authentication failed because your timestamps are out of sync, see serial output for debugging details</em></div></div>");
+  if (timeAuthError > 0)
+  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - last authentication failed because your timestamps are out of sync, see serial output for debugging details. Timediff: " + String(timeAuthError) + "</em></div></div>");
   if (externalIPError)
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - unable to retrieve external IP address, this is likely due to improper network settings</em></div></div>");
   time_t timenow = timeClient.getEpochTime() - timeOffset;
@@ -1462,7 +1469,7 @@ void loop() {
   server->handleClient();
   ArduinoOTA.handle();
   decode_results  results;                                        // Somewhere to store the results
-  if (getTime || strlen(user_id) != 0) timeClient.update();                               // Update the time
+  if (getTime || strlen(user_id) != 0) timeClient.update();       // Update the time
 
   if (irrecv.decode(&results) && !holdReceive) {                  // Grab an IR code
     Serial.println("Signal received:");
