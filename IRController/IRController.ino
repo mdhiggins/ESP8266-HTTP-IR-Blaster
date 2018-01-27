@@ -67,7 +67,7 @@ IRsend irsend3(pins3);
 IRsend irsend4(pins4);
 
 const unsigned long resetfrequency = 259200000;                // 72 hours in milliseconds
-const char* poolServerName = "time.nist.gov";
+const char* poolServerName = "pool.ntp.org";
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, poolServerName, timeOffset, 600000);
@@ -806,11 +806,23 @@ void setup() {
   externalIP();
 
   if (strlen(user_id) > 0) {
-    // Validation check time
-    timeClient.update();
     userIDError = !validUID(user_id);
-    if (!userIDError && timeAuthError == 0) {
-      Serial.println("No errors detected with security configuration or access to external validation servers during startup");
+    if (!userIDError) {
+      Serial.println("No errors detected with security configuration");
+    }
+
+    // Validation check time
+    bool tcUpdate = timeClient.forceUpdate();
+    if (tcUpdate) {
+      time_t timenow = timeClient.getEpochTime() - timeOffset;  
+      bool validEpoch = validEPOCH(timenow);
+      if (validEpoch) {
+        Serial.println("EPOCH time obtained for security checks");
+      } else {
+        Serial.println("Invalid EPOCH time, security checks may fail if unable to sync with NTP server");
+      }
+    } else {
+      Serial.println("Failed to sync with NTP server, security checks may fail");
     }
   }
 
