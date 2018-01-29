@@ -80,6 +80,7 @@ bool authError = false;
 time_t timeAuthError = 0;
 bool externalIPError = false;
 bool userIDError = false;
+bool ntpError = false;
 
 class Code {
   public:
@@ -156,6 +157,7 @@ bool validEPOCH(time_t timenow) {
 bool validateHMAC(String epid, String mid, String timestamp, String signature) {
     userIDError = false;
     authError = false;
+    ntpError = false;
     timeAuthError = 0;
 
     userIDError = !(validUID(user_id));
@@ -165,8 +167,12 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature) {
     time_t timediff = abs(timethen - timenow);
     if (timediff > 30) {
       // Try and force a timeClient update to see if things were just out of sync
-      bool force = timeClient.forceUpdate();
-      if (force) Serial.println("Timestamps out of sync from request, resynced with timeClient server successfully");
+      ntpError = !timeClient.forceUpdate();
+      if (ntpError) { 
+        Serial.println("Timestamps out of sync from request, resynced with NTP server successfully");
+      } else {
+        Serial.println("Resync to NTP server failed, possibly unable to reach NTP server");
+      }
       timenow = timeClient.getEpochTime() - timeOffset;
       timediff = abs(timethen - timenow);
       if (timediff > 30) {
@@ -812,8 +818,10 @@ void setup() {
     }
 
     // Validation check time
-    bool tcUpdate = timeClient.forceUpdate();
-    if (tcUpdate) {
+    ntpError = !timeClient.forceUpdate();
+    if (ntpError) {
+      Serial.println("Failed to sync with NTP server, security checks may fail");
+    } else {
       time_t timenow = timeClient.getEpochTime() - timeOffset;
       bool validEpoch = validEPOCH(timenow);
       if (validEpoch) {
@@ -821,8 +829,6 @@ void setup() {
       } else {
         Serial.println("Invalid EPOCH time, security checks may fail if unable to sync with NTP server");
       }
-    } else {
-      Serial.println("Failed to sync with NTP server, security checks may fail");
     }
   }
 
@@ -999,6 +1005,8 @@ void sendFooter() {
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - EPOCH time is inappropraitely low, likely connection to external time server has failed, check your network settings</em></div></div>");
   if (userIDError)
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - your userID is in the wrong format and authentication will not work</em></div></div>");
+  if (ntpError)
+  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - last attempt to connect to the NTP server failed, check NTP settings and networking settings</em></div></div>");
   server->sendContent("    </div>\n");
   server->sendContent("  </body>\n");
   server->sendContent("</html>\n");
@@ -1481,7 +1489,9 @@ void loop() {
   server->handleClient();
   ArduinoOTA.handle();
   decode_results  results;                                        // Somewhere to store the results
-  if (getTime || strlen(user_id) != 0) timeClient.update();       // Update the time
+  if (getTime || strlen(user_id) != 0) {
+    ntpError = !timeClient.update();                              // Update the time
+  }
 
   if (irrecv.decode(&results) && !holdReceive) {                  // Grab an IR code
     Serial.println("Signal received:");
