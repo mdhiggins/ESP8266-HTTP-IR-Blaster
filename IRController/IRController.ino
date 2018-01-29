@@ -179,7 +179,7 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature) {
         Serial.println(mid);
         timeAuthError = timediff;
         validEPOCH(timenow);
-        return false;  
+        return false;
       }
     }
 
@@ -480,10 +480,10 @@ void setup() {
 
   // Initialize serial
   Serial.begin(115200);
-  
+
   // set led pin as output
   pinMode(ledpin, OUTPUT);
-  
+
   Serial.println("");
   Serial.println("ESP8266 IR Controller");
   pinMode(configpin, INPUT_PULLUP);
@@ -501,7 +501,7 @@ void setup() {
   } else {
     WiFi.hostname().toCharArray(host_name, 20);
   }
-  
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -511,7 +511,7 @@ void setup() {
   digitalWrite(ledpin, LOW);
   // Turn off the led in 2s
   ticker.attach(2, disableLed);
-  
+
   Serial.print("Local IP: ");
   Serial.println(WiFi.localIP().toString());
   Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
@@ -814,7 +814,7 @@ void setup() {
     // Validation check time
     bool tcUpdate = timeClient.forceUpdate();
     if (tcUpdate) {
-      time_t timenow = timeClient.getEpochTime() - timeOffset;  
+      time_t timenow = timeClient.getEpochTime() - timeOffset;
       bool validEpoch = validEPOCH(timenow);
       if (validEpoch) {
         Serial.println("EPOCH time obtained for security checks");
@@ -1052,7 +1052,7 @@ void sendHomePage(String message, String header, int type, int httpcode) {
   server->sendContent("        <div class='col-md-12'>\n");
   server->sendContent("          <h3>Codes Received</h3>\n");
   server->sendContent("          <table class='table table-striped' style='table-layout: fixed;'>\n");
-  server->sendContent("            <thead><tr><th>Time Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>\n"); //Title
+  server->sendContent("            <thead><tr><th>Received</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>\n"); //Title
   server->sendContent("            <tbody>\n");
   if (last_recv.valid)
   server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=1'>" + String(last_recv.timestamp) + "</a></td><td><code>" + String(last_recv.data) + "</code></td><td><code>" + String(last_recv.encoding) + "</code></td><td><code>" + String(last_recv.bits) + "</code></td><td><code>" + String(last_recv.address) + "</code></td></tr>\n");
