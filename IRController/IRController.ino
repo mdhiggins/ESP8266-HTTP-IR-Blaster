@@ -254,7 +254,8 @@ String externalIP()
   }
 
   if (strlen(_ip) > 0) {
-    if (millis() - lastupdate > resetfrequency || lastupdate > millis()) {
+    unsigned long delta = millis() - lastupdate;
+    if (delta > resetfrequency || lastupdate == 0) {
       Serial.println("Reseting cached external IP address");
       strncpy(_ip, "", 16); // Reset the cached external IP every 72 hours
     } else {
@@ -972,7 +973,9 @@ void sendHeader(int httpcode) {
 // Send footer HTML
 //
 void sendFooter() {
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime; EPOCH " + String(timeClient.getUnixTime() - timeOffset) + "</em></div></div>\n");
+  server->sendContent("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime; EPOCH " + String(timeClient.getUnixTime() - timeOffset) + "</em> / <em id='jepoch'></em> ( <em id='jdiff'></em> )</div></div>\n");
+  server->sendContent("      <script>document.getElementById('jepoch').innerHTML = Math.round((new Date()).getTime() / 1000)</script>");
+  server->sendContent("      <script>document.getElementById('jdiff').innerHTML = Math.abs(Math.round((new Date()).getTime() / 1000) - " + String(timeClient.getUnixTime() - timeOffset) + ")</script>");
   if (strlen(user_id) != 0)
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Device secured with SHA256 authentication. Only commands sent and verified with Amazon Alexa and the IR Controller Skill will be processed</em></div></div>");
   if (authError)
