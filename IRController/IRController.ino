@@ -90,7 +90,7 @@ class Code {
     char data[40] = "";
     String raw = "";
     int bits = 0;
-    char timestamp[40] = "";
+    time_t timestamp = 0;
     bool valid = false;
 };
 
@@ -150,6 +150,23 @@ bool validEPOCH(time_t timenow) {
   }
   return true;
 }
+
+
+//+=============================================================================
+// EPOCH time to String
+//
+String epochToString(time_t timenow) {
+  unsigned long hours = (timenow % 86400L) / 3600;
+  String hourStr = hours < 10 ? "0" + String(hours) : String(hours);
+
+  unsigned long minutes = (timenow % 3600) / 60;
+  String minuteStr = minutes < 10 ? "0" + String(minutes) : String(minutes);
+
+  unsigned long seconds = (timenow % 60);
+  String secondStr = seconds < 10 ? "0" + String(seconds) : String(seconds);
+  return hourStr + ":" + minuteStr + ":" + secondStr;
+}
+
 
 //+=============================================================================
 // Valid command request using HMAC
@@ -841,7 +858,7 @@ int rokuCommand(String ip, String data) {
   last_send.bits = 1;
   strncpy(last_send.encoding, "roku", 14);
   strncpy(last_send.address, ip.c_str(), 20);
-  strncpy(last_recv.timestamp, String(timeClient.getUnixTime()).c_str(), 40);
+  last_send.timestamp = timeClient.getUnixTime();
   last_send.valid = true;
 
   int output = http.POST("");
@@ -1027,15 +1044,15 @@ void sendHomePage(String message, String header, int type, int httpcode) {
   server->sendContent("            <thead><tr><th>Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>\n"); //Title
   server->sendContent("            <tbody>\n");
   if (last_send.valid)
-  server->sendContent("              <tr class='text-uppercase'><td>" + String(last_send.timestamp) + "</td><td><code>" + String(last_send.data) + "</code></td><td><code>" + String(last_send.encoding) + "</code></td><td><code>" + String(last_send.bits) + "</code></td><td><code>" + String(last_send.address) + "</code></td></tr>\n");
+  server->sendContent("              <tr class='text-uppercase'><td>" + epochToString(last_send.timestamp) + "</td><td><code>" + String(last_send.data) + "</code></td><td><code>" + String(last_send.encoding) + "</code></td><td><code>" + String(last_send.bits) + "</code></td><td><code>" + String(last_send.address) + "</code></td></tr>\n");
   if (last_send_2.valid)
-  server->sendContent("              <tr class='text-uppercase'><td>" + String(last_send_2.timestamp) + "</td><td><code>" + String(last_send_2.data) + "</code></td><td><code>" + String(last_send_2.encoding) + "</code></td><td><code>" + String(last_send_2.bits) + "</code></td><td><code>" + String(last_send_2.address) + "</code></td></tr>\n");
+  server->sendContent("              <tr class='text-uppercase'><td>" + epochToString(last_send_2.timestamp) + "</td><td><code>" + String(last_send_2.data) + "</code></td><td><code>" + String(last_send_2.encoding) + "</code></td><td><code>" + String(last_send_2.bits) + "</code></td><td><code>" + String(last_send_2.address) + "</code></td></tr>\n");
   if (last_send_3.valid)
-  server->sendContent("              <tr class='text-uppercase'><td>" + String(last_send_3.timestamp) + "</td><td><code>" + String(last_send_3.data) + "</code></td><td><code>" + String(last_send_3.encoding) + "</code></td><td><code>" + String(last_send_3.bits) + "</code></td><td><code>" + String(last_send_3.address) + "</code></td></tr>\n");
+  server->sendContent("              <tr class='text-uppercase'><td>" + epochToString(last_send_3.timestamp) + "</td><td><code>" + String(last_send_3.data) + "</code></td><td><code>" + String(last_send_3.encoding) + "</code></td><td><code>" + String(last_send_3.bits) + "</code></td><td><code>" + String(last_send_3.address) + "</code></td></tr>\n");
   if (last_send_4.valid)
-  server->sendContent("              <tr class='text-uppercase'><td>" + String(last_send_4.timestamp) + "</td><td><code>" + String(last_send_4.data) + "</code></td><td><code>" + String(last_send_4.encoding) + "</code></td><td><code>" + String(last_send_4.bits) + "</code></td><td><code>" + String(last_send_4.address) + "</code></td></tr>\n");
+  server->sendContent("              <tr class='text-uppercase'><td>" + epochToString(last_send_4.timestamp) + "</td><td><code>" + String(last_send_4.data) + "</code></td><td><code>" + String(last_send_4.encoding) + "</code></td><td><code>" + String(last_send_4.bits) + "</code></td><td><code>" + String(last_send_4.address) + "</code></td></tr>\n");
   if (last_send_5.valid)
-  server->sendContent("              <tr class='text-uppercase'><td>" + String(last_send_5.timestamp) + "</td><td><code>" + String(last_send_5.data) + "</code></td><td><code>" + String(last_send_5.encoding) + "</code></td><td><code>" + String(last_send_5.bits) + "</code></td><td><code>" + String(last_send_5.address) + "</code></td></tr>\n");
+  server->sendContent("              <tr class='text-uppercase'><td>" + epochToString(last_send_5.timestamp) + "</td><td><code>" + String(last_send_5.data) + "</code></td><td><code>" + String(last_send_5.encoding) + "</code></td><td><code>" + String(last_send_5.bits) + "</code></td><td><code>" + String(last_send_5.address) + "</code></td></tr>\n");
   if (!last_send.valid && !last_send_2.valid && !last_send_3.valid && !last_send_4.valid && !last_send_5.valid)
   server->sendContent("              <tr><td colspan='5' class='text-center'><em>No codes sent</em></td></tr>");
   server->sendContent("            </tbody></table>\n");
@@ -1047,15 +1064,15 @@ void sendHomePage(String message, String header, int type, int httpcode) {
   server->sendContent("            <thead><tr><th>Received</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>\n"); //Title
   server->sendContent("            <tbody>\n");
   if (last_recv.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=1'>" + String(last_recv.timestamp) + "</a></td><td><code>" + String(last_recv.data) + "</code></td><td><code>" + String(last_recv.encoding) + "</code></td><td><code>" + String(last_recv.bits) + "</code></td><td><code>" + String(last_recv.address) + "</code></td></tr>\n");
+  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=1'>" + epochToString(last_recv.timestamp) + "</a></td><td><code>" + String(last_recv.data) + "</code></td><td><code>" + String(last_recv.encoding) + "</code></td><td><code>" + String(last_recv.bits) + "</code></td><td><code>" + String(last_recv.address) + "</code></td></tr>\n");
   if (last_recv_2.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=2'>" + String(last_recv_2.timestamp) + "</a></td><td><code>" + String(last_recv_2.data) + "</code></td><td><code>" + String(last_recv_2.encoding) + "</code></td><td><code>" + String(last_recv_2.bits) + "</code></td><td><code>" + String(last_recv_2.address) + "</code></td></tr>\n");
+  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=2'>" + epochToString(last_recv_2.timestamp) + "</a></td><td><code>" + String(last_recv_2.data) + "</code></td><td><code>" + String(last_recv_2.encoding) + "</code></td><td><code>" + String(last_recv_2.bits) + "</code></td><td><code>" + String(last_recv_2.address) + "</code></td></tr>\n");
   if (last_recv_3.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=3'>" + String(last_recv_3.timestamp) + "</a></td><td><code>" + String(last_recv_3.data) + "</code></td><td><code>" + String(last_recv_3.encoding) + "</code></td><td><code>" + String(last_recv_3.bits) + "</code></td><td><code>" + String(last_recv_3.address) + "</code></td></tr>\n");
+  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=3'>" + epochToString(last_recv_3.timestamp) + "</a></td><td><code>" + String(last_recv_3.data) + "</code></td><td><code>" + String(last_recv_3.encoding) + "</code></td><td><code>" + String(last_recv_3.bits) + "</code></td><td><code>" + String(last_recv_3.address) + "</code></td></tr>\n");
   if (last_recv_4.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=4'>" + String(last_recv_4.timestamp) + "</a></td><td><code>" + String(last_recv_4.data) + "</code></td><td><code>" + String(last_recv_4.encoding) + "</code></td><td><code>" + String(last_recv_4.bits) + "</code></td><td><code>" + String(last_recv_4.address) + "</code></td></tr>\n");
+  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=4'>" + epochToString(last_recv_4.timestamp) + "</a></td><td><code>" + String(last_recv_4.data) + "</code></td><td><code>" + String(last_recv_4.encoding) + "</code></td><td><code>" + String(last_recv_4.bits) + "</code></td><td><code>" + String(last_recv_4.address) + "</code></td></tr>\n");
   if (last_recv_5.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=5'>" + String(last_recv_5.timestamp) + "</a></td><td><code>" + String(last_recv_5.data) + "</code></td><td><code>" + String(last_recv_5.encoding) + "</code></td><td><code>" + String(last_recv_5.bits) + "</code></td><td><code>" + String(last_recv_5.address) + "</code></td></tr>\n");
+  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=5'>" + epochToString(last_recv_5.timestamp) + "</a></td><td><code>" + String(last_recv_5.data) + "</code></td><td><code>" + String(last_recv_5.encoding) + "</code></td><td><code>" + String(last_recv_5.bits) + "</code></td><td><code>" + String(last_recv_5.address) + "</code></td></tr>\n");
   if (!last_recv.valid && !last_recv_2.valid && !last_recv_3.valid && !last_recv_4.valid && !last_recv_5.valid)
   server->sendContent("              <tr><td colspan='5' class='text-center'><em>No codes received</em></td></tr>");
   server->sendContent("            </tbody></table>\n");
@@ -1100,6 +1117,9 @@ void sendCodePage(Code selCode, int httpcode){
   server->sendContent("          <dl class='dl-horizontal'>\n");
   server->sendContent("            <dt>Raw</dt>\n");
   server->sendContent("            <dd><code>" + String(selCode.raw)  + "</code></dd></dl>\n");
+  server->sendContent("          <dl class='dl-horizontal'>\n");
+  server->sendContent("            <dt>Timestamp</dt>\n");
+  server->sendContent("            <dd><code>" + epochToString(selCode.timestamp)  + "</code></dd></dl>\n");
   server->sendContent("        </div></div>\n");
   server->sendContent("      <div class='row'>\n");
   server->sendContent("        <div class='col-md-12'>\n");
@@ -1376,7 +1396,7 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
   last_send.bits = len;
   strncpy(last_send.encoding, type.c_str(), 14);
   strncpy(last_send.address, ("0x" + String(address, HEX)).c_str(), 20);
-  strncpy(last_send.timestamp, String(timeClient.getUnixTime()).c_str(), 40);
+  last_send.timestamp = timeClient.getUnixTime();
   last_send.valid = true;
 
   resetReceive();
@@ -1415,7 +1435,7 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int re
   last_send.bits = raw.size();
   strncpy(last_send.encoding, "RAW", 14);
   strncpy(last_send.address, "0x0", 20);
-  strncpy(last_send.timestamp, String(timeClient.getUnixTime()).c_str(), 40);
+  last_send.timestamp = timeClient.getUnixTime();
   last_send.valid = true;
 
   resetReceive();
@@ -1461,11 +1481,12 @@ void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
 void copyCode (Code& c1, Code& c2) {
   strncpy(c2.data, c1.data, 40);
   strncpy(c2.encoding, c1.encoding, 14);
-  strncpy(c2.timestamp, c1.timestamp, 40);
+  //strncpy(c2.timestamp, c1.timestamp, 40);
   strncpy(c2.address, c1.address, 20);
   strncpy(c2.command, c1.command, 40);
   c2.bits = c1.bits;
   c2.raw = c1.raw;
+  c2.timestamp = c1.timestamp;
   c2.valid = c1.valid;
 }
 
@@ -1473,9 +1494,6 @@ void loop() {
   server->handleClient();
   ArduinoOTA.handle();
   decode_results  results;                                        // Somewhere to store the results
-  if (getTime || strlen(user_id) != 0) {
-    timeClient.getUnixTime();                                     // Update the time
-  }
 
   if (irrecv.decode(&results) && !holdReceive) {                  // Grab an IR code
     Serial.println("Signal received:");
@@ -1486,7 +1504,7 @@ void loop() {
     copyCode(last_recv_2, last_recv_3);                           // Pass
     copyCode(last_recv, last_recv_2);                             // Pass
     cvrtCode(last_recv, &results);                                // Store the results
-    strncpy(last_recv.timestamp, String(timeClient.getUnixTime()).c_str(), 40);  // Set the new update time
+    last_recv.timestamp = timeClient.getUnixTime();               // Set the new update time
     last_recv.valid = true;
     Serial.println("");                                           // Blank line between entries
     irrecv.resume();                                              // Prepare for the next value
