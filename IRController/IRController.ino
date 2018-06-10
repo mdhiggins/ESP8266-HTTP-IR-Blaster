@@ -19,10 +19,10 @@
 
 // User settings are below here
 
-const bool getExternalIP = true;                              // Set to false to disable querying external IP
+const bool getExternalIP = false;                              // Set to false to disable querying external IP
 
 const bool getTime = true;                                    // Set to false to disable querying for the time
-const int timeOffset = -14400;                                // Timezone offset in seconds
+const int timeOffset = 0;                                     // Timezone offset in seconds
 
 const bool enableMDNSServices = true;                         // Use mDNS services, must be enabled for ArduinoOTA
 
@@ -67,7 +67,7 @@ IRsend irsend3(pins3);
 IRsend irsend4(pins4);
 
 const unsigned long resetfrequency = 259200000;                // 72 hours in milliseconds
-const char* poolServerName = "pool.ntp.org";
+const char* poolServerName = "europe.pool.ntp.org";
 
 WiFiUDP ntpUDP;
 EasyNTPClient timeClient(ntpUDP, poolServerName, timeOffset);
@@ -87,7 +87,7 @@ class Code {
     char encoding[14] = "";
     char address[20] = "";
     char command[40] = "";
-    char data[40] = "";
+    char data[40] = ""; 
     String raw = "";
     int bits = 0;
     time_t timestamp = 0;
@@ -105,6 +105,11 @@ Code last_send_3;
 Code last_send_4;
 Code last_send_5;
 
+
+// Smartthings Hub Information
+IPAddress hubIP(10.10.10.10);                                   // smartthings hub ip
+const unsigned int hubPort = 39500;                             // smartthings hub port
+bool sendToSmartThings = false;
 
 //+=============================================================================
 // Callback notifying us of the need to save config
@@ -150,7 +155,6 @@ bool validEPOCH(time_t timenow) {
   }
   return true;
 }
-
 
 //+=============================================================================
 // EPOCH time to String
@@ -559,27 +563,105 @@ void setup() {
 
   // Configure the server
   server->on("/json", []() { // JSON handler for more complicated IR blaster routines
+    
     Serial.println("Connection received - JSON");
-
-    DynamicJsonBuffer jsonBuffer;
-    JsonArray& root = jsonBuffer.parseArray(server->arg("plain"));
-
     int simple = 0;
     if (server->hasArg("simple")) simple = server->arg("simple").toInt();
     String signature = server->arg("auth");
     String epid = server->arg("epid");
     String mid = server->arg("mid");
     String timestamp = server->arg("time");
+    String jsonBtn = server->arg("btn");
+    String fromListPage = server->arg("fromListPage");
     int out = (server->hasArg("out")) ? server->arg("out").toInt() : 1;
-
+    String jsonString;
+    String jsonLookupError;
+    
+    if (server->hasArg("btn")) {    //JSON command received with button as argument, retreive button IR command from stored JSON
+      String btn = server->arg("btn");
+      DynamicJsonBuffer jsonBtnBuffer;
+      JsonArray& rootbtn = jsonBtnBuffer.parseArray(btn);
+      rootbtn.prettyPrintTo(Serial);      
+      if (SPIFFS.begin()) {
+        Serial.println("mounted file system");
+        if (SPIFFS.exists("/codes.json")) {
+          //file exists, reading and loading
+          Serial.println("reading codes file");
+          File configFileRead = SPIFFS.open("/codes.json", "r");
+          if (configFileRead) {
+            Serial.println("opened codes file");
+            DynamicJsonBuffer jsonLoadBuffer;
+            JsonObject& jsonRead = jsonLoadBuffer.parseObject(configFileRead);
+            configFileRead.close();
+            if (jsonRead.success()) {
+              //for (auto value : arr) {
+              //    Serial.println(value.as<char*>());
+              //}
+              for (int x = 0; x < rootbtn.size(); x++) {
+                String currentBtn;
+                String jsonStringtmp;
+                rootbtn[x].printTo(currentBtn);
+                currentBtn.toUpperCase();
+                Serial.println("parsed current json, looking for " + currentBtn);
+                jsonRead[currentBtn].printTo(jsonStringtmp);
+                if (rootbtn.size() > 1 && x < rootbtn.size()-1) {
+                  if (jsonStringtmp != "") { //if the string is empty we havent found a match so record the button name against the error string
+                    jsonString = jsonString + jsonStringtmp + ",";
+                  } else {
+                    jsonLookupError = jsonLookupError + currentBtn + ", ";
+                  }
+                } else {
+                  if (jsonStringtmp != "") {
+                    jsonString = jsonString + jsonStringtmp;                      
+                  } else {
+                    jsonLookupError = jsonLookupError + currentBtn;
+                  }
+                }
+              }
+              if (jsonString != "") jsonString = "[" + jsonString + "]";
+              if (jsonLookupError != "") jsonLookupError = "Some or all matches not found (" + jsonLookupError +"), check the Serial output";
+            } else {
+              jsonLookupError = "An error occured looking up the codes";
+              Serial.println("failed to load json config");        
+            }
+            jsonLoadBuffer.clear();
+          }
+        }
+      } else {
+        jsonLookupError = "An error occured looking up the codes";
+        Serial.println("failed to mount FS");
+      }
+      jsonBtnBuffer.clear();  
+    } else {                          //Set jsonString to the plain argument
+      jsonString = server->arg("plain");
+    }
+     
+    DynamicJsonBuffer jsonBuffer;
+    JsonArray& root = jsonBuffer.parseArray(jsonString);
+    root.prettyPrintTo(Serial);
+    Serial.println("");
+    
     if (!root.success()) {
       Serial.println("JSON parsing failed");
       if (simple) {
         server->send(400, "text/plain", "JSON parsing failed");
       } else {
-        sendHomePage("JSON parsing failed", "Error", 3, 400); // 400
+        if (jsonLookupError != "") {
+          if (server->hasArg("fromListPage")) {
+            listStoredCodes(jsonLookupError, "Error", 3, 400); // 400
+          } else{
+            sendHomePage(jsonLookupError, "Error", 3, 400); // 400            
+          }
+        } else {
+          if (server->hasArg("fromListPage")) {
+            listStoredCodes("JSON parsing failed", "Error", 3, 400); // 400            
+          } else {
+            sendHomePage("JSON parsing failed", "Error", 3, 400); // 400             
+          }
+        }
       }
       jsonBuffer.clear();
+
     } else if (strlen(passcode) != 0 && server->arg("pass") != passcode) {
       Serial.println("Unauthorized access");
       if (simple) {
@@ -677,7 +759,7 @@ void setup() {
         } else if (type == "roku") {
           String data = root[x]["data"];
           rokuCommand(ip, data);
-        } else {
+        } else if (type != "") {
           String data = root[x]["data"];
           String addressString = root[x]["address"];
           long address = strtoul(addressString.c_str(), 0, 0);
@@ -688,9 +770,18 @@ void setup() {
 
       if (!simple) {
         Serial.println("Sending home page");
-        sendHomePage(message, "Success", 1); // 200
+        if (jsonLookupError == "") {
+          if (server->hasArg("fromListPage")) {
+            listStoredCodes(message, "Success", 1); // 200           
+          } else {
+            sendHomePage(message, "Success", 1); // 200           
+          }
+        } else if (server->hasArg("fromListPage")) {
+          listStoredCodes("", jsonLookupError, 2); // 200   
+        } else {       
+          sendHomePage("", jsonLookupError, 2); // 200
+        }
       }
-
       jsonBuffer.clear();
     }
   });
@@ -787,22 +878,83 @@ void setup() {
   });
 
   server->on("/received", []() {
-    Serial.println("Connection received");
+    Serial.println("Connection received to received detail page");
     int id = server->arg("id").toInt();
     String output;
     if (id == 1 && last_recv.valid) {
-      sendCodePage(last_recv);
+      sendCodePage(last_recv, 1);
     } else if (id == 2 && last_recv_2.valid) {
-      sendCodePage(last_recv_2);
+      sendCodePage(last_recv_2, 2);
     } else if (id == 3 && last_recv_3.valid) {
-      sendCodePage(last_recv_3);
+      sendCodePage(last_recv_3, 3);
     } else if (id == 4 && last_recv_4.valid) {
-      sendCodePage(last_recv_4);
+      sendCodePage(last_recv_4, 4);
     } else if (id == 5 && last_recv_5.valid) {
-      sendCodePage(last_recv_5);
+      sendCodePage(last_recv_5, 5);
     } else {
       sendHomePage("Code does not exist", "Alert", 2, 404); // 404
     }
+  });
+
+  // Loads the store code page with the selected code, and if btn parameter send calls the routine to store the code to JSON file
+  server->on("/store", []() {
+    Serial.println("Connection received to store code page");
+    int id = server->arg("id").toInt();
+    String btn = server->arg("name_input");
+    btn.toUpperCase();
+    String pulse = server->arg("pulse");
+    String pulse_delay = server->arg("pulse_delay");    
+    String repeat = server->arg("repeat");
+    String repeat_delay = server->arg("repeat_delay");          
+    String output;
+
+    if (btn != "") {
+      if (id == 1 && last_recv.valid) {
+        storeReceivedCode(last_recv, btn, pulse, pulse_delay, repeat, repeat_delay);
+      } else if (id == 2 && last_recv_2.valid) {
+        storeReceivedCode(last_recv_2, btn, pulse, pulse_delay, repeat, repeat_delay);
+      } else if (id == 3 && last_recv_3.valid) {
+        storeReceivedCode(last_recv_3, btn, pulse, pulse_delay, repeat, repeat_delay);
+      } else if (id == 4 && last_recv_4.valid) {
+        storeReceivedCode(last_recv_4, btn, pulse, pulse_delay, repeat, repeat_delay);
+      } else if (id == 5 && last_recv_5.valid) {
+        storeReceivedCode(last_recv_5, btn, pulse, pulse_delay, repeat, repeat_delay);     
+      } else {
+        sendHomePage("Code does not exist", "Alert", 2, 404); // 404
+      }
+    } else if (id == 1 && last_recv.valid) {
+      storeCodePage(last_recv, 1);
+    } else if (id == 2 && last_recv_2.valid) {
+      storeCodePage(last_recv_2, 2);
+    } else if (id == 3 && last_recv_3.valid) {
+      storeCodePage(last_recv_3, 3);
+    } else if (id == 4 && last_recv_4.valid) {
+      storeCodePage(last_recv_4, 4);
+    } else if (id == 5 && last_recv_5.valid) {
+      storeCodePage(last_recv_5, 5);      
+    } else {
+      sendHomePage("Code does not exist", "Alert", 2, 404); // 404
+    }
+
+  });
+
+  // Delete the JSON codes contents
+  server->on("/clear", []() {
+    Serial.println("Connection received - clear JSON");
+    DeleteJSONFile(); // 200
+    sendHomePage("JSON Cleared", "Alert", 2, 404); // 404    
+  });
+
+  // list the JSON codes contents
+  server->on("/list", []() {
+    String item = server->arg("item");
+    if (server->hasArg("item")) {
+      Serial.println("Connection received - delete item " + item);
+      if (DeleteJSONitem(item)) listStoredCodes("Item removed", "Alert", 2, 404);    
+    } else {
+      listStoredCodes(); // 200
+      //sendHomePage("JSON Cleared", "Alert", 2, 404); // 404         
+    } 
   });
 
   server->on("/", []() {
@@ -839,6 +991,7 @@ void setup() {
   Serial.println("Ready to send and receive IR signals");
 }
 
+
 //+=============================================================================
 // Send command to local roku
 //
@@ -866,11 +1019,44 @@ int rokuCommand(String ip, String data) {
   return output;
 }
 
+
+//+=============================================================================
+// Send received command to webCoRe hub
+//
+int webCoreCommand (decode_results *results) {
+
+  if (results->repeat == false && results->overflow == false){
+    String value = uint64ToString(results->value, 16) + "|" + String(encoding(results)) + "|" + String(results->bits, DEC);    
+    String message;
+    message = String(host_name) + "|" + String(value);    
+    Serial.println("Sending to Smarthings... " + message);
+    WiFiClient st_client;
+        if (st_client.connect(hubIP, hubPort)){
+          st_client.println(F("POST / HTTP/1.1"));
+          st_client.print(F("HOST: "));
+          st_client.print(hubIP);
+          st_client.print(F(":"));
+          st_client.println(hubPort);
+          st_client.println(F("CONTENT-TYPE: text/plain"));
+          st_client.print(F("CONTENT-LENGTH: "));
+          st_client.println(message.length());
+          st_client.println();
+          st_client.println(message);
+          //while (st_client.connected()) {
+          //  char c = st_client.read(); //gets byte from ethernet buffer
+          //  Serial.print(c);
+          //}
+          delay(1);
+          st_client.stop();
+      }
+  }
+}
+
+
 //+=============================================================================
 // Split string by character
 //
-String getValue(String data, char separator, int index)
-{
+String getValue(String data, char separator, int index) {
   int found = 0;
   int strIndex[] = {0, -1};
   int maxIndex = data.length() - 1;
@@ -934,8 +1120,7 @@ String encoding(decode_results *results) {
 //+=============================================================================
 // Code to string
 //
-void fullCode (decode_results *results)
-{
+void fullCode (decode_results *results) {
   Serial.print("One line: ");
   serialPrintUint64(results->value, 16);
   Serial.print(":");
@@ -949,13 +1134,136 @@ void fullCode (decode_results *results)
                    "Edit IRController.ino and increase captureBufSize");
 }
 
+
+//+=============================================================================
+// Deletes the codes JSON file
+//
+void DeleteJSONFile () {
+  if (SPIFFS.begin()) {
+    Serial.println("  mounted file system");
+    SPIFFS.remove("/codes.json");
+  } else {
+    Serial.println("  failed to mount FS");
+  }
+}
+
+//+=============================================================================
+// Stores the selected code to JSON file
+//
+void storeReceivedCode (Code code, String btn, String pulse, String pulse_delay, String repeat, String repeat_delay) {
+  //generate the nested json from the code
+  DynamicJsonBuffer jsonWriteBuffer;  
+  JsonObject& jsonadd = jsonWriteBuffer.createObject();
+  JsonObject& jsonbtn = jsonadd.createNestedObject(btn);          
+  if (String(code.encoding) == "UNKNOWN") {
+    jsonbtn["data"] = RawJson("[" + code.raw + "]"); //"[" + code.raw + "]";
+    jsonbtn["type"] = "raw";
+    jsonbtn["khz"] = 38;
+  } else if (String(code.encoding) == "PANASONIC") {
+    jsonbtn["type"] = code.encoding;
+    jsonbtn["address"] = code.address;
+    jsonbtn["data"] = code.data;
+    jsonbtn["length"] = code.bits;
+  } else {
+    jsonbtn["type"] = code.encoding;
+    jsonbtn["data"] = code.data;
+    jsonbtn["length"] = code.bits;
+  }
+  if (pulse != "") jsonbtn["pulse"] = pulse;
+  if (pulse_delay != "") jsonbtn["pdelay"] =  pulse_delay;
+  if (repeat != "") jsonbtn["repeat"] =  repeat;
+  if (repeat_delay != "") jsonbtn["rdelay"] =  repeat_delay;
+
+  if (SPIFFS.begin()) {     //read current codes file
+    Serial.println("  mounted file system");
+    if (SPIFFS.exists("/codes.json")) {
+      //file exists, reading and loading
+      Serial.println("    reading code file");
+      File codeFile = SPIFFS.open("/codes.json", "r+");
+      if (codeFile) {
+        Serial.println("    opened codes file");
+        DynamicJsonBuffer jsonReadBuffer;
+        JsonObject& json = jsonReadBuffer.parseObject(codeFile); //buf.get());
+        codeFile.close();
+        if (json.success()) {
+          Serial.println("    parsed current json");
+          merge(json, jsonadd); // add new code to existing codes
+          json.prettyPrintTo(Serial);
+          if (saveJSON(json))  sendHomePage("Code stored to " + btn, "Alert", 2, 404);
+        }
+        jsonReadBuffer.clear();  
+      }
+    } else {
+      if (saveJSON(jsonadd)) sendHomePage("Code stored to " + btn, "Alert", 2, 404); // 404 Need to check it has been written before sending this (get saveJSON to return status);  //no existing code file so just store new code to new file
+    }
+  }
+  jsonWriteBuffer.clear(); 
+
+}
+
+//+=============================================================================
+// Delete the selected code
+//
+bool DeleteJSONitem(String item){
+  if (SPIFFS.begin()) {     //read current codes file
+    Serial.println("  mounted file system");
+    if (SPIFFS.exists("/codes.json")) {
+      //file exists, reading and loading
+      Serial.println("    reading code file");
+      File codeFile = SPIFFS.open("/codes.json", "r+");
+      if (codeFile) {
+        Serial.println("    opened codes file");
+        DynamicJsonBuffer jsonReadBuffer;
+        JsonObject& json = jsonReadBuffer.parseObject(codeFile); //buf.get());
+        codeFile.close();
+        if (json.success()) {
+          Serial.println("    parsed current json, deleteing " + item);
+          json.remove(item);
+          json.prettyPrintTo(Serial);
+          if (saveJSON(json)) return true;
+        }
+        jsonReadBuffer.clear();  
+      }
+    } else {
+      return false;      
+    }
+  }
+}
+
+//+=============================================================================
+// Updates the codes JSON file with added or deleted codes
+//
+bool saveJSON (JsonObject& json){
+  if (SPIFFS.begin()) {     //read current codes file
+    Serial.println("  mounted file system");
+    File codeFileWrite = SPIFFS.open("/codes.json", "w+"); //writes the updated json to code file
+    if (codeFileWrite) {
+      Serial.println("    opened codes file to write");
+      Serial.println("    Writing codes file");
+      json.printTo(codeFileWrite);
+      codeFileWrite.close();      
+      Serial.println("    Codes written successfully");
+      return true;
+    }  
+  }
+}
+
+//+=============================================================================
+// Merges new and existing codes into final json for save
+//
+void merge(JsonObject& dest, const JsonObject& src) {
+   for (auto kvp : src) {
+     dest[kvp.key] = kvp.value;
+   }
+}
+
+
 //+=============================================================================
 // Send header HTML
 //
 void sendHeader() {
   sendHeader(200);
 }
-
 void sendHeader(int httpcode) {
   server->setContentLength(CONTENT_LENGTH_UNKNOWN);
   server->send(httpcode, "text/html; charset=utf-8", "");
@@ -978,9 +1286,15 @@ void sendHeader(int httpcode) {
   server->sendContent("            <li class='active'>\n");
   server->sendContent("              <a href='http://" + WiFi.localIP().toString() + ":" + String(port) + "'>Local <span class='badge'>" + WiFi.localIP().toString() + ":" + String(port) + "</span></a></li>\n");
   server->sendContent("            <li class='active'>\n");
-  server->sendContent("              <a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>\n");
+  if (!getExternalIP || externalIPError) {
+    server->sendContent("              <a href='#'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>\n");    
+  } else {
+    server->sendContent("              <a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>\n");
+  }
   server->sendContent("            <li class='active'>\n");
-  server->sendContent("              <a>MAC <span class='badge'>" + String(WiFi.macAddress()) + "</span></a></li>\n");
+  server->sendContent("              <a href='#'> MAC <span class='badge'>" + String(WiFi.macAddress()) + "</span></a></li>\n");
+  server->sendContent("            <li class='active'>\n");
+  server->sendContent("              <a href='/list'>Stored Codes</a></li>\n");
   server->sendContent("          </ul>\n");
   server->sendContent("        </div>\n");
   server->sendContent("      </div><hr />\n");
@@ -990,9 +1304,10 @@ void sendHeader(int httpcode) {
 // Send footer HTML
 //
 void sendFooter() {
+
   server->sendContent("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime; EPOCH " + String(timeClient.getUnixTime() - timeOffset) + "</em> / <em id='jepoch'></em> ( <em id='jdiff'></em> )</div></div>\n");
   server->sendContent("      <script>document.getElementById('jepoch').innerHTML = Math.round((new Date()).getTime() / 1000)</script>");
-  server->sendContent("      <script>document.getElementById('jdiff').innerHTML = Math.abs(Math.round((new Date()).getTime() / 1000) - " + String(timeClient.getUnixTime() - timeOffset) + ")</script>");
+  server->sendContent("      <script>document.getElementById('jdiff').innerHTML = Math.abs(Math.round((new Date()).getTime() / 1000) - " + String(timeClient.getUnixTime() - timeOffset) + ")</script>");  
   if (strlen(user_id) != 0)
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Device secured with SHA256 authentication. Only commands sent and verified with Amazon Alexa and the IR Controller Skill will be processed</em></div></div>");
   if (authError)
@@ -1020,16 +1335,14 @@ void sendFooter() {
 void sendHomePage() {
   sendHomePage("", "");
 }
-
 void sendHomePage(String message, String header) {
   sendHomePage(message, header, 0);
 }
-
 void sendHomePage(String message, String header, int type) {
   sendHomePage(message, header, type, 200);
 }
-
 void sendHomePage(String message, String header, int type, int httpcode) {
+  String jsonTest;
   sendHeader(httpcode);
   if (type == 1)
   server->sendContent("      <div class='row'><div class='col-md-12'><div class='alert alert-success'><strong>" + header + "!</strong> " + message + "</div></div></div>\n");
@@ -1061,20 +1374,60 @@ void sendHomePage(String message, String header, int type, int httpcode) {
   server->sendContent("        <div class='col-md-12'>\n");
   server->sendContent("          <h3>Codes Received</h3>\n");
   server->sendContent("          <table class='table table-striped' style='table-layout: fixed;'>\n");
-  server->sendContent("            <thead><tr><th>Received</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>\n"); //Title
+  server->sendContent("            <thead><tr><th>Received</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th><th>Action</th></tr></thead>\n"); //Title
   server->sendContent("            <tbody>\n");
-  if (last_recv.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=1'>" + epochToString(last_recv.timestamp) + "</a></td><td><code>" + String(last_recv.data) + "</code></td><td><code>" + String(last_recv.encoding) + "</code></td><td><code>" + String(last_recv.bits) + "</code></td><td><code>" + String(last_recv.address) + "</code></td></tr>\n");
-  if (last_recv_2.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=2'>" + epochToString(last_recv_2.timestamp) + "</a></td><td><code>" + String(last_recv_2.data) + "</code></td><td><code>" + String(last_recv_2.encoding) + "</code></td><td><code>" + String(last_recv_2.bits) + "</code></td><td><code>" + String(last_recv_2.address) + "</code></td></tr>\n");
-  if (last_recv_3.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=3'>" + epochToString(last_recv_3.timestamp) + "</a></td><td><code>" + String(last_recv_3.data) + "</code></td><td><code>" + String(last_recv_3.encoding) + "</code></td><td><code>" + String(last_recv_3.bits) + "</code></td><td><code>" + String(last_recv_3.address) + "</code></td></tr>\n");
-  if (last_recv_4.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=4'>" + epochToString(last_recv_4.timestamp) + "</a></td><td><code>" + String(last_recv_4.data) + "</code></td><td><code>" + String(last_recv_4.encoding) + "</code></td><td><code>" + String(last_recv_4.bits) + "</code></td><td><code>" + String(last_recv_4.address) + "</code></td></tr>\n");
-  if (last_recv_5.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=5'>" + epochToString(last_recv_5.timestamp) + "</a></td><td><code>" + String(last_recv_5.data) + "</code></td><td><code>" + String(last_recv_5.encoding) + "</code></td><td><code>" + String(last_recv_5.bits) + "</code></td><td><code>" + String(last_recv_5.address) + "</code></td></tr>\n");
+  if (last_recv.valid) {
+    if (String(last_recv.encoding) == "UNKNOWN") {
+      jsonTest = "[{data:[" + String(last_recv.raw) + "],type:raw,khz:38}]";
+    } else if (String(last_recv.encoding) == "PANASONIC") {
+      jsonTest = "[{data:" + String(last_recv.data) + ",type:" + String(last_recv.encoding) + ",length:" + String(last_recv.bits) + ",address:" + String(last_recv.address) + "}]";
+    } else {
+      jsonTest = "[{data:" + String(last_recv.data) + ",type:" + String(last_recv.encoding) + ",length:" + String(last_recv.bits) + "}]";
+    }
+    server->sendContent("              <form style='display:inline-block; margin:0; padding:0' action='/json' method='post'><input type='hidden' name='pass' value='" + String(passcode) + "'><tr class='text-uppercase'><td><a href='/received?id=1'>" + epochToString(last_recv.timestamp) + "</a></td><td><code>" + String(last_recv.data) + "</code></td><td><code>" + String(last_recv.encoding) + "</code></td><td><code>" + String(last_recv.bits) + "</code></td><td><code>" + String(last_recv.address) + "</code></td><td><a class='btn btn-primary btn-xs' href='/store?id=1' role='button'>Store</a> <button name='plain' value='" + String(jsonTest) + "' class='btn btn-primary btn-xs' type='submit'>TEST</button></td></tr></form>\n");
+  }  
+  if (last_recv_2.valid) {
+    if (String(last_recv_2.encoding) == "UNKNOWN") {
+      jsonTest = "[{data:[" + String(last_recv_2.raw) + "],type:raw,khz:38}]";
+    } else if (String(last_recv_2.encoding) == "PANASONIC") {
+      jsonTest = "[{data:" + String(last_recv_2.data) + ",type:" + String(last_recv_2.encoding) + ",length:" + String(last_recv_2.bits) + ",address:" + String(last_recv_2.address) + "}]";
+    } else {
+      jsonTest = "[{data:" + String(last_recv_2.data) + ",type:" + String(last_recv_2.encoding) + ",length:" + String(last_recv_2.bits) + "}]";
+    }
+    server->sendContent("              <form style='display:inline-block; margin:0; padding:0' action='/json' method='post'><input type='hidden' name='pass' value='" + String(passcode) + "'><tr class='text-uppercase'><td><a href='/received?id=1'>" + epochToString(last_recv_2.timestamp) + "</a></td><td><code>" + String(last_recv_2.data) + "</code></td><td><code>" + String(last_recv_2.encoding) + "</code></td><td><code>" + String(last_recv_2.bits) + "</code></td><td><code>" + String(last_recv_2.address) + "</code></td><td><a class='btn btn-primary btn-xs' href='/store?id=1' role='button'>Store</a> <button name='plain' value='" + String(jsonTest) + "' class='btn btn-primary btn-xs' type='submit'>TEST</button></td></tr></form>\n");
+    }
+    if (last_recv_3.valid) {
+    if (String(last_recv_3.encoding) == "UNKNOWN") {
+      jsonTest = "[{data:[" + String(last_recv_3.raw) + "],type:raw,khz:38}]";
+    } else if (String(last_recv_3.encoding) == "PANASONIC") {
+      jsonTest = "[{data:" + String(last_recv_3.data) + ",type:" + String(last_recv_3.encoding) + ",length:" + String(last_recv_3.bits) + ",address:" + String(last_recv_3.address) + "}]";
+    } else {
+      jsonTest = "[{data:" + String(last_recv_3.data) + ",type:" + String(last_recv_3.encoding) + ",length:" + String(last_recv_3.bits) + "}]";
+    }
+    server->sendContent("              <form style='display:inline-block; margin:0; padding:0' action='/json' method='post'><input type='hidden' name='pass' value='" + String(passcode) + "'><tr class='text-uppercase'><td><a href='/received?id=1'>" + epochToString(last_recv_3.timestamp) + "</a></td><td><code>" + String(last_recv_3.data) + "</code></td><td><code>" + String(last_recv_3.encoding) + "</code></td><td><code>" + String(last_recv_3.bits) + "</code></td><td><code>" + String(last_recv_3.address) + "</code></td><td><a class='btn btn-primary btn-xs' href='/store?id=1' role='button'>Store</a> <button name='plain' value='" + String(jsonTest) + "' class='btn btn-primary btn-xs' type='submit'>TEST</button></td></tr></form>\n");
+    }
+    if (last_recv_4.valid) {
+    if (String(last_recv_4.encoding) == "UNKNOWN") {
+      jsonTest = "[{data:[" + String(last_recv_4.raw) + "],type:raw,khz:38}]";
+    } else if (String(last_recv_4.encoding) == "PANASONIC") {
+      jsonTest = "[{data:" + String(last_recv_4.data) + ",type:" + String(last_recv_4.encoding) + ",length:" + String(last_recv_4.bits) + ",address:" + String(last_recv_4.address) + "}]";
+    } else {
+      jsonTest = "[{data:" + String(last_recv_4.data) + ",type:" + String(last_recv_4.encoding) + ",length:" + String(last_recv_4.bits) + "}]";
+    }
+    server->sendContent("              <form style='display:inline-block; margin:0; padding:0' action='/json' method='post'><input type='hidden' name='pass' value='" + String(passcode) + "'><tr class='text-uppercase'><td><a href='/received?id=1'>" + epochToString(last_recv_4.timestamp) + "</a></td><td><code>" + String(last_recv_4.data) + "</code></td><td><code>" + String(last_recv_4.encoding) + "</code></td><td><code>" + String(last_recv_4.bits) + "</code></td><td><code>" + String(last_recv_4.address) + "</code></td><td><a class='btn btn-primary btn-xs' href='/store?id=1' role='button'>Store</a> <button name='plain' value='" + String(jsonTest) + "' class='btn btn-primary btn-xs' type='submit'>TEST</button></td></tr></form>\n");
+    }
+    if (last_recv_5.valid) {
+    if (String(last_recv_5.encoding) == "UNKNOWN") {
+      jsonTest = "[{data:[" + String(last_recv_5.raw) + "],type:raw,khz:38}]";
+    } else if (String(last_recv_5.encoding) == "PANASONIC") {
+      jsonTest = "[{data:" + String(last_recv_5.data) + ",type:" + String(last_recv_5.encoding) + ",length:" + String(last_recv_5.bits) + ",address:" + String(last_recv_5.address) + "}]";
+    } else {
+      jsonTest = "[{data:" + String(last_recv_5.data) + ",type:" + String(last_recv_5.encoding) + ",length:" + String(last_recv_5.bits) + "}]";
+    }
+    server->sendContent("              <form style='display:inline-block; margin:0; padding:0' action='/json' method='post'><input type='hidden' name='pass' value='" + String(passcode) + "'><tr class='text-uppercase'><td><a href='/received?id=1'>" + epochToString(last_recv_5.timestamp) + "</a></td><td><code>" + String(last_recv_5.data) + "</code></td><td><code>" + String(last_recv_5.encoding) + "</code></td><td><code>" + String(last_recv_5.bits) + "</code></td><td><code>" + String(last_recv_5.address) + "</code></td><td><a class='btn btn-primary btn-xs' href='/store?id=1' role='button'>Store</a> <button name='plain' value='" + String(jsonTest) + "' class='btn btn-primary btn-xs' type='submit'>TEST</button></td></tr></form>\n");
+    }
   if (!last_recv.valid && !last_recv_2.valid && !last_recv_3.valid && !last_recv_4.valid && !last_recv_5.valid)
-  server->sendContent("              <tr><td colspan='5' class='text-center'><em>No codes received</em></td></tr>");
+  server->sendContent("              <tr><td colspan='6' class='text-center'><em>No codes received</em></td></tr>");
   server->sendContent("            </tbody></table>\n");
   server->sendContent("          </div></div>\n");
   server->sendContent("      <div class='row'>\n");
@@ -1096,7 +1449,6 @@ void sendHomePage(String message, String header, int type, int httpcode) {
 void sendCodePage(Code selCode) {
   sendCodePage(selCode, 200);
 }
-
 void sendCodePage(Code selCode, int httpcode){
   sendHeader(httpcode);
   server->sendContent("      <div class='row'>\n");
@@ -1119,7 +1471,7 @@ void sendCodePage(Code selCode, int httpcode){
   server->sendContent("            <dd><code>" + String(selCode.raw)  + "</code></dd></dl>\n");
   server->sendContent("          <dl class='dl-horizontal'>\n");
   server->sendContent("            <dt>Timestamp</dt>\n");
-  server->sendContent("            <dd><code>" + epochToString(selCode.timestamp)  + "</code></dd></dl>\n");
+  server->sendContent("            <dd><code>" + epochToString(selCode.timestamp)  + "</code></dd></dl>\n");  
   server->sendContent("        </div></div>\n");
   server->sendContent("      <div class='row'>\n");
   server->sendContent("        <div class='col-md-12'>\n");
@@ -1176,6 +1528,145 @@ void sendCodePage(Code selCode, int httpcode){
   sendFooter();
 }
 
+
+//+=============================================================================
+// Stream store code page HTML
+//
+void storeCodePage(Code selCode, int id) {
+  storeCodePage(selCode, id, 200);
+}
+void storeCodePage(Code selCode, int id, int httpcode){
+  sendHeader(httpcode);
+  server->sendContent("      <div class='row'>\n");
+  server->sendContent("        <div class='col-md-12'>\n");  
+  server->sendContent("          <h2><span class='label label-success'>" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</span></h2>\n");
+  server->sendContent("          <dl class='dl-horizontal'>\n");
+  server->sendContent("            <dt>Data</dt>\n");
+  server->sendContent("            <dd><code>" + String(selCode.data)  + "</code></dd></dl>\n");
+  server->sendContent("          <dl class='dl-horizontal'>\n");
+  server->sendContent("            <dt>Type</dt>\n");
+  server->sendContent("            <dd><code>" + String(selCode.encoding)  + "</code></dd></dl>\n");
+  server->sendContent("          <dl class='dl-horizontal'>\n");
+  server->sendContent("            <dt>Length</dt>\n");
+  server->sendContent("            <dd><code>" + String(selCode.bits)  + "</code></dd></dl>\n");
+  server->sendContent("          <dl class='dl-horizontal'>\n");
+  server->sendContent("            <dt>Address</dt>\n");
+  server->sendContent("            <dd><code>" + String(selCode.address)  + "</code></dd></dl>\n");
+  server->sendContent("          <dl class='dl-horizontal'>\n");
+  server->sendContent("            <dt>Raw</dt>\n");
+  server->sendContent("            <dd><code>" + String(selCode.raw)  + "</code></dd></dl>\n");
+  server->sendContent("        </div></div>\n");
+  server->sendContent("      <div class='row'>\n");
+  server->sendContent("        <div class='col-md-12'>\n");
+  server->sendContent("        </div>\n");
+  server->sendContent("     </div>\n");
+  server->sendContent("          <form action='http://"+ WiFi.localIP().toString() +"/store' method='POST'>\n");
+  server->sendContent("          <div class='form-group row'>\n");
+  server->sendContent("              <label for='name_input' class='col-sm-2 col-form-label col-form-label-sm'>Enter the remote button name:</label>\n");
+  server->sendContent("              <div class='col-sm-10'>\n");
+  server->sendContent("               <input type='text' class='form-control form-control-sm' name='name_input' placeholder='Remote control button name'><input type='hidden' name='id' value=" + String(id) + ">");
+  server->sendContent("              </div>\n");
+  server->sendContent("          </div>\n");
+  server->sendContent("          <div class='form-group row'>\n");
+  server->sendContent("              <label for='pulse' class='col-sm-2 col-form-label col-form-label-sm'>Specify the number of pulses:</label>\n");
+  server->sendContent("              <div class='col-sm-10'>\n");
+  server->sendContent("               <input type='text' class='form-control form-control-sm' name='pulse' placeholder='Pulses (default - single pulse)'>\n");
+  server->sendContent("              </div>\n");
+  server->sendContent("          </div>\n");
+  server->sendContent("          <div class='form-group row'>\n");
+  server->sendContent("              <label for='pulse_delay' class='col-sm-2 col-form-label col-form-label-sm'>Specify the pulse delay:</label>\n");
+  server->sendContent("              <div class='col-sm-10'>\n");
+  server->sendContent("               <input type='text' class='form-control form-control-sm' name='pulse_delay' placeholder='Pulse delay (milliseconds - default 100)'>\n");
+  server->sendContent("              </div>\n");
+  server->sendContent("          </div>\n");
+  server->sendContent("          <div class='form-group row'>\n");
+  server->sendContent("              <label for='repeat' class='col-sm-2 col-form-label col-form-label-sm'>Specify the number of repeats:</label>\n");
+  server->sendContent("              <div class='col-sm-10'>\n");
+  server->sendContent("               <input type='text' class='form-control form-control-sm' name='repeat' placeholder='Repeat (default - no repeat)'>\n");
+  server->sendContent("              </div>\n");
+  server->sendContent("          </div>\n");
+  server->sendContent("          <div class='form-group row'>\n");
+  server->sendContent("              <label for='repeat_delay' class='col-sm-2 col-form-label col-form-label-sm'>Specify the repeat delay:</label>\n");
+  server->sendContent("              <div class='col-sm-10'>\n");
+  server->sendContent("               <input type='text' class='form-control form-control-sm' name='repeat_delay' placeholder='Repeat delay (milliseconds - default 1000)'>\n");
+  server->sendContent("              </div>\n");
+  server->sendContent("          </div>\n");
+  server->sendContent("          <div class='form-group row'>\n");
+  server->sendContent("              <div class='col-sm-10'>\n");
+  server->sendContent("              <button type='submit' formaction='/store' class='btn btn-primary'>Store</button>\n");    
+  server->sendContent("              </div>\n");
+  server->sendContent("          </div>\n");     
+  server->sendContent("          </form>\n");
+  sendFooter();
+}
+
+
+void listStoredCodes() {
+  listStoredCodes("", "");
+}
+void listStoredCodes(String message, String header) {
+  listStoredCodes(message, header, 0);
+}
+void listStoredCodes(String message, String header, int type) {
+  listStoredCodes(message, header, type, 200);
+}
+void listStoredCodes(String message, String header, int type, int httpcode) {
+  sendHeader(httpcode);
+  if (type == 1)
+  server->sendContent("      <div class='row'><div class='col-md-12'><div class='alert alert-success'><strong>" + header + "!</strong> " + message + "</div></div></div>\n");
+  if (type == 2)
+  server->sendContent("      <div class='row'><div class='col-md-12'><div class='alert alert-warning'><strong>" + header + "!</strong> " + message + "</div></div></div>\n");
+  if (type == 3)
+  server->sendContent("      <div class='row'><div class='col-md-12'><div class='alert alert-danger'><strong>" + header + "!</strong> " + message + "</div></div></div>\n");
+  server->sendContent("      <div class='row'>\n");
+  server->sendContent("        <div class='col-md-12'>\n");
+  server->sendContent("          <h3>Codes Stored</h3>\n");
+  server->sendContent("          <table class='table table-striped' style='table-layout: fixed;'>\n");
+  server->sendContent("            <thead><tr><th>Button Name</th><th>Type</th><th>Action</th></tr></thead>\n"); //Title
+  server->sendContent("            <tbody>\n");
+  if (SPIFFS.begin()) {
+    Serial.println("mounted file system");
+    if (SPIFFS.exists("/codes.json")) {
+      //file exists, reading and loading
+      Serial.println("reading codes file");
+      File configFileRead = SPIFFS.open("/codes.json", "r");
+      if (configFileRead) {
+        Serial.println("opened codes file");
+        DynamicJsonBuffer jsonLoadBuffer;
+        JsonObject& jsonRead = jsonLoadBuffer.parseObject(configFileRead);
+        configFileRead.close();
+        for (auto kv : jsonRead) {
+          String typekeyvalue;
+          Serial.println(kv.key);
+          Serial.println(kv.value.as<char*>());
+          JsonObject& jsonReadFinger = jsonRead[kv.key];
+          for (auto kvf : jsonReadFinger) {
+            if (String(kvf.key) == "type") {
+              typekeyvalue = kvf.value.as<char*>();
+            }
+          }
+          server->sendContent("              <tr class='text-uppercase'><td>" + String(kv.key) + "</td><td>" + String(typekeyvalue) + "</td><td><a class='btn btn-primary btn-xs' href='/json?btn=[" + String(kv.key) + "]&pass=" + String(passcode) + "&fromListPage=true' role='button'>Test</a> <a class='btn btn-danger btn-xs' href='/list?item=" + String(kv.key) + "' role='button'>Delete</a></td></tr>\n"); 
+        }
+        jsonLoadBuffer.clear();
+      }
+    }
+  } else {
+    Serial.println("failed to mount FS");
+  }
+  server->sendContent("            </tbody></table>\n");
+  server->sendContent("          </div></div>\n");
+  server->sendContent("          <form>\n");
+  server->sendContent("          <div class='form-group row'>\n");
+  server->sendContent("              <div class='col-sm-10'>\n");
+  server->sendContent("              <button type='submit' formaction='/clear' class='btn btn-danger'>Clear ALL stored codes</button>  \n");  
+  server->sendContent("              <span class='badge badge-warning'>Warning:</span>  Will clear all stored codes\n"); 
+  server->sendContent("              </div>\n");
+  server->sendContent("          </div>\n");   
+  server->sendContent("          </form>\n");  
+  sendFooter();
+}
+
+
 //+=============================================================================
 // Code to JsonObject
 //
@@ -1199,7 +1690,9 @@ void cvrtCode(Code& codeData, decode_results *results)
     strncpy(codeData.address, "0x0", 20);
     strncpy(codeData.command, "0x0", 40);
   }
+
 }
+
 
 //+=============================================================================
 // Dump out the decode_results structure.
@@ -1329,7 +1822,7 @@ String bin2hex(const uint8_t* bin, const int length) {
 // Send IR codes to variety of sources
 //
 void irblast(String type, String dataStr, unsigned int len, int rdelay, int pulse, int pdelay, int repeat, long address, IRsend irsend) {
-  Serial.println("Blasting off");
+  Serial.println("Code transmit");
   type.toLowerCase();
   uint64_t data = strtoull(("0x" + dataStr).c_str(), 0, 0);
   holdReceive = true;
@@ -1402,7 +1895,6 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
   resetReceive();
 }
 
-
 void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int repeat, IRsend irsend,int duty) {
   Serial.println("Raw transmit");
   holdReceive = true;
@@ -1440,7 +1932,6 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int re
 
   resetReceive();
 }
-
 
 void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
 {
@@ -1490,6 +1981,7 @@ void copyCode (Code& c1, Code& c2) {
   c2.valid = c1.valid;
 }
 
+
 void loop() {
   server->handleClient();
   ArduinoOTA.handle();
@@ -1499,6 +1991,7 @@ void loop() {
     Serial.println("Signal received:");
     fullCode(&results);                                           // Print the singleline value
     dumpCode(&results);                                           // Output the results as source code
+    if (sendToSmartThings) webCoreCommand(&results);              // Send received code to Smartthings
     copyCode(last_recv_4, last_recv_5);                           // Pass
     copyCode(last_recv_3, last_recv_4);                           // Pass
     copyCode(last_recv_2, last_recv_3);                           // Pass
