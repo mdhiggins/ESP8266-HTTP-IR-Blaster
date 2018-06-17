@@ -71,7 +71,9 @@ You may access basic device information at `http://xxx.xxx.xxx.xxx:port/` (webro
 Capturing Codes
 ---------------
 Your last scanned code can be accessed via web at `http://xxx.xxx.xxx.xxx:port/` or via serial monitoring over USB at 115200 baud. Most codes will be recognized and displayed in the format `A90:SONY:12`. Make a note of the code displayed in the serial output as you will need it for your maker channel URL. If your code is not recognized scroll down the JSON section of this read me.
+
 Codes can be stored locally on the ESP and used later by referencing the name specified when storing the code. Any type of code can be stored, including raw output. Refer to the section below 'Sending a stored remote button command' on how to sed stored codes. 
+
 To store a received code simply click the 'STORE' button next to the relevant received code on the IR Controller web home page. Test the received code first by clicking 'TEST'.
 
 NodeMCU PCU
