@@ -160,9 +160,9 @@ http://xxx.xxx.xxx.xxx:port/json?pass=yourpass&plain=[{"type":"nec","data":"FF82
 
 Sending a stored remote button command
 --------------
-A saved remote button stores the code (including RAW only commands) along with any repeats and pulses associated with the paticular button. All the other commands including `device`, `state` and `out` can be used.
-If you use this setup on multiple IR Controller devices (different TVs in differnt rooms for example) you can store the remote control button cammonds locally and if you specify the same button names, the URL you use for each device will be identical with the exception of the ip address of the IR Controller unit. 
-This method can greatly simply the configuration of the service you use to send commands, in particulr in a multiple IR Controller setup.
+A saved remote button stores the code locally as a JSON file on the SPIFF filesystem. With the IR command (including RAW only commands) repeats and pulses associated with the particular button can also be stored. All the other commands including `device`, `state` and `out` can be used in the URL as described.
+If you use this setup on multiple IR Controllers (different TVs in different rooms for example) you can store the remote-control button commands locally and if you specify the same button names, the URL you use for each device will be identical with the exception of the ip address of the IR Controller unit. 
+This method can greatly simply the configuration of the service (IFTTT etc.) you use to send commands, in particular in a multiple IR Controller setup. It can also make sending raw commands easier as you can receive, test and then store successful commands easily, you don’t need to worry about copying the raw string remotely and then testing.
 
 Sample URL to send stored button 1, 0, and 1 to two different IR Controllers (where 001 and 002 are the end of the IR Controllers IP addresses)
 ```
@@ -174,7 +174,7 @@ Security
 ---------------
 Due to limitations imposed by the hardware in the ESP8266, there is not enough free memory to communicate over HTTPS/SSL. To protect your devices, during the WiFiManager setup process you can specify your Amazon user_id which will act as a secret key that allows SHA256 HMAC authentication to take place. Without this time sensitive signature no codes will be sent from the device. The user_id is a unique identifier tied to your account and my developer account, not shared across any other Amazon services. This unique ID can be found at the bottom of the tehpsyc.pythonanywhere.com page. The format is `amzn1.account.xxx`, **NOT your account email**. Enabling this feature will prevent sending commands via other means but greatly increases the security of the device.
 
-To send commands over SSL you can use an intermediate service such as Smartthings (see below), use a reverse proxy with HTTPS support (which should work with the native Alexa skill) such a nginx, or handle everything on the local network and not use the functionality with Alexa.
+To send commands over SSL you can use an intermediate service such as Smartthings (see below), use a reverse proxy with HTTPS support (which should work with the native Alexa skill) such a nginx, or handle everything on the local network and not use the functionality with Alexa. On Windows systems CADDY is quite straight forward for setup up reverse proxy.
 
 This article provides some details on using nginx
 https://jjssoftware.github.io/secure-your-esp8266/
