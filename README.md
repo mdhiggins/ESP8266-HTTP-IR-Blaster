@@ -71,6 +71,8 @@ You may access basic device information at `http://xxx.xxx.xxx.xxx:port/` (webro
 Capturing Codes
 ---------------
 Your last scanned code can be accessed via web at `http://xxx.xxx.xxx.xxx:port/` or via serial monitoring over USB at 115200 baud. Most codes will be recognized and displayed in the format `A90:SONY:12`. Make a note of the code displayed in the serial output as you will need it for your maker channel URL. If your code is not recognized scroll down the JSON section of this read me.
+Codes can be stored locally on the ESP and used later by referencing the name specified when storing the code. Any type of code can be stored, including raw output. Refer to the section below 'Sending a stored remote button command' on how to sed stored codes. 
+To store a received code simply click the 'STORE' button next to the relevant received code on the IR Controller web home page. Test the received code first by clicking 'TEST'.
 
 NodeMCU PCU
 ---------------
@@ -152,6 +154,18 @@ To send the signal using the IFTTT Maker channel or the IR Controller smart home
 Sample URL using the same 3 button JSON sequence as above
 ```
 http://xxx.xxx.xxx.xxx:port/json?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
+```
+
+Sending a stored remote button command
+--------------
+A saved remote button stores the code (including RAW only commands) along with any repeats and pulses associated with the paticular button. All the other commands including `device`, `state` and `out` can be used.
+If you use this setup on multiple IR Controller devices (different TVs in differnt rooms for example) you can store the remote control button cammonds locally and if you specify the same button names, the URL you use for each device will be identical with the exception of the ip address of the IR Controller unit. 
+This method can greatly simply the configuration of the service you use to send commands, in particulr in a multiple IR Controller setup.
+
+Sample URL to send stored button 1, 0, and 1 to two different IR Controllers (where 001 and 002 are the end of the IR Controllers IP addresses)
+```
+http://xxx.xxx.xxx.001:port/json?pass=yourpass&btn=[1,0,1]
+http://xxx.xxx.xxx.002:port/json?pass=yourpass&btn=[1,0,1]
 ```
 
 Security
