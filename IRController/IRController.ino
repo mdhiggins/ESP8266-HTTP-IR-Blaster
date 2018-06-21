@@ -40,12 +40,11 @@ char port_str[6] = "80";
 char user_id[60] = "";
 const char* fingerprint = "8D 83 C3 5F 0A 09 84 AE B0 64 39 23 8F 05 9E 4D 5E 08 60 06";
 
-char static_ip[16] = "10.0.1.10";
-char static_gw[16] = "10.0.1.1";
+char static_ip[16] = "xxx.xxx.xxx.xxx";
+char static_gw[16] = "xxx.xxx.xxx.xxx";
 char static_sn[16] = "255.255.255.0";
 
 // ========= User settings are above here =========
-
 
 const int ledpin = BUILTIN_LED;                               // Built in LED defined for WEMOS people
 const char *wifi_config_name = "IR Controller Configuration";
@@ -94,6 +93,7 @@ class Code {
     bool valid = false;
 };
 
+
 Code last_recv;
 Code last_recv_2;
 Code last_recv_3;
@@ -104,6 +104,15 @@ Code last_send_2;
 Code last_send_3;
 Code last_send_4;
 Code last_send_5;
+
+class returnMessage {
+  public:
+    String message = "";
+    String title = "";
+    int httpcode = 0;
+    int type = 1;
+};
+returnMessage rtnMessage;
 
 File fsUploadFile;              // a File object to temporarily store the received file
 
@@ -562,192 +571,155 @@ void setup() {
   server->on("/json", []() { // JSON handler for more complicated IR blaster routines
     
     Serial.println("Connection received - JSON");
-    int simple = 0;
-    if (server->hasArg("simple")) simple = server->arg("simple").toInt();
+    //int simple = 0;
+    int simple = server->arg("simple").toInt() | 0;
     String signature = server->arg("auth");
     String epid = server->arg("epid");
     String mid = server->arg("mid");
     String timestamp = server->arg("time");
     int out = (server->hasArg("out")) ? server->arg("out").toInt() : 1;
+    String jsonError;
+    String device = server->arg("device");
+    int state = (server->hasArg("state")) ? server->arg("state").toInt() : 0;
+    int storedState = (deviceState.containsKey(device)) ? deviceState[device] : 888888;
+    DynamicJsonBuffer jsonStringBuffer;
+    Serial.println("device:" + device + " state:" + state + " storedState:" + storedState);
     String jsonString;
-    String jsonLookupError;
-    
-    if (server->hasArg("btn")) {    //JSON command received with button as argument, retreive button IR command from stored JSON
-      String btn = server->arg("btn");  
-      btn.toLowerCase(); 
-      DynamicJsonBuffer jsonBtnBuffer;
-      JsonArray& rootbtn = jsonBtnBuffer.parseArray(btn);
-      rootbtn.prettyPrintTo(Serial);      
-      if (SPIFFS.begin()) {
-        for (auto v : rootbtn) {
-          String vtxt = v;
-          vtxt = "/codes/" + vtxt + ".json";
-          vtxt.toLowerCase();
-          Serial.println("reading codes file:" + vtxt);
-          if (SPIFFS.exists(vtxt)) {
-            File codeFileRead = SPIFFS.open(vtxt, "r"); //reades the json file
-            if (codeFileRead) {
-              DynamicJsonBuffer jsonReadBuffer;
-              JsonObject& filebtn = jsonReadBuffer.parseObject(codeFileRead);                
-              Serial.println("parsed json");
-              String jsonStringtmp;
-              filebtn.printTo(jsonStringtmp);
-              jsonReadBuffer.clear();
-              if (rootbtn.size() > 1 && v < rootbtn.size()-1) {
-                if (jsonStringtmp != "") { //if the string is empty we havent found a match so record the button name against the error string
-                  jsonString = jsonString + jsonStringtmp + ",";
+   
+    // Handle device state limitations for the global JSON command request
+     if ((device != "" && storedState != state) || device == "") { //url sent a device name, and its state doesnt match the stored state, or there isnt a stored state
+      if (strlen(passcode) == 0 || server->arg("pass") == passcode) { //passcode good
+        if (strlen(user_id) == 0 || validateHMAC(epid, mid, timestamp, signature)) {        
+          if (device != "") deviceState[device] = state;
+          if (server->hasArg("btn")) {
+            String btn = server->arg("btn"); 
+            jsonString; 
+            btn.toLowerCase(); 
+            DynamicJsonBuffer jsonBtnBuffer;
+            JsonArray& rootbtn = jsonBtnBuffer.parseArray(btn);
+            rootbtn.prettyPrintTo(Serial);
+            Serial.println(rootbtn.size());      
+            for (int v = 0; v < rootbtn.size(); v++) {
+              if (!rootbtn[v].is<JsonObject>()) {
+                String vtxt; rootbtn[v].printTo(vtxt); vtxt = "/codes/" + vtxt + ".json";
+                vtxt.toLowerCase();
+                Serial.println("reading codes file:" + vtxt);
+                if (SPIFFS.exists(vtxt)) {
+                  File codeFileRead = SPIFFS.open(vtxt, "r"); //reades the json file
+                  if (codeFileRead) {
+                    DynamicJsonBuffer jsonReadBuffer;
+                    JsonObject& filebtn = jsonReadBuffer.parseObject(codeFileRead);                
+                    JsonObject& fingers =  rootbtn[v+1];
+                    for (auto finger : fingers){
+                      if (String(finger.key) == "state") {
+                        filebtn["state"] = finger.value;
+                        filebtn["device"] = filebtn["name"];
+                      }
+                    }
+                    String jsonStringtmp;
+                    filebtn.printTo(jsonStringtmp);  
+                    jsonReadBuffer.clear();                  
+                    if (jsonStringtmp != "") jsonString = jsonString + jsonStringtmp + ",";            
+                  } else {
+                    jsonError = jsonError + " " + vtxt;
+                  }
                 } else {
-                  jsonLookupError = jsonLookupError + vtxt + ", ";
+                  jsonError = jsonError + " " + vtxt;              
                 }
-              } else {
-                if (jsonStringtmp != "") {
-                  jsonString = jsonString + jsonStringtmp;                      
+              }
+            }
+            if (jsonString != "") {
+              if (jsonString.endsWith(",")) jsonString = jsonString.substring(0, jsonString.length() -1);
+              jsonString = "[" + jsonString + "]";
+            }
+            jsonBtnBuffer.clear();            
+          } else if (server->hasArg("plain")){           
+            jsonString = server->arg("plain");
+          } else {
+            rtnMessage.message = "No command received"; rtnMessage.title = "Information"; rtnMessage.type = 1, rtnMessage.httpcode = 200;
+          }
+          JsonArray& root = jsonStringBuffer.parseArray(jsonString);
+          if (root.success()) {
+            root.prettyPrintTo(Serial);
+            Serial.println("");            
+            Serial.println("Received code qty: " + root.size());
+            if (root.size() > 0) {
+              for (int x = 0; x < root.size(); x++) {
+                // Handle device state limitations on a per JSON object basis
+                String device = root[x]["device"];
+                Serial.println("Code read " + device);                  
+                int state = root[x]["state"];
+                int storedState = (deviceState.containsKey(device)) ? deviceState[device] : 888888;
+                Serial.println("device:" + device + " state:" + state + " storedstate:" + storedState);
+                if ((device != "" && storedState != state) || device == "") {
+                  if (device != "") deviceState[device] = state;  
+                  String type = root[x]["type"];
+                  String ip = root[x]["ip"];
+                  int rdelay = (root[x]["rdelay"] > 0) ? root[x]["rdelay"] : 1000;
+                  int pulse = (root[x]["pulse"] > 0) ? root[x]["pulse"] : 1;
+                  int pdelay = (root[x]["pdelay"] > 0) ? root[x]["pdelay"] : 100;
+                  int repeat = (root[x]["repeat"] > 0) ? root[x]["repeat"] : 1;
+                  int xout = root[x]["out"];
+                  if (xout == 0) {
+                    xout = out;
+                  }
+                  int duty = (root[x]["duty"] > 0) ? root[x]["duty"] : 50;                  
+                  Serial.println("type:" + type + " repeat:" + repeat + " rdelay:" + rdelay + " pulse:" + pulse + " pdelay:" + pdelay + " duty:" + duty);
+                  if (type == "delay") {
+                    delay(rdelay);
+                  } else if (type == "raw") {
+                    JsonArray& raw = root[x]["data"]; // Array of unsigned int values for the raw signal
+                    int khz = root[x]["khz"];
+                    if (khz <= 0) khz = 38; // Default to 38khz if not set
+                    rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(xout),duty);
+                    rtnMessage.message = "RAW code sent"; rtnMessage.title = "Sucess"; rtnMessage.type = 1, rtnMessage.httpcode = 200;
+                  } else if (type == "roku") {
+                    String data = root[x]["data"];
+                    rokuCommand(ip, data);
+                    rtnMessage.message = "ROKU code sent"; rtnMessage.title = "Sucess"; rtnMessage.type = 1, rtnMessage.httpcode = 200;
+                  } else if (type != "") {
+                    String data = root[x]["data"];
+                    String addressString = root[x]["address"];
+                    long address = strtoul(addressString.c_str(), 0, 0);
+                    int len = root[x]["length"];
+                    Serial.println("Sending code: " + type.toUpperCase());
+                    irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(xout));
+                    rtnMessage.message = type.toUpperCase() + " code sent"; rtnMessage.title = "Sucess"; rtnMessage.type = 1, rtnMessage.httpcode = 200;
+                  } else {
+                    rtnMessage.message = "The format of the recevied code is not recorgnised, no code transmitted"; rtnMessage.title = "Error"; rtnMessage.type = 2, rtnMessage.httpcode = 422;
+                  }
                 } else {
-                  jsonLookupError = jsonLookupError + vtxt;
+                  Serial.println("Not sending command to " + device + ", already in state " + state);
+                  rtnMessage.message = "Some components of the code were held because device was already in the appropriate state"; rtnMessage.title = "Information"; rtnMessage.type = 1, rtnMessage.httpcode = 200; //message = "Code sent. Some components of the code were held because device was already in appropriate state";
                 }
               }
             } else {
-              send_redirect("/?message=Specifed code cannot be found&type=3&header=Error&httpcode=400"); //sendHomePage("Specifed code cannot be found", "Error", 3, 400); // 400
+              rtnMessage.message = "Error with JSON codes passed"; rtnMessage.title = "Error"; rtnMessage.type = 3, rtnMessage.httpcode = 400;
             }
           } else {
-            send_redirect("/?message=Specifed code cannot be found&type=3&header=Error&httpcode=400"); //sendHomePage("Specifed code cannot be found", "Error", 3, 400); // 400           
+          rtnMessage.message = "Error with JSON codes passed"; rtnMessage.title = "Error"; rtnMessage.type = 3, rtnMessage.httpcode = 400;
           }
-        }
-        if (jsonString != "") jsonString = "[" + jsonString + "]";
-        if (jsonLookupError != "") jsonLookupError = "Some or all matches not found (" + jsonLookupError +"), check the Serial output";  
-      }
-      jsonBtnBuffer.clear(); 
-    } else {                          //Set jsonString to the plain argument
-      jsonString = server->arg("plain");
-    }
-     
-    DynamicJsonBuffer jsonStringBuffer;
-    JsonArray& root = jsonStringBuffer.parseArray(jsonString);
-    root.prettyPrintTo(Serial);
-    Serial.println("");
-    
-    if (!root.success()) {
-      Serial.println("JSON parsing failed");
-      if (simple) {
-        server->send(400, "text/plain", "JSON parsing failed");
-      } else {
-        if (jsonLookupError != "") {
-          send_redirect("/?message="+jsonLookupError+"&type=3&header=Error&httpcode=400"); //sendHomePage(jsonLookupError, "Error", 3, 400); // 400 
         } else {
-          send_redirect("/?message=JSON parsing failed&type=3&header=Error&httpcode=400"); //sendHomePage("JSON parsing failed", "Error", 3, 400); // 400 
+        rtnMessage.message = "HMAC security authentication failed"; rtnMessage.title = "Unauthorized"; rtnMessage.type = 3, rtnMessage.httpcode = 401;
         }
-      }
-    } else if (strlen(passcode) != 0 && server->arg("pass") != passcode) {
-      Serial.println("Unauthorized access");
-      if (simple) {
-        server->send(401, "text/plain", "Unauthorized, invalid passcode");
       } else {
-        send_redirect("/?message=Invalid passcode&type=3&header=Unauthorised&httpcode=401"); //sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
+      rtnMessage.message = "Passcode wrong"; rtnMessage.title = "Alert"; rtnMessage.type = 3, rtnMessage.httpcode = 401;
       }
-    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature)) {
-      server->send(401, "text/plain", "Unauthorized, HMAC security authentication failed");
     } else {
-      digitalWrite(ledpin, LOW);
-      ticker.attach(0.5, disableLed);
-
-      // Handle device state limitations for the global JSON command request
-      if (server->hasArg("device")) {
-        String device = server->arg("device");
-        Serial.println("Device name detected " + device);
-        int state = (server->hasArg("state")) ? server->arg("state").toInt() : 0;
-        if (deviceState.containsKey(device)) {
-          Serial.println("Contains the key!");
-          Serial.println(state);
-          int currentState = deviceState[device];
-          Serial.println(currentState);
-          if (state == currentState) {
-            if (simple) {
-              server->send(200, "text/html", "Not sending command to " + device + ", already in state " + state);
-            } else {
-              send_redirect("/?message=Not sending command to " + device + ", already in state " + state +"&type=2&header=Warning"); //sendHomePage("Not sending command to " + device + ", already in state " + state, "Warning", 2); // 200
-            }
-            Serial.println("Not sending command to " + device + ", already in state " + state);
-            return;
-          } else {
-            Serial.println("Setting device " + device + " to state " + state);
-            deviceState[device] = state;
-          }
-        } else {
-          Serial.println("Setting device " + device + " to state " + state);
-          deviceState[device] = state;
-        }
-      }
-
-      String message = "Code sent";
-
-      for (int x = 0; x < root.size(); x++) {
-        String type = root[x]["type"];
-        String ip = root[x]["ip"];
-        int rdelay = root[x]["rdelay"];
-        int pulse = root[x]["pulse"];
-        int pdelay = root[x]["pdelay"];
-        int repeat = root[x]["repeat"];
-        int xout = root[x]["out"];
-        if (xout == 0) {
-          xout = out;
-        }
-        int duty = root[x]["duty"];
-
-        if (pulse <= 0) pulse = 1; // Make sure pulse isn't 0
-        if (repeat <= 0) repeat = 1; // Make sure repeat isn't 0
-        if (pdelay <= 0) pdelay = 100; // Default pdelay
-        if (rdelay <= 0) rdelay = 1000; // Default rdelay
-        if (duty <= 0) duty = 50; // Default duty
-
-        // Handle device state limitations on a per JSON object basis
-        String device = root[x]["device"];
-        if (device != "") {
-          int state = root[x]["state"];
-          if (deviceState.containsKey(device)) {
-            int currentState = deviceState[device];
-            if (state == currentState) {
-              Serial.println("Not sending command to " + device + ", already in state " + state);
-              message = "Code sent. Some components of the code were held because device was already in appropriate state";
-              continue;
-            } else {
-              Serial.println("Setting device " + device + " to state " + state);
-              deviceState[device] = state;
-            }
-          } else {
-            Serial.println("Setting device " + device + " to state " + state);
-            deviceState[device] = state;
-          }
-        }
-        if (type == "delay") {
-          delay(rdelay);
-        } else if (type == "raw") {
-          JsonArray &raw = root[x]["data"]; // Array of unsigned int values for the raw signal
-          int khz = root[x]["khz"];
-          if (khz <= 0) khz = 38; // Default to 38khz if not set
-          rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(xout),duty);
-        } else if (type == "roku") {
-          String data = root[x]["data"];
-          rokuCommand(ip, data);
-        } else if (type != "") {
-          String data = root[x]["data"];
-          String addressString = root[x]["address"];
-          long address = strtoul(addressString.c_str(), 0, 0);
-          int len = root[x]["length"];
-          irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(xout));
-        }
-      }
-      if (simple) {
-        server->send(200, "text/html", "Success, code sent");
-      } else {
-        Serial.println("Sending home page");
-        if (jsonLookupError == "") {
-          send_redirect("/?message=" + message + "&type=1&header=Success"); //sendHomePage(message, "Success", 1); // 200
-        } else {
-          send_redirect("/?message=" + jsonLookupError + "&type=2&header=Success"); //sendHomePage("", jsonLookupError, 2); // 200
-        }
-      }
+    rtnMessage.message = "The device is in the same state, not re-transmitting"; rtnMessage.title = "Information"; rtnMessage.type = 1, rtnMessage.httpcode = 200;
     }
     jsonStringBuffer.clear();
+    Serial.println(jsonError);
+    if (simple && jsonError == "") {
+      server->send(rtnMessage.httpcode, "text/plain", rtnMessage.title + ", " + rtnMessage.message);
+    } else if (simple && jsonError != "") {
+       server->send(rtnMessage.httpcode, "text/plain", "Warning, some or all codes not found - " + jsonError);
+    } else if (!simple && jsonError == ""){
+      sendHomePage(rtnMessage.message, rtnMessage.title, rtnMessage.type, rtnMessage.httpcode);
+    } else if (!simple && jsonError != ""){
+      sendHomePage("Some or all codes not found - " + jsonError, "Warning", 2, rtnMessage.httpcode);
+    }
+
   });
 
   // Setup simple msg server to mirror version 1.0 functionality
@@ -785,9 +757,9 @@ void setup() {
         if (deviceState.containsKey(device)) {
           Serial.println("Contains the key!");
           Serial.println(state);
-          int currentState = deviceState[device];
-          Serial.println(currentState);
-          if (state == currentState) {
+          int storedState = deviceState[device];
+          Serial.println(storedState);
+          if (state == storedState) {
             if (simple) {
               server->send(200, "text/html", "Not sending command to " + device + ", already in state " + state);
             } else {
@@ -871,70 +843,78 @@ void setup() {
     String repeat_delay = server->arg("repeat_delay");          
     String output;
 
-    if (btn != "") {
-      if (id == 1 && last_recv.valid) {
+    if (id == 1 && last_recv.valid) {
+      if (btn != "") {
         storeReceivedCode(last_recv, btn, pulse, pulse_delay, repeat, repeat_delay);
-      } else if (id == 2 && last_recv_2.valid) {
-        storeReceivedCode(last_recv_2, btn, pulse, pulse_delay, repeat, repeat_delay);
-      } else if (id == 3 && last_recv_3.valid) {
-        storeReceivedCode(last_recv_3, btn, pulse, pulse_delay, repeat, repeat_delay);
-      } else if (id == 4 && last_recv_4.valid) {
-        storeReceivedCode(last_recv_4, btn, pulse, pulse_delay, repeat, repeat_delay);
-      } else if (id == 5 && last_recv_5.valid) {
-        storeReceivedCode(last_recv_5, btn, pulse, pulse_delay, repeat, repeat_delay);     
       } else {
-        sendHomePage("Code does not exist", "Alert", 2, 404); // 404
+        storeCodePage(last_recv, 1);
       }
-    } else if (id == 1 && last_recv.valid) {
-      storeCodePage(last_recv, 1);
     } else if (id == 2 && last_recv_2.valid) {
-      storeCodePage(last_recv_2, 2);
+      if (btn != "") {
+        storeReceivedCode(last_recv_2, btn, pulse, pulse_delay, repeat, repeat_delay);
+      } else {
+        storeCodePage(last_recv_2, 1);
+      }
     } else if (id == 3 && last_recv_3.valid) {
-      storeCodePage(last_recv_3, 3);
+      if (btn != "") {
+        storeReceivedCode(last_recv_3, btn, pulse, pulse_delay, repeat, repeat_delay);
+      } else {
+        storeCodePage(last_recv_3, 1);
+      }
     } else if (id == 4 && last_recv_4.valid) {
-      storeCodePage(last_recv_4, 4);
+      if (btn != "") {
+        storeReceivedCode(last_recv_4, btn, pulse, pulse_delay, repeat, repeat_delay);
+      } else {
+        storeCodePage(last_recv_4, 1);
+      }
     } else if (id == 5 && last_recv_5.valid) {
-      storeCodePage(last_recv_5, 5);      
+      if (btn != "") {
+        storeReceivedCode(last_recv_5, btn, pulse, pulse_delay, repeat, repeat_delay);
+      } else {
+        storeCodePage(last_recv_5, 1);
+      }    
     } else {
       sendHomePage("Code does not exist", "Alert", 2, 404); // 404
     }
-
   });
 
   //first callback is called after the request has ended with all parsed arguments
   //second callback handles file uploads at that location
-  server->on("/listcodes", HTTP_POST, [](){ 
-    server->send(200, "text/plain", "");}, {handleFileUpload});
+  server->on("/listcodes", HTTP_POST, []() {server->send(200, "text/plain", "");}, {handleFileUpload});
     
   // list the JSON codes contents
   server->on("/listcodes", []() {
     String item = server->arg("item");
     if (server->hasArg("item")) {
       Serial.println("Connection received - delete item " + item);
-      if (DeleteJSONitem(item)) send_redirect("/listcodes"); //listStoredCodes("Code removed", "", 1, 404);    
+      if (DeleteJSONitem(item)) listStoredCodes(); //send_redirect("/listcodes"); //listStoredCodes("Code removed", "", 1, 404);    
     }
     listStoredCodes();
   });
 
-  //called when the url is not defined here
-  //use it to load content from SPIFFS
-  server->onNotFound([](){
-    if(!handleFileRead(server->uri()))
-      sendHomePage("Resource not found", "Alert", 2, 404); //server->send(404, "text/plain", "FileNotFound");
+  server->on("/deleteall", []() {
+    if(deletecodefiles("/codes/")) sendHomePage("Done", "Alert", 2, 404); //server->send(404, "text/plain", "FileNotFound");
   });
 
   server->on("/", []() {
     if (server->hasArg("message")) {
-        String message = server->arg("message"); 
-        int type = server->arg("type").toInt();
-        String header = server->arg("header");
-        int httpcode = server->arg("httpcode").toInt();
-        sendHomePage(message, header, type, httpcode);      
-    }
+        rtnMessage.message = server->arg("message"); 
+        rtnMessage.type = server->arg("type").toInt();
+        rtnMessage.title = server->arg("header");
+        rtnMessage.httpcode = server->arg("httpcode").toInt();
+        sendHomePage(rtnMessage.message, rtnMessage.title, rtnMessage.type, rtnMessage.httpcode);      
+    } 
     Serial.println("Connection received");
     sendHomePage();
   });
 
+  //called when the url is not defined here
+  //use it to load content from SPIFFS
+  server->onNotFound( []() {
+    if(!handleFileRead(server->uri()))
+      sendHomePage("Resource not found", "Alert", 2, 404); //server->send(404, "text/plain", "FileNotFound");
+  });
+  
   server->begin();
   Serial.println("HTTP Server started on port " + String(port));
 
@@ -963,6 +943,13 @@ void setup() {
   irrecv.enableIRIn();
   Serial.println("Ready to send and receive IR signals");
 }
+
+/*
+void merge(JsonObject& dest, JsonObject& src) {
+   for (auto kvp : src) {
+     dest[kvp.key] = kvp.value;
+   }
+} */
 
 
 //+=============================================================================
@@ -1021,7 +1008,7 @@ void sendHeader(int httpcode) {
   server->sendContent("        </div>\n");
   server->sendContent("        <div class='label label-warning'>Warning:</div>\n");
   server->sendContent("        <p>This will overrite any currently stored codes, this operation cannot be reversed.</p>\n"); 
-  server->sendContent("        <p>Please ensure the selected file is in the correct format (preferably based on a previously downloaded code file), and ensure the files name (xx.json) matches the name of the json object in the json file - (1.json should have <code>{\"name\":\"1\"}</code> as the json object).</p>\n");    
+  server->sendContent("        <p>Please ensure the selected file is in the correct format (preferably based on a previously downloaded code file), and ensure the files name (xx.json) matches the device name of the json object in the json file - (1.json should have <code>{\"device\":\"1\"}</code> as the json object).</p>\n");    
   server->sendContent("       </div>\n");
   server->sendContent("       <div class='modal-footer'>\n");
   server->sendContent("          <input class='btn btn-default' type='submit' value='Upload'>\n");
@@ -1371,18 +1358,20 @@ void listStoredCodes() {
     if (SPIFFS.begin()) {
       for (auto v : rootbtn) {
         String vtxt = v["name"];
+        Serial.println(vtxt);
         vtxt.toLowerCase();
         if (SPIFFS.exists(vtxt)) {
           File codeFileRead = SPIFFS.open(vtxt, "r"); //reads the json file
           if (codeFileRead) {
             DynamicJsonBuffer jsonReadCodeFileBuffer;
-            JsonObject& filebtn = jsonReadCodeFileBuffer.parseObject(codeFileRead);                
+            JsonObject& filebtn = jsonReadCodeFileBuffer.parseObject(codeFileRead);   
+            codeFileRead.close();             
             String jsonStringtype = filebtn["type"];
             String jsonStringbtn = filebtn["name"];
+            Serial.println(jsonStringbtn + " " + jsonStringtype);
             jsonReadCodeFileBuffer.clear();
             if(filebtn.containsKey("type") && filebtn.containsKey("name")) server->sendContent("<tr class='text-uppercase'><td>" + jsonStringbtn + "</td><td>" + jsonStringtype + "</td><td><a class='btn btn-primary btn-xs' href='/json?btn=[" + jsonStringbtn + "]&pass=" + String(passcode) + "' role='button'>Test</a> <a class='btn btn-primary btn-xs' href='" + vtxt + "' role='button'>Download</a> <a class='btn btn-danger btn-xs' href='/listcodes?item=" + jsonStringbtn + "' role='button'>Delete</a></td></tr>\n");
           }
-          codeFileRead.close();
         }   
       }
     }
@@ -1399,7 +1388,7 @@ void listStoredCodes() {
 
 
 //+=============================================================================
-// Using redirect seems to be more reliable than sending the server code directly
+// Redirect used for some pages - upload, so page refersh doesnt ask for a re-submit
 //
 static void send_redirect(const String &redirect) {
   String html;
@@ -1507,7 +1496,7 @@ void storeReceivedCode (Code code, String btn, String pulse, String pulse_delay,
   if (pulse_delay != "") jsonadd["pdelay"] =  pulse_delay;
   if (repeat != "") jsonadd["repeat"] =  repeat;
   if (repeat_delay != "") jsonadd["rdelay"] =  repeat_delay;
-  if (saveJSON(jsonadd, btn)) send_redirect("/?message=Code stored to " + btn + "&type=1&header=Information&httpcode=200"); //sendHomePage("Code stored to " + btn, "Alert", 2, 200);
+  if (saveJSON(jsonadd, btn)) sendHomePage("Code stored to " + btn, "Alert", 2, 200); //send_redirect("/?message=Code stored to " + btn + "&type=1&header=Information&httpcode=200"); //
   jsonWriteBuffer.clear(); 
 }
 
@@ -1527,7 +1516,8 @@ bool DeleteJSONitem (String btn) {
 //+=============================================================================
 // delete all stored codes
 //
-void deletecodefiles(String path) {
+bool deletecodefiles(String path) {
+  if(!path) path = "/codes/";
   path.toLowerCase();
   Serial.println("deleteFileList: " + path);
   Dir dir = SPIFFS.openDir(path);
@@ -1535,6 +1525,7 @@ void deletecodefiles(String path) {
     SPIFFS.remove(dir.fileName());
   }
   //SPIFFS.format();
+  return true;
 }
 
 
@@ -1575,7 +1566,7 @@ String listcodefiles(String path) {
     output += "\"}";
   }
   output += "]";
-  //Serial.println(output);  
+  Serial.println(output);  
   return output;
 }
 
@@ -1610,14 +1601,14 @@ void handleFileUpload(){
       if(jsonStringname != fsUploadFile.name()) {
         SPIFFS.remove(fsUploadFile.name());  //No match on object name and file name, file deleted
         Serial.println("Object doesnt match, file deleted");
-        send_redirect("/?message=Code file mismatch&type=2&header=Alert&httpcode=400"); //sendHomePage("The JSON object doesn not match the file name, please try again", "Alert", 2, 200);
+        send_redirect("/?message=Code file mismatch&type=2&header=Alert&httpcode=400"); //sendHomePage("The JSON object doesn not match the file name, please try again", "Alert", 2, 200); //
       } else {
-        send_redirect("/listcodes"); //sendHomePage("Codes restored", "Information", 1, 200);
+        send_redirect("/listcodes"); //sendHomePage("Codes restored", "Information", 1, 200); //
       }
       fsUploadFile.close();
     } else {
       Serial.print("Error uploading ");
-      send_redirect("/?message=Error uploading file&type=2&header=Alert&httpcode=200"); //sendHomePage("Error uploading file", "Alert", 2, 200);
+      send_redirect("/?message=Error uploading file&type=2&header=Alert&httpcode=200"); //sendHomePage("Error uploading file", "Alert", 2, 200); //
     }
   }
 }
