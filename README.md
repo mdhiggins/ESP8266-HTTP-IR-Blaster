@@ -72,6 +72,10 @@ Capturing Codes
 ---------------
 Your last scanned code can be accessed via web at `http://xxx.xxx.xxx.xxx:port/` or via serial monitoring over USB at 115200 baud. Most codes will be recognized and displayed in the format `A90:SONY:12`. Make a note of the code displayed in the serial output as you will need it for your maker channel URL. If your code is not recognized scroll down the JSON section of this read me.
 
+Codes can be stored locally on the ESP and used later by referencing the name specified when storing the code. Any type of code can be stored, including raw output. Refer to the section below 'Sending a stored remote button command' on how to send stored codes. 
+
+To store a received code simply click the 'STORE' button next to the relevant received code on the IR Controller web home page. Test the received code first by clicking 'TEST'.
+
 NodeMCU PCU
 ---------------
 @raptordemon has created a PCB that works great with this project. Use version 1.5
@@ -154,11 +158,28 @@ Sample URL using the same 3 button JSON sequence as above
 http://xxx.xxx.xxx.xxx:port/json?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
 ```
 
+Sending a stored remote button command
+--------------
+A saved remote button stores the code locally as a JSON file on the SPIFF filesystem. With the IR command (including RAW only commands) repeats and pulses associated with the particular button can also be stored. All the other commands including `device`, `state` and `out` can be used in the URL as described.
+If you use this setup on multiple IR Controllers (different TVs in different rooms for example) you can store the remote-control button commands locally and if you specify the same button names, the URL you use for each device will be identical with the exception of the ip address of the IR Controller unit. 
+This method can greatly simply the configuration of the service (IFTTT etc.) you use to send commands, in particular in a multiple IR Controller setup. It can also make sending raw commands easier as you can receive, test and then store successful commands easily, you don’t need to worry about copying the raw string remotely and then testing.
+
+Sample URL to send stored button 1, 0, and 1 to two different IR Controllers (where 001 and 002 are the end of the IR Controllers IP addresses)
+```
+http://xxx.xxx.xxx.001:port/json?pass=yourpass&btn=[1,0,1]
+http://xxx.xxx.xxx.002:port/json?pass=yourpass&btn=[1,0,1]
+```
+It is possible to incude state information against each stored code, as shown below
+```
+http://xxx.xxx.xxx.001:port/json?pass=yourpass&btn=[on,{"state":1},1]
+http://xxx.xxx.xxx.001:port/json?pass=yourpass&btn=[off,{"state":1}]
+```
+
 Security
 ---------------
 Due to limitations imposed by the hardware in the ESP8266, there is not enough free memory to communicate over HTTPS/SSL. To protect your devices, during the WiFiManager setup process you can specify your Amazon user_id which will act as a secret key that allows SHA256 HMAC authentication to take place. Without this time sensitive signature no codes will be sent from the device. The user_id is a unique identifier tied to your account and my developer account, not shared across any other Amazon services. This unique ID can be found at the bottom of the tehpsyc.pythonanywhere.com page. The format is `amzn1.account.xxx`, **NOT your account email**. Enabling this feature will prevent sending commands via other means but greatly increases the security of the device.
 
-To send commands over SSL you can use an intermediate service such as Smartthings (see below), use a reverse proxy with HTTPS support (which should work with the native Alexa skill) such a nginx, or handle everything on the local network and not use the functionality with Alexa.
+To send commands over SSL you can use an intermediate service such as Smartthings (see below), use a reverse proxy with HTTPS support (which should work with the native Alexa skill) such a nginx, or handle everything on the local network and not use the functionality with Alexa. On Windows systems CADDY is quite straight forward for setup up reverse proxy.
 
 This article provides some details on using nginx
 https://jjssoftware.github.io/secure-your-esp8266/
