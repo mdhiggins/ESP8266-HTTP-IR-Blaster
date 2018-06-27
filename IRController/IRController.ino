@@ -682,9 +682,9 @@ void setup() {
                     String addressString = root[x]["address"];
                     long address = strtoul(addressString.c_str(), 0, 0);
                     int len = root[x]["length"];
-                    Serial.println("Sending code: " + type.toUpperCase());
+                    Serial.println("Sending code: " + type);
                     irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(xout));
-                    rtnMessage.message = type.toUpperCase() + " code sent"; rtnMessage.title = "Sucess"; rtnMessage.type = 1, rtnMessage.httpcode = 200;
+                    rtnMessage.message = type + " code sent"; rtnMessage.title = "Sucess"; rtnMessage.type = 1, rtnMessage.httpcode = 200;
                   } else {
                     rtnMessage.message = "The format of the recevied code is not recorgnised, no code transmitted"; rtnMessage.title = "Error"; rtnMessage.type = 2, rtnMessage.httpcode = 422;
                   }
