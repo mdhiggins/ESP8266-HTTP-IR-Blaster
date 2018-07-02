@@ -68,6 +68,7 @@ IRsend irsend4(pins4);
 
 const unsigned long resetfrequency = 259200000;                // 72 hours in milliseconds
 const char* poolServerName = "pool.ntp.org";
+//const char* poolServerName = "time.google.com";
 
 WiFiUDP ntpUDP;
 EasyNTPClient timeClient(ntpUDP, poolServerName, timeOffset);
@@ -676,7 +677,7 @@ void setup() {
           rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(xout),duty);
         } else if (type == "roku") {
           String data = root[x]["data"];
-          rokuCommand(ip, data);
+          rokuCommand(ip, data, repeat, rdelay);
         } else {
           String data = root[x]["data"];
           String addressString = root[x]["address"];
@@ -775,7 +776,7 @@ void setup() {
       }
 
       if (type == "roku") {
-        rokuCommand(ip, data);
+        rokuCommand(ip, data, repeat, rdelay);
       } else {
         irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
       }
@@ -842,27 +843,34 @@ void setup() {
 //+=============================================================================
 // Send command to local roku
 //
-int rokuCommand(String ip, String data) {
+int rokuCommand(String ip, String data, int repeat, int rdelay) {
   String url = "http://" + ip + ":8060/" + data;
   HTTPClient http;
-  http.begin(url);
-  Serial.println(url);
-  Serial.println("Sending roku command");
 
-  copyCode(last_send_4, last_send_5);
-  copyCode(last_send_3, last_send_4);
-  copyCode(last_send_2, last_send_3);
-  copyCode(last_send, last_send_2);
+  int output = 0;
 
-  strncpy(last_send.data, data.c_str(), 40);
-  last_send.bits = 1;
-  strncpy(last_send.encoding, "roku", 14);
-  strncpy(last_send.address, ip.c_str(), 20);
-  last_send.timestamp = timeClient.getUnixTime();
-  last_send.valid = true;
+  for (int r = 0; r < repeat; r++) {
+    http.begin(url);
+    Serial.println(url);
+    Serial.println("Sending roku command");
+  
+    copyCode(last_send_4, last_send_5);
+    copyCode(last_send_3, last_send_4);
+    copyCode(last_send_2, last_send_3);
+    copyCode(last_send, last_send_2);
+  
+    strncpy(last_send.data, data.c_str(), 40);
+    last_send.bits = 1;
+    strncpy(last_send.encoding, "roku", 14);
+    strncpy(last_send.address, ip.c_str(), 20);
+    last_send.timestamp = timeClient.getUnixTime();
+    last_send.valid = true;
+  
+    output = http.POST("");
+    http.end();
 
-  int output = http.POST("");
-  http.end();
+    if (r + 1 < repeat) delay(rdelay);
+  }
   return output;
 }
 
