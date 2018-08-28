@@ -15,7 +15,7 @@
 #include "sha256.h"
 
 #include <Ticker.h>                                           // For LED status
-#include <EasyNTPClient.h>
+#include <NTPClient.h>
 
 // User settings are below here
 
@@ -67,11 +67,11 @@ IRsend irsend3(pins3);
 IRsend irsend4(pins4);
 
 const unsigned long resetfrequency = 259200000;                // 72 hours in milliseconds
-const char* poolServerName = "pool.ntp.org";
-//const char* poolServerName = "time.google.com";
+//const char* poolServerName = "pool.ntp.org";
+const char* poolServerName = "time.google.com";
 
 WiFiUDP ntpUDP;
-EasyNTPClient timeClient(ntpUDP, poolServerName, timeOffset);
+NTPClient timeClient(ntpUDP, poolServerName, timeOffset);
 
 char _ip[16] = "";
 
@@ -95,6 +95,12 @@ class Code {
     bool valid = false;
 };
 
+// Declare prototypes
+void sendCodePage(Code selCode);
+void sendCodePage(Code selCode, int httpcode);
+void cvrtCode(Code& codeData, decode_results *results);
+void copyCode (Code& c1, Code& c2);
+
 Code last_recv;
 Code last_recv_2;
 Code last_recv_3;
@@ -105,7 +111,6 @@ Code last_send_2;
 Code last_send_3;
 Code last_send_4;
 Code last_send_5;
-
 
 //+=============================================================================
 // Callback notifying us of the need to save config
@@ -181,7 +186,7 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature) {
     userIDError = !(validUID(user_id));
 
     time_t timethen = timestamp.toInt();
-    time_t timenow = timeClient.getUnixTime() - timeOffset;
+    time_t timenow = timeClient.getEpochTime() - timeOffset;
     time_t timediff = abs(timethen - timenow);
     if (timediff > 30) {
       Serial.println("Failed security check, signature is too old");
@@ -814,6 +819,7 @@ void setup() {
   server->begin();
   Serial.println("HTTP Server started on port " + String(port));
 
+  timeClient.begin();
   externalIP();
 
   if (strlen(user_id) > 0) {
@@ -823,7 +829,7 @@ void setup() {
     }
 
     // Validation check time
-    time_t timenow = timeClient.getUnixTime() - timeOffset;
+    time_t timenow = timeClient.getEpochTime() - timeOffset;
     bool validEpoch = validEPOCH(timenow);
     if (validEpoch) {
       Serial.println("EPOCH time obtained for security checks");
@@ -863,7 +869,7 @@ int rokuCommand(String ip, String data, int repeat, int rdelay) {
     last_send.bits = 1;
     strncpy(last_send.encoding, "roku", 14);
     strncpy(last_send.address, ip.c_str(), 20);
-    last_send.timestamp = timeClient.getUnixTime();
+    last_send.timestamp = timeClient.getEpochTime();
     last_send.valid = true;
   
     output = http.POST("");
@@ -998,9 +1004,9 @@ void sendHeader(int httpcode) {
 // Send footer HTML
 //
 void sendFooter() {
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime; EPOCH " + String(timeClient.getUnixTime() - timeOffset) + "</em> / <em id='jepoch'></em> ( <em id='jdiff'></em> )</div></div>\n");
+  server->sendContent("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime; EPOCH " + String(timeClient.getEpochTime() - timeOffset) + "</em> / <em id='jepoch'></em> ( <em id='jdiff'></em> )</div></div>\n");
   server->sendContent("      <script>document.getElementById('jepoch').innerHTML = Math.round((new Date()).getTime() / 1000)</script>");
-  server->sendContent("      <script>document.getElementById('jdiff').innerHTML = Math.abs(Math.round((new Date()).getTime() / 1000) - " + String(timeClient.getUnixTime() - timeOffset) + ")</script>");
+  server->sendContent("      <script>document.getElementById('jdiff').innerHTML = Math.abs(Math.round((new Date()).getTime() / 1000) - " + String(timeClient.getEpochTime() - timeOffset) + ")</script>");
   if (strlen(user_id) != 0)
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Device secured with SHA256 authentication. Only commands sent and verified with Amazon Alexa and the IR Controller Skill will be processed</em></div></div>");
   if (authError)
@@ -1009,7 +1015,7 @@ void sendFooter() {
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - last authentication failed because your timestamps are out of sync, see serial output for debugging details. Timediff: " + String(timeAuthError) + "</em></div></div>");
   if (externalIPError)
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - unable to retrieve external IP address, this may be due to bad network settings. There is currently a bug with the latest versions of ESP8266 for Arduino, please use version 2.4.0 along with lwIP v1.4 Prebuilt to resolve this</em></div></div>");
-  time_t timenow = timeClient.getUnixTime() - timeOffset;
+  time_t timenow = timeClient.getEpochTime() - timeOffset;
   if (!validEPOCH(timenow))
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - EPOCH time is inappropraitely low, likely connection to external time server has failed, check your network settings</em></div></div>");
   if (userIDError)
@@ -1187,8 +1193,7 @@ void sendCodePage(Code selCode, int httpcode){
 //+=============================================================================
 // Code to JsonObject
 //
-void cvrtCode(Code& codeData, decode_results *results)
-{
+void cvrtCode(Code& codeData, decode_results *results) {
   strncpy(codeData.data, uint64ToString(results->value, 16).c_str(), 40);
   strncpy(codeData.encoding, encoding(results).c_str(), 14);
   codeData.bits = results->bits;
@@ -1404,7 +1409,7 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
   last_send.bits = len;
   strncpy(last_send.encoding, type.c_str(), 14);
   strncpy(last_send.address, ("0x" + String(address, HEX)).c_str(), 20);
-  last_send.timestamp = timeClient.getUnixTime();
+  last_send.timestamp = timeClient.getEpochTime();
   last_send.valid = true;
 
   resetReceive();
@@ -1443,7 +1448,7 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int re
   last_send.bits = raw.size();
   strncpy(last_send.encoding, "RAW", 14);
   strncpy(last_send.address, "0x0", 20);
-  last_send.timestamp = timeClient.getUnixTime();
+  last_send.timestamp = timeClient.getEpochTime();
   last_send.valid = true;
 
   resetReceive();
@@ -1499,8 +1504,9 @@ void copyCode (Code& c1, Code& c2) {
 }
 
 void loop() {
-  server->handleClient();
+  timeClient.update();
   ArduinoOTA.handle();
+  server->handleClient();
   decode_results  results;                                        // Somewhere to store the results
 
   if (irrecv.decode(&results) && !holdReceive) {                  // Grab an IR code
@@ -1512,7 +1518,7 @@ void loop() {
     copyCode(last_recv_2, last_recv_3);                           // Pass
     copyCode(last_recv, last_recv_2);                             // Pass
     cvrtCode(last_recv, &results);                                // Store the results
-    last_recv.timestamp = timeClient.getUnixTime();               // Set the new update time
+    last_recv.timestamp = timeClient.getEpochTime();               // Set the new update time
     last_recv.valid = true;
     Serial.println("");                                           // Blank line between entries
     irrecv.resume();                                              // Prepare for the next value
