@@ -680,6 +680,9 @@ void setup() {
           int khz = root[x]["khz"];
           if (khz <= 0) khz = 38; // Default to 38khz if not set
           rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(xout),duty);
+        } else if (type == "pronto") {
+          JsonArray &pdata = root[x]["data"]; // Array of values for pronto
+          pronto(pdata, rdelay, pulse, pdelay, repeat, pickIRsend(xout));
         } else if (type == "roku") {
           String data = root[x]["data"];
           rokuCommand(ip, data, repeat, rdelay);
@@ -1415,6 +1418,42 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
   resetReceive();
 }
 
+void pronto(JsonArray &pronto, int rdelay, int pulse, int pdelay, int repeat, IRsend irsend) {
+  Serial.println("Pronto transmit");
+  holdReceive = true;
+  Serial.println("Blocking incoming IR signals");
+  int psize = pronto.size();
+  // Repeat Loop
+  for (int r = 0; r < repeat; r++) {
+    // Pulse Loop
+    for (int p = 0; p < pulse; p++) {
+      Serial.println("Sending pronto code");
+      uint16_t output[psize];
+      for (int d = 0; d < psize; d++) {
+        String phexp = pronto[d];
+        output[d] = strtoul(phexp.c_str(), 0, 0);
+      }
+      irsend.sendPronto(output, psize);
+      if (p + 1 < pulse) delay(pdelay);
+    }
+    if (r + 1 < repeat) delay(rdelay);
+  }
+  Serial.println("Transmission complete");
+
+  copyCode(last_send_4, last_send_5);
+  copyCode(last_send_3, last_send_4);
+  copyCode(last_send_2, last_send_3);
+  copyCode(last_send, last_send_2);
+
+  strncpy(last_send.data, "", 40);
+  last_send.bits = psize;
+  strncpy(last_send.encoding, "PRONTO", 14);
+  strncpy(last_send.address, "0x0", 20);
+  last_send.timestamp = timeClient.getEpochTime();
+  last_send.valid = true;
+
+  resetReceive();
+}
 
 void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int repeat, IRsend irsend,int duty) {
   Serial.println("Raw transmit");
