@@ -173,7 +173,6 @@ String epochToString(time_t timenow) {
   return hourStr + ":" + minuteStr + ":" + secondStr;
 }
 
-
 //+=============================================================================
 // Valid command request using HMAC
 //
@@ -944,6 +943,7 @@ String encoding(decode_results *results) {
     case DENON:        output = "DENON";              break;
     case COOLIX:       output = "COOLIX";             break;
     case GREE:         output = "GREE";               break;
+    case LUTRON:       output = "LUTRON";             break;
   }
   return output;
 }
@@ -1202,7 +1202,7 @@ void cvrtCode(Code& codeData, decode_results *results) {
   codeData.bits = results->bits;
   String r = "";
       for (uint16_t i = 1; i < results->rawlen; i++) {
-      r += results->rawbuf[i] * RAWTICK;
+      r += results->rawbuf[i] * kRawTick;
       if (i < results->rawlen - 1)
         r += ",";                           // ',' not needed on last one
       //if (!(i & 1)) r += " ";
@@ -1251,7 +1251,7 @@ void dumpRaw(decode_results *results) {
   for (uint16_t i = 1;  i < results->rawlen;  i++) {
     if (i % 100 == 0)
       yield();  // Preemptive yield every 100th entry to feed the WDT.
-    uint32_t x = results->rawbuf[i] * RAWTICK;
+    uint32_t x = results->rawbuf[i] * kRawTick;
     if (!(i & 1)) {  // even
       Serial.print("-");
       if (x < 1000) Serial.print(" ");
@@ -1284,7 +1284,7 @@ void dumpCode(decode_results *results) {
 
   // Dump data
   for (uint16_t i = 1; i < results->rawlen; i++) {
-    Serial.print(results->rawbuf[i] * RAWTICK, DEC);
+    Serial.print(results->rawbuf[i] * kRawTick, DEC);
     if (i < results->rawlen - 1)
       Serial.print(",");  // ',' not needed on last one
     if (!(i & 1)) Serial.print(" ");
@@ -1393,6 +1393,8 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
         irsend.sendRCMM(data, len);
       } else if (type == "gree") {
         irsend.sendGree(data, len);
+      } else if (type == "lutron") {
+        irsend.sendLutron(data, len);
       } else if (type == "roomba") {
         roomba_send(atoi(dataStr.c_str()), pulse, pdelay, irsend);
       }
