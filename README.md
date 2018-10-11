@@ -40,15 +40,24 @@ The companion skill for the Amazon Alexa service is available [here](https://www
 
 Setup
 --------------
+
+If you use [PlatformIO](https://platformio.org/), you can clone the repository and run `platformio run -t upload` to
+compile the library and upload it to a connected ESP8266-compatible board.
+
+Otherwise, here are the building steps:
+
 *As of the ESP8266 Arduino Core 2.4.0 lwIP vesion 2.0 is default. This causes problems and crashing and it is recommended you use lwIP 1.4. Go to `Tools > lwIP Variant > lwIP 1.4 (Prebuilt)`*
 1. Install [Arduino IDE](https://www.arduino.cc/en/main/software)
 2. Install [ESP8266 Arduino Core](https://github.com/esp8266/Arduino)
 3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson` `WiFiManager` `EasyNTPClient` `IRremoteESP8266` as well as [`Cryptosuite`](https://github.com/jjssoftware/Cryptosuite) which is not on the IDE
 4. Load the `IRController.ino` blueprint from this repository
 5. Upload blueprint to your ESP8266 (the .ino file). Monitor via serial at 115200 baud rate
-6. Device will boot into WiFi access point mode initially with SSID `IRBlaster Configuration`, IP address `192.168.4.1`. Connect to this and configure your access point settings using WiFi Manager. If your router supports mDNS/Bonjour you can now access your device on your local network via the hostname you specified (`http://hostname.local:port/`), otherwise via its local IP address (this IP address is displayed on the serial output)
-7. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network, this is critical since Alexa commands come from Amazon's servers, not locally
-8. Download the IR Controller Alexa skill and start creating your devices. Each IR command will require a URL which can be saved. Choose whichever functionality you desire. Information on creating the URLs can be found below
+
+After flashing, you can use the device like so:
+
+1. Device will boot into WiFi access point mode initially with SSID `IRBlaster Configuration`, IP address `192.168.4.1`. Connect to this and configure your access point settings using WiFi Manager. If your router supports mDNS/Bonjour you can now access your device on your local network via the hostname you specified (`http://hostname.local:port/`), otherwise via its local IP address (this IP address is displayed on the serial output)
+2. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network, this is critical since Alexa commands come from Amazon's servers, not locally
+3. Download the IR Controller Alexa skill and start creating your devices. Each IR command will require a URL which can be saved. Choose whichever functionality you desire. Information on creating the URLs can be found below
 
 Alexa Setup
 ---------------
