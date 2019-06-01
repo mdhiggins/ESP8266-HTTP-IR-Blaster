@@ -633,7 +633,7 @@ void setup() {
 
       String message = "Code sent";
 
-      for (int x = 0; x < root.size(); x++) {
+      for (size_t x = 0; x < root.size(); x++) {
         String type = root[x]["type"];
         String ip = root[x]["ip"];
         int rdelay = root[x]["rdelay"];
