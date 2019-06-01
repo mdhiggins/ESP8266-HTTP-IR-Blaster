@@ -37,7 +37,7 @@ const int pins4 = 13;                                         // Transmitting pr
 const int configpin = 10;                                     // Reset Pin
 
 // User settings are above here
-const int ledpin = BUILTIN_LED;                               // Built in LED defined for WEMOS people
+const int ledpin = LED_BUILTIN;                               // Built in LED defined for WEMOS people
 const char *wifi_config_name = "IR Controller Configuration";
 const char serverName[] = "checkip.dyndns.org";
 int port = 80;
