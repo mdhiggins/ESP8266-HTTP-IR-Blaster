@@ -28,7 +28,7 @@ const bool enableMDNSServices = true;                         // Use mDNS servic
 
 const unsigned int captureBufSize = 150;                      // Size of the IR capture buffer.
 
-// WEMOS users may need to adjust pins for compatability
+// WEMOS users may need to adjust pins for compatibility
 const int pinr1 = 14;                                         // Receiving pin
 const int pins1 = 4;                                          // Transmitting preset 1
 const int pins2 = 5;                                          // Transmitting preset 2
@@ -1092,7 +1092,7 @@ void sendFooter() {
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - unable to retrieve external IP address, this may be due to bad network settings. There is currently a bug with the latest versions of ESP8266 for Arduino, please use version 2.4.0 along with lwIP v1.4 Prebuilt to resolve this</em></div></div>");
   time_t timenow = now() - (timeZone * SECS_PER_HOUR);
   if (!validEPOCH(timenow))
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - EPOCH time is inappropraitely low, likely connection to external time server has failed, check your network settings</em></div></div>");
+  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - EPOCH time is inappropriately low, likely connection to external time server has failed, check your network settings</em></div></div>");
   if (userIDError)
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - your userID is in the wrong format and authentication will not work</em></div></div>");
   if (ntpError)
