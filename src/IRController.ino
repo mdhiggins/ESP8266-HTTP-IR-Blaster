@@ -652,7 +652,7 @@ void setup() {
 
         // Handle device state limitations on a per JSON object basis
         String device = root[x]["device"];
-        if (device != "") {
+        if (device != "null") {
           int state = root[x]["state"];
           if (deviceState.containsKey(device)) {
             int currentState = deviceState[device];
