@@ -50,6 +50,7 @@ const char* fingerprint = "8D 83 C3 5F 0A 09 84 AE B0 64 39 23 8F 05 9E 4D 5E 08
 char static_ip[16] = "10.0.1.10";
 char static_gw[16] = "10.0.1.1";
 char static_sn[16] = "255.255.255.0";
+char static_dns[16] = "10.0.1.1";
 
 DynamicJsonDocument deviceState(1024);
 
@@ -401,6 +402,7 @@ bool setupWifi(bool resetConf) {
           if (json.containsKey("ip")) strncpy(static_ip, json["ip"], 16);
           if (json.containsKey("gw")) strncpy(static_gw, json["gw"], 16);
           if (json.containsKey("sn")) strncpy(static_sn, json["sn"], 16);
+          if (json.containsKey("dns")) strncpy(static_dns, json["dns"], 16);
         } else {
           Serial.println("failed to load json config");
         }
@@ -422,11 +424,19 @@ bool setupWifi(bool resetConf) {
   wifiManager.setShowStaticFields(true);
   wifiManager.setShowDnsFields(true);
 
-  IPAddress sip, sgw, ssn;
+  IPAddress sip, sgw, ssn, dns;
   sip.fromString(static_ip);
   sgw.fromString(static_gw);
   ssn.fromString(static_sn);
-  Serial.println("Using Static IP");
+  dns.fromString(static_dns);
+
+  if (resetConf) {
+    Serial.println("Reset triggered, launching in AP mode");
+    wifiManager.startConfigPortal(wifi_config_name);
+  } else {
+    Serial.println("Setting static WiFi data from config");
+    wifiManager.setSTAStaticIPConfig(sip, sgw, ssn, dns);
+  }
 
   // fetches ssid and pass and tries to connect
   // if it does not connect it starts an access point with the specified name
@@ -437,9 +447,6 @@ bool setupWifi(bool resetConf) {
     ESP.reset();
     delay(1000);
   }
-
-  if (resetConf)
-    wifiManager.startConfigPortal(wifi_config_name);
 
   // if you get here you have connected to the WiFi
   strncpy(host_name, custom_hostname.getValue(), 20);
@@ -469,6 +476,7 @@ bool setupWifi(bool resetConf) {
     json["ip"] = WiFi.localIP().toString();
     json["gw"] = WiFi.gatewayIP().toString();
     json["sn"] = WiFi.subnetMask().toString();
+    json["dns"] = WiFi.dnsIP().toString();
 
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) {
@@ -531,6 +539,8 @@ void setup() {
 
   Serial.print("Local IP: ");
   Serial.println(WiFi.localIP().toString());
+  Serial.print("DNS IP: ");
+  Serial.println(WiFi.dnsIP().toString());
   Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
 
   if (enableMDNSServices) {
@@ -1066,6 +1076,8 @@ void sendHeader(int httpcode) {
   server->sendContent("              <a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'>Hostname <span class='badge'>" + String(host_name) + ".local" + ":" + String(port) + "</span></a></li>\n");
   server->sendContent("            <li class='active'>\n");
   server->sendContent("              <a href='http://" + WiFi.localIP().toString() + ":" + String(port) + "'>Local <span class='badge'>" + WiFi.localIP().toString() + ":" + String(port) + "</span></a></li>\n");
+  server->sendContent("            <li class='active'>\n");
+  server->sendContent("              <a href='http://" + WiFi.dnsIP().toString() + "'>DNS <span class='badge'>" + WiFi.dnsIP().toString() + "</span></a></li>\n");
   server->sendContent("            <li class='active'>\n");
   server->sendContent("              <a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>\n");
   server->sendContent("            <li class='active'>\n");
