@@ -51,8 +51,7 @@ char static_ip[16] = "10.0.1.10";
 char static_gw[16] = "10.0.1.1";
 char static_sn[16] = "255.255.255.0";
 
-DynamicJsonBuffer jsonBuffer;
-JsonObject& deviceState = jsonBuffer.createObject();
+DynamicJsonDocument deviceState(1024);
 
 ESP8266WebServer *server = NULL;
 Ticker ticker;
@@ -244,8 +243,8 @@ String getUserID(String token)
   Serial.println(httpCode);
   Serial.println(payload);
   if (httpCode > 0 && httpCode == HTTP_CODE_OK) {
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject& json = jsonBuffer.parseObject(payload);
+    DynamicJsonDocument json(1024);
+    deserializeJson(json, payload);
     uid = json["user_id"].as<String>();
   } else {
     Serial.println("Error retrieving user_id");
@@ -389,10 +388,10 @@ bool setupWifi(bool resetConf) {
         std::unique_ptr<char[]> buf(new char[size]);
 
         configFile.readBytes(buf.get(), size);
-        DynamicJsonBuffer jsonBuffer;
-        JsonObject& json = jsonBuffer.parseObject(buf.get());
-        json.printTo(Serial);
-        if (json.success()) {
+        DynamicJsonDocument json(1024);
+        DeserializationError error = deserializeJson(json, buf.get());
+        serializeJson(json, Serial);
+        if (!error) {
           Serial.println("\nparsed json");
 
           if (json.containsKey("hostname")) strncpy(host_name, json["hostname"], 20);
@@ -460,8 +459,7 @@ bool setupWifi(bool resetConf) {
   // save the custom parameters to FS
   if (shouldSaveConfig) {
     Serial.println(" config...");
-    DynamicJsonBuffer jsonBuffer;
-    JsonObject& json = jsonBuffer.createObject();
+    DynamicJsonDocument json(1024);
     json["hostname"] = host_name;
     json["passcode"] = passcode;
     json["port_str"] = port_str;
@@ -475,12 +473,12 @@ bool setupWifi(bool resetConf) {
       Serial.println("failed to open config file for writing");
     }
 
-    json.printTo(Serial);
+    serializeJson(json, Serial);
     Serial.println("");
     Serial.println("Writing config file");
-    json.printTo(configFile);
+    serializeJson(json, configFile);
     configFile.close();
-    jsonBuffer.clear();
+    json.clear();
     Serial.println("Config written successfully");
   }
   ticker.detach();
@@ -566,8 +564,8 @@ void setup() {
   server->on("/json", []() { // JSON handler for more complicated IR blaster routines
     Serial.println("Connection received - JSON");
 
-    DynamicJsonBuffer jsonBuffer;
-    JsonArray& root = jsonBuffer.parseArray(server->arg("plain"));
+    DynamicJsonDocument root(1024);
+    DeserializationError error = deserializeJson(root, server->arg("plain"));
 
     int simple = 0;
     if (server->hasArg("simple")) simple = server->arg("simple").toInt();
@@ -577,14 +575,14 @@ void setup() {
     String timestamp = server->arg("time");
     int out = (server->hasArg("out")) ? server->arg("out").toInt() : 1;
 
-    if (!root.success()) {
+    if (error) {
       Serial.println("JSON parsing failed");
       if (simple) {
         server->send(400, "text/plain", "JSON parsing failed");
       } else {
         sendHomePage("JSON parsing failed", "Error", 3, 400); // 400
       }
-      jsonBuffer.clear();
+      root.clear();
     } else if (strlen(passcode) != 0 && server->arg("pass") != passcode) {
       Serial.println("Unauthorized access");
       if (simple) {
@@ -592,7 +590,7 @@ void setup() {
       } else {
         sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
       }
-      jsonBuffer.clear();
+      root.clear();
     } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature)) {
       server->send(401, "text/plain", "Unauthorized, HMAC security authentication failed");
     } else {
@@ -675,12 +673,12 @@ void setup() {
         if (type == "delay") {
           delay(rdelay);
         } else if (type == "raw") {
-          JsonArray &raw = root[x]["data"]; // Array of unsigned int values for the raw signal
+          JsonArray raw = root[x]["data"]; // Array of unsigned int values for the raw signal
           int khz = root[x]["khz"];
           if (khz <= 0) khz = 38; // Default to 38khz if not set
           rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(xout),duty);
         } else if (type == "pronto") {
-          JsonArray &pdata = root[x]["data"]; // Array of values for pronto
+          JsonArray pdata = root[x]["data"]; // Array of values for pronto
           pronto(pdata, rdelay, pulse, pdelay, repeat, pickIRsend(xout));
         } else if (type == "roku") {
           String data = root[x]["data"];
@@ -699,7 +697,7 @@ void setup() {
         sendHomePage(message, "Success", 1); // 200
       }
 
-      jsonBuffer.clear();
+      root.clear();
     }
   });
 
