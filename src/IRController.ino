@@ -363,9 +363,6 @@ bool setupWifi(bool resetConf) {
   // WiFiManager
   // Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
-  // reset settings - for testing
-  if (resetConf)
-    wifiManager.resetSettings();
 
   // set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
   wifiManager.setAPCallback(configModeCallback);
@@ -422,12 +419,14 @@ bool setupWifi(bool resetConf) {
   WiFiManagerParameter custom_userid("user_id", "Enter your Amazon user_id", user_id, 60);
   wifiManager.addParameter(&custom_userid);
 
+  wifiManager.setShowStaticFields(true);
+  wifiManager.setShowDnsFields(true);
+
   IPAddress sip, sgw, ssn;
   sip.fromString(static_ip);
   sgw.fromString(static_gw);
   ssn.fromString(static_sn);
   Serial.println("Using Static IP");
-  wifiManager.setSTAStaticIPConfig(sip, sgw, ssn);
 
   // fetches ssid and pass and tries to connect
   // if it does not connect it starts an access point with the specified name
@@ -438,6 +437,9 @@ bool setupWifi(bool resetConf) {
     ESP.reset();
     delay(1000);
   }
+
+  if (resetConf)
+    wifiManager.startConfigPortal(wifi_config_name);
 
   // if you get here you have connected to the WiFi
   strncpy(host_name, custom_hostname.getValue(), 20);
