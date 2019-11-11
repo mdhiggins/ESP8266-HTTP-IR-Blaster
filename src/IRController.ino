@@ -29,9 +29,6 @@ const bool enableMDNSServices = true;                         // Use mDNS servic
 const unsigned int captureBufSize = 150;                      // Size of the IR capture buffer.
 
 // WEMOS/LoLin V3 users may need to adjust pins for compatability, these are designed for NodeMCU V2
-=======
-// WEMOS users may need to adjust pins for compatibility
->>>>>>> master
 const int pinr1 = 14;                                         // Receiving pin
 const int pins1 = 4;                                          // Transmitting preset 1
 const int pins2 = 5;                                          // Transmitting preset 2
