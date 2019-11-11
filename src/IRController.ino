@@ -29,6 +29,9 @@ const bool enableMDNSServices = true;                         // Use mDNS servic
 const unsigned int captureBufSize = 150;                      // Size of the IR capture buffer.
 
 // WEMOS/LoLin V3 users may need to adjust pins for compatability, these are designed for NodeMCU V2
+=======
+// WEMOS users may need to adjust pins for compatibility
+>>>>>>> master
 const int pinr1 = 14;                                         // Receiving pin
 const int pins1 = 4;                                          // Transmitting preset 1
 const int pins2 = 5;                                          // Transmitting preset 2
@@ -500,6 +503,15 @@ bool setupWifi(bool resetConf) {
 
 
 //+=============================================================================
+// Send CORS HTTP headers
+//
+void sendCorsHeaders() {
+  server->sendHeader("Access-Control-Allow-Origin", "*");
+  server->sendHeader("Access-Control-Allow-Methods", "GET, POST");
+}
+
+
+//+=============================================================================
 // Setup web server and IR receiver/blaster
 //
 void setup() {
@@ -590,6 +602,7 @@ void setup() {
     if (error) {
       Serial.println("JSON parsing failed");
       if (simple) {
+        sendCorsHeaders();
         server->send(400, "text/plain", "JSON parsing failed");
       } else {
         sendHomePage("JSON parsing failed", "Error", 3, 400); // 400
@@ -598,6 +611,7 @@ void setup() {
     } else if (strlen(passcode) != 0 && server->arg("pass") != passcode) {
       Serial.println("Unauthorized access");
       if (simple) {
+        sendCorsHeaders();
         server->send(401, "text/plain", "Unauthorized, invalid passcode");
       } else {
         sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
@@ -621,6 +635,7 @@ void setup() {
           Serial.println(currentState);
           if (state == currentState) {
             if (simple) {
+              sendCorsHeaders();
               server->send(200, "text/html", "Not sending command to " + device + ", already in state " + state);
             } else {
               sendHomePage("Not sending command to " + device + ", already in state " + state, "Warning", 2); // 200
@@ -638,6 +653,7 @@ void setup() {
       }
 
       if (simple) {
+        sendCorsHeaders();
         server->send(200, "text/html", "Success, code sent");
       }
 
@@ -727,6 +743,7 @@ void setup() {
     if (strlen(passcode) != 0 && server->arg("pass") != passcode) {
       Serial.println("Unauthorized access");
       if (simple) {
+        sendCorsHeaders();
         server->send(401, "text/plain", "Unauthorized, invalid passcode");
       } else {
         sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
@@ -752,6 +769,7 @@ void setup() {
           Serial.println(currentState);
           if (state == currentState) {
             if (simple) {
+              sendCorsHeaders();
               server->send(200, "text/html", "Not sending command to " + device + ", already in state " + state);
             } else {
               sendHomePage("Not sending command to " + device + ", already in state " + state, "Warning", 2); // 200
@@ -789,6 +807,7 @@ void setup() {
       }
 
       if (simple) {
+        sendCorsHeaders();
         server->send(200, "text/html", "Success, code sent");
       }
 
@@ -1104,7 +1123,7 @@ void sendFooter() {
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - unable to retrieve external IP address, this may be due to bad network settings.</em></div></div>");
   time_t timenow = now() - (timeZone * SECS_PER_HOUR);
   if (!validEPOCH(timenow))
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - EPOCH time is inappropraitely low, likely connection to external time server has failed, check your network settings</em></div></div>");
+  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - EPOCH time is inappropriately low, likely connection to external time server has failed, check your network settings</em></div></div>");
   if (userIDError)
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - your userID is in the wrong format and authentication will not work</em></div></div>");
   if (ntpError)

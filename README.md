@@ -108,7 +108,7 @@ JSON Scripting
 --------------
 For more complicated sequences of buttons, such a multiple button presses or sending RAW IR commands or Pronto commands, you may do an HTTP POST with a JSON object that contains an array of commands which the receiver will parse and transmit. Payload must be a JSON array of JSON objects. Password should still be specified as the URL parameter `pass`.
 
-Please note that Pronto codes are often given in a hexidecimal format and need to be prefixed with `0x` to indicate as such or they will be incorrectly transmitted.
+Please note that Pronto codes are often given in a hexadecimal format and need to be prefixed with `0x` to indicate as such or they will be incorrectly transmitted.
 
 Parameters
 - `data` - IR code data, may be simple HEX code such as `"A90"` or an array of int values when transmitting a RAW sequence
