@@ -585,7 +585,7 @@ void setup() {
   server->on("/json", []() { // JSON handler for more complicated IR blaster routines
     Serial.println("Connection received - JSON");
 
-    DynamicJsonDocument root(1024);
+    DynamicJsonDocument root(4096);
     DeserializationError error = deserializeJson(root, server->arg("plain"));
 
     int simple = 0;
@@ -598,9 +598,10 @@ void setup() {
 
     if (error) {
       Serial.println("JSON parsing failed");
+      Serial.println(error.c_str());
       if (simple) {
         sendCorsHeaders();
-        server->send(400, "text/plain", "JSON parsing failed");
+        server->send(400, "text/plain", "JSON parsing failed, " + String(error.c_str()));
       } else {
         sendHomePage("JSON parsing failed", "Error", 3, 400); // 400
       }
