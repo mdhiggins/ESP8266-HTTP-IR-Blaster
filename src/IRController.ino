@@ -53,6 +53,7 @@ char static_sn[16] = "255.255.255.0";
 
 DynamicJsonDocument deviceState(1024);
 
+WiFiClient client;
 ESP8266WebServer *server = NULL;
 Ticker ticker;
 
@@ -236,7 +237,7 @@ String getUserID(String token)
   http.setTimeout(5000);
   String url = "https://api.amazon.com/user/profile?access_token=";
   String uid = "";
-  http.begin(url + token, fingerprint);
+  http.begin(client, url + token);
   int httpCode = http.GET();
   String payload = http.getString();
   Serial.println(url + token);
@@ -288,7 +289,7 @@ String externalIP()
   externalIPError = false;
   unsigned long start = millis();
   http.setTimeout(5000);
-  http.begin(serverName, 8245);
+  http.begin(client, serverName, 8245);
   int httpCode = http.GET();
 
   if (httpCode > 0 && httpCode == HTTP_CODE_OK) {
@@ -945,7 +946,7 @@ int rokuCommand(String ip, String data, int repeat, int rdelay) {
   int output = 0;
 
   for (int r = 0; r < repeat; r++) {
-    http.begin(url);
+    http.begin(client, url);
     Serial.println(url);
     Serial.println("Sending roku command");
   
