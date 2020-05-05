@@ -36,7 +36,7 @@ Drivers
 --------------
 Install the NodeMCU drivers for your respective operating system if they are not autodetected
 
-https://www.silabs.com/products/mcu/Pages/USBtoUARTBridgeVCPDrivers.aspx
+https://www.silabs.com/products/development-tools/software/usb-to-uart-bridge-vcp-drivers
 
 Alexa Skill
 --------------
