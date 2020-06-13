@@ -59,7 +59,7 @@ Ticker ticker;
 bool shouldSaveConfig = false;                                // Flag for saving data
 bool holdReceive = false;                                     // Flag to prevent IR receiving while transmitting
 
-IRrecv irrecv(pinr1, captureBufSize);
+IRrecv irrecv(pinr1, captureBufSize, 35);
 IRsend irsend1(pins1);
 IRsend irsend2(pins2);
 IRsend irsend3(pins3);
