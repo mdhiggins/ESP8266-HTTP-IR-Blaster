@@ -201,7 +201,7 @@ Default mapping
 
 Force WiFi Reconfiguration
 ---------------
-Set GPIO10 to ground to force a WiFi configuration reset, this will boot the device into WiFi host mode with an SSID of 'IRBlaster Configuration' and IP of `192.168.4.1`
+Set GPIO10 to ground to force a WiFi configuration reset, this will boot the device into WiFi host mode with an SSID of 'IR Controller Configuration' and IP of `192.168.4.1`
 
 Device State Memory
 ---------------
