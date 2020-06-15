@@ -25,6 +25,7 @@ const bool getTime = true;                                    // Set to false to
 const int timeZone = -5;                                      // Timezone (-5 is EST)
 
 const bool enableMDNSServices = true;                         // Use mDNS services, must be enabled for ArduinoOTA
+const bool enableDHCP = false;                                // Use DHCP. By default, it will use static IPs 
 
 const unsigned int captureBufSize = 150;                      // Size of the IR capture buffer.
 
@@ -422,12 +423,15 @@ bool setupWifi(bool resetConf) {
   WiFiManagerParameter custom_userid("user_id", "Enter your Amazon user_id", user_id, 60);
   wifiManager.addParameter(&custom_userid);
 
-  IPAddress sip, sgw, ssn;
-  sip.fromString(static_ip);
-  sgw.fromString(static_gw);
-  ssn.fromString(static_sn);
-  Serial.println("Using Static IP");
-  wifiManager.setSTAStaticIPConfig(sip, sgw, ssn);
+  if (!enableDHCP) {
+    // If DHCP is disabled, use static IPs
+    IPAddress sip, sgw, ssn;
+    sip.fromString(static_ip);
+    sgw.fromString(static_gw);
+    ssn.fromString(static_sn);
+    Serial.println("Using Static IP");
+    wifiManager.setSTAStaticIPConfig(sip, sgw, ssn);
+  }
 
   // fetches ssid and pass and tries to connect
   // if it does not connect it starts an access point with the specified name
