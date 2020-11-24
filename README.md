@@ -166,6 +166,22 @@ Pronto Example
 ]
 ```
 
+AC Example
+```
+[
+    {
+        "type":"ac",
+        "protocol":"lg2",
+        "stateOn":true,
+        "mode":"cool",
+        "fanSpeed":"low",
+        "temp":22,
+        "swingH":"right",
+        "swingV":"auto"
+    }
+]
+```
+
 JSON as URL
 --------------
 To send the signal using the IFTTT Maker channel or the IR Controller smart home skill, simply take your JSON payload and remove spaces and line breaks so that entire packet is on a single line, then added it to the URL using the `plain` argument.
