@@ -973,33 +973,47 @@ int acCommand(IRac ac, boolean stateOn, String protocol, String mode, String mod
 
   time_t t = now ();
   struct tm *tmp = gmtime(&t);
-
+  
+  //  Set protocol
   ac.next.protocol = strToDecodeType(protocol.c_str());
-  ac.next.model = IRac::strToModel(model.c_str());
-  ac.next.power = stateOn;
-  ac.next.mode = IRac::strToOpmode(mode.c_str());
-  ac.next.degrees = temp;
-  ac.next.fanspeed = IRac::strToFanspeed(fanSpeed.c_str());
-  ac.next.swingh = IRac::strToSwingH(swingH.c_str());
-  ac.next.swingv = IRac::strToSwingV(swingV.c_str());
-  ac.next.celsius = true;
-  ac.next.clock = tmp->tm_hour*60 + tmp->tm_min;
-  ac.sendAc ();
-
-  Serial.println("Transmission complete");
-  Serial.println(convertToString (ac.getState()));
 
   copyCode(last_send_4, last_send_5);
   copyCode(last_send_3, last_send_4);
   copyCode(last_send_2, last_send_3);
   copyCode(last_send, last_send_2);
 
-  last_send.timestamp = now();
-  last_send.valid = true;
-  last_send.bits = 0;
-  strncpy(last_send.encoding, protocol.c_str(), 14);
-  strncpy(last_send.address, "0x0", 20);
-  strncpy(last_send.data, convertToString (ac.getState()).c_str(), 256);
+  if (IRac::isProtocolSupported (ac.next.protocol)) {
+    ac.next.model = IRac::strToModel(model.c_str());
+    ac.next.power = stateOn;
+    ac.next.mode = IRac::strToOpmode(mode.c_str());
+    ac.next.degrees = temp;
+    ac.next.fanspeed = IRac::strToFanspeed(fanSpeed.c_str());
+    ac.next.swingh = IRac::strToSwingH(swingH.c_str());
+    ac.next.swingv = IRac::strToSwingV(swingV.c_str());
+    ac.next.celsius = true;
+    ac.next.clock = tmp->tm_hour*60 + tmp->tm_min;
+    ac.sendAc ();
+
+    Serial.println("Transmission complete");
+    Serial.println(convertToString (ac.getState()));
+
+    last_send.timestamp = now();
+    last_send.valid = true;
+    last_send.bits = 0;
+    strncpy(last_send.encoding, protocol.c_str(), 14);
+    strncpy(last_send.address, "0x0", 20);
+    strncpy(last_send.data, convertToString (ac.getState()).c_str(), 256);
+  }
+  else {
+    Serial.println("Protocol not supported");
+
+    last_send.timestamp = now();
+    last_send.valid = true;
+    last_send.bits = 0;
+    strncpy(last_send.encoding, protocol.c_str(), 14);
+    strncpy(last_send.address, "0x0", 20);
+    strncpy(last_send.data, "Error: Protocol not supported", 256);
+  }
 
   resetReceive();
 }
