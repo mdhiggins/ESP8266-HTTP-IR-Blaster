@@ -17,6 +17,7 @@
 #include <Ticker.h>                                           // For LED status
 #include <TimeLib.h>
 
+#include <IRac.h>
 // User settings are below here
 
 const bool getExternalIP = true;                              // Set to false to disable querying external IP
@@ -59,11 +60,15 @@ Ticker ticker;
 bool shouldSaveConfig = false;                                // Flag for saving data
 bool holdReceive = false;                                     // Flag to prevent IR receiving while transmitting
 
-IRrecv irrecv(pinr1, captureBufSize, 35);
+IRrecv irrecv(pinr1, captureBufSize, 50, true);
 IRsend irsend1(pins1);
 IRsend irsend2(pins2);
 IRsend irsend3(pins3);
 IRsend irsend4(pins4);
+IRac irac1(pins1);
+IRac irac2(pins2);
+IRac irac3(pins3);
+IRac irac4(pins4);
 
 const unsigned long resetfrequency = 259200000;                // 72 hours in milliseconds for external IP reset
 static const char ntpServerName[] = "time.google.com";
@@ -86,8 +91,8 @@ class Code {
   public:
     char encoding[14] = "";
     char address[20] = "";
-    char command[40] = "";
-    char data[40] = "";
+    char command[80] = "";
+    char data[256] = "";
     String raw = "";
     int bits = 0;
     time_t timestamp = 0;
@@ -664,6 +669,8 @@ void setup() {
         if (rdelay <= 0) rdelay = 1000; // Default rdelay
         if (duty <= 0) duty = 50; // Default duty
 
+        Serial.print("Sending code to device #");
+        Serial.println(xout);
         // Handle device state limitations on a per JSON object basis
         String device = root[x]["device"];
         if (device != "null") {
@@ -697,6 +704,16 @@ void setup() {
         } else if (type == "roku") {
           String data = root[x]["data"];
           rokuCommand(ip, data, repeat, rdelay);
+        } else if (type == "ac") {
+          boolean stateOn = root[x]["stateOn"];
+          String protocol = root[x]["protocol"];
+          String mode = root[x]["mode"];
+          String model = root[x]["model"];
+          String fanSpeed = root[x]["fanSpeed"];
+          int temp = root[x]["temp"];
+          String swingH = root[x]["swingH"];
+          String swingV = root[x]["swingV"];
+          acCommand (pickIRACsend (xout), stateOn, protocol, mode, model, fanSpeed, temp, swingH, swingV);
         } else {
           String data = root[x]["data"];
           String addressString = root[x]["address"];
@@ -935,6 +952,57 @@ void sendNTPpacket(IPAddress &address)
   ntpUDP.endPacket();
 }
 
+String convertToString(stdAc::state_t state) {
+  String result = "";
+  result.reserve(230);  // Reserve some heap for the string to reduce fragging.
+  result += irutils::addBoolToString(state.power, "POWER", false);
+  result += irutils::addLabeledString(IRac::opmodeToString(state.mode), "MODE", true);
+  result += irutils::addTempToString(state.degrees);
+  result += irutils::addLabeledString(IRac::fanspeedToString(state.fanspeed), "FAN", true);
+  result += irutils::addBoolToString(state.quiet, "QUIET");
+  result += irutils::addBoolToString(state.turbo, "TURBO");
+  result += irutils::addBoolToString(state.econo, "ECONO");
+  result += irutils::addLabeledString(IRac::swinghToString(state.swingh), "SWING H");
+  result += irutils::addLabeledString(IRac::swingvToString(state.swingv), "SWING V");
+  result += irutils::addLabeledString(irutils::minsToString(state.clock), "CLOCK");
+  return result;
+}
+
+int acCommand(IRac ac, boolean stateOn, String protocol, String mode, String model, 
+  String fanSpeed, int temp, String swingH, String swingV) {
+
+  time_t t = now ();
+  struct tm *tmp = gmtime(&t);
+
+  ac.next.protocol = strToDecodeType(protocol.c_str());
+  ac.next.model = IRac::strToModel(model.c_str());
+  ac.next.power = stateOn;
+  ac.next.mode = IRac::strToOpmode(mode.c_str());
+  ac.next.degrees = temp;
+  ac.next.fanspeed = IRac::strToFanspeed(fanSpeed.c_str());
+  ac.next.swingh = IRac::strToSwingH(swingH.c_str());
+  ac.next.swingv = IRac::strToSwingV(swingV.c_str());
+  ac.next.celsius = true;
+  ac.next.clock = tmp->tm_hour*60 + tmp->tm_min;
+  ac.sendAc ();
+
+  Serial.println("Transmission complete");
+  Serial.println(convertToString (ac.getState()));
+
+  copyCode(last_send_4, last_send_5);
+  copyCode(last_send_3, last_send_4);
+  copyCode(last_send_2, last_send_3);
+  copyCode(last_send, last_send_2);
+
+  last_send.timestamp = now();
+  last_send.valid = true;
+  last_send.bits = 0;
+  strncpy(last_send.encoding, protocol.c_str(), 14);
+  strncpy(last_send.address, "0x0", 20);
+  strncpy(last_send.data, convertToString (ac.getState()).c_str(), 256);
+
+  resetReceive();
+}
 //+=============================================================================
 // Send command to local roku
 //
@@ -954,7 +1022,7 @@ int rokuCommand(String ip, String data, int repeat, int rdelay) {
     copyCode(last_send_2, last_send_3);
     copyCode(last_send, last_send_2);
   
-    strncpy(last_send.data, data.c_str(), 40);
+    strncpy(last_send.data, data.c_str(), 256);
     last_send.bits = 1;
     strncpy(last_send.encoding, "roku", 14);
     strncpy(last_send.address, ip.c_str(), 20);
@@ -1005,6 +1073,20 @@ IRsend pickIRsend (int out) {
 
 
 //+=============================================================================
+// Return which IRDaikin object to act on
+//
+IRac pickIRACsend (int out) {
+  switch (out) {
+    case 1: return irac1;
+    case 2: return irac2;
+    case 3: return irac3;
+    case 4: return irac4;
+    default: return irac1;
+  }
+}
+
+
+//+=============================================================================
 // Display encoding type
 //
 String encoding(decode_results *results) {
@@ -1031,6 +1113,7 @@ String encoding(decode_results *results) {
     case COOLIX:       output = "COOLIX";             break;
     case GREE:         output = "GREE";               break;
     case LUTRON:       output = "LUTRON";             break;
+    case DAIKIN:       output = "DAIKIN";             break;
   }
   return output;
 }
@@ -1041,7 +1124,7 @@ String encoding(decode_results *results) {
 void fullCode (decode_results *results)
 {
   Serial.print("One line: ");
-  serialPrintUint64(results->value, 16);
+  Serial.print(resultToHexidecimal(results));
   Serial.print(":");
   Serial.print(encoding(results));
   Serial.print(":");
@@ -1284,7 +1367,7 @@ void sendCodePage(Code selCode, int httpcode){
 // Code to JsonObject
 //
 void cvrtCode(Code& codeData, decode_results *results) {
-  strncpy(codeData.data, uint64ToString(results->value, 16).c_str(), 40);
+  strncpy(codeData.data, resultToHexidecimal(results).substring(2).c_str(), 80);
   strncpy(codeData.encoding, encoding(results).c_str(), 14);
   codeData.bits = results->bits;
   String r = "";
@@ -1297,10 +1380,10 @@ void cvrtCode(Code& codeData, decode_results *results) {
   codeData.raw = r;
   if (results->decode_type != UNKNOWN) {
     strncpy(codeData.address, ("0x" + String(results->address, HEX)).c_str(), 20);
-    strncpy(codeData.command, ("0x" + String(results->command, HEX)).c_str(), 40);
+    strncpy(codeData.command, ("0x" + String(results->command, HEX)).c_str(), 80);
   } else {
     strncpy(codeData.address, "0x0", 20);
-    strncpy(codeData.command, "0x0", 40);
+    strncpy(codeData.command, "0x0", 80);
   }
 }
 
@@ -1497,7 +1580,7 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
   copyCode(last_send_2, last_send_3);
   copyCode(last_send, last_send_2);
 
-  strncpy(last_send.data, dataStr.c_str(), 40);
+  strncpy(last_send.data, dataStr.c_str(), 160);
   last_send.bits = len;
   strncpy(last_send.encoding, type.c_str(), 14);
   strncpy(last_send.address, ("0x" + String(address, HEX)).c_str(), 20);
@@ -1534,7 +1617,7 @@ void pronto(JsonArray &pronto, int rdelay, int pulse, int pdelay, int repeat, IR
   copyCode(last_send_2, last_send_3);
   copyCode(last_send, last_send_2);
 
-  strncpy(last_send.data, "", 40);
+  strncpy(last_send.data, "", 256);
   last_send.bits = psize;
   strncpy(last_send.encoding, "PRONTO", 14);
   strncpy(last_send.address, "0x0", 20);
@@ -1572,7 +1655,7 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int re
   copyCode(last_send_2, last_send_3);
   copyCode(last_send, last_send_2);
 
-  strncpy(last_send.data, "", 40);
+  strncpy(last_send.data, "", 256);
   last_send.bits = raw.size();
   strncpy(last_send.encoding, "RAW", 14);
   strncpy(last_send.address, "0x0", 20);
@@ -1620,7 +1703,7 @@ void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
 }
 
 void copyCode (Code& c1, Code& c2) {
-  strncpy(c2.data, c1.data, 40);
+  strncpy(c2.data, c1.data, 256);
   strncpy(c2.encoding, c1.encoding, 14);
   //strncpy(c2.timestamp, c1.timestamp, 40);
   strncpy(c2.address, c1.address, 20);
