@@ -1021,31 +1021,7 @@ IRsend pickIRsend (int out) {
 // Display encoding type
 //
 String encoding(decode_results *results) {
-  String output;
-  switch (results->decode_type) {
-    default:
-    case UNKNOWN:      output = "UNKNOWN";            break;
-    case NEC:          output = "NEC";                break;
-    case SONY:         output = "SONY";               break;
-    case RC5:          output = "RC5";                break;
-    case RC6:          output = "RC6";                break;
-    case DISH:         output = "DISH";               break;
-    case SHARP:        output = "SHARP";              break;
-    case JVC:          output = "JVC";                break;
-    case SANYO:        output = "SANYO";              break;
-    case SANYO_LC7461: output = "SANYO_LC7461";       break;
-    case MITSUBISHI:   output = "MITSUBISHI";         break;
-    case SAMSUNG:      output = "SAMSUNG";            break;
-    case LG:           output = "LG";                 break;
-    case WHYNTER:      output = "WHYNTER";            break;
-    case AIWA_RC_T501: output = "AIWA_RC_T501";       break;
-    case PANASONIC:    output = "PANASONIC";          break;
-    case DENON:        output = "DENON";              break;
-    case COOLIX:       output = "COOLIX";             break;
-    case GREE:         output = "GREE";               break;
-    case LUTRON:       output = "LUTRON";             break;
-  }
-  return output;
+  return typeToString(results->decode_type);
 }
 
 //+=============================================================================
