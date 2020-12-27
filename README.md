@@ -52,7 +52,7 @@ Otherwise, here are the building steps:
 
 1. Install [Arduino IDE](https://www.arduino.cc/en/main/software)
 2. Install [ESP8266 Arduino Core](https://github.com/esp8266/Arduino)
-3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson` `Time` `IRremoteESP8266` as well as [`Cryptosuite`](https://github.com/jjssoftware/Cryptosuite) and the developer version of [`WiFiManager`](https://github.com/tzapu/WiFiManager/tree/development) which is not on the IDE
+3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson` `Time` `IRremoteESP8266` as well as [`Cryptosuite`](https://github.com/jjssoftware/Cryptosuite) and the developer version of [`WiFiManager`] which is now on the IDE (version >= 2.0)
 4. Load the `IRController.ino` blueprint from this repository
 5. Upload blueprint to your ESP8266 (the .ino file). Monitor via serial at 115200 baud rate
 
