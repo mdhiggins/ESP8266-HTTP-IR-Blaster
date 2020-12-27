@@ -11,10 +11,6 @@ Includes a functional web portal for code capture, output monitoring, and device
 
 Device gives real time LED feedback, can handle complex code sequences for multi-device home theater control, and full integration with Amazon Alexa via the smart home entertainment devices API and the `IR Controller` Alexa skill
 
-Development Branch
---------------
-The development branch migrates some of the older more dated libraries to newer versions and adds some flexibility. The biggest fix here is that by using the development build of WiFiManager, dynamic and static IP addresses can be configured at the users preference and newer version of the ESP82666 Arduino Core and lwIP can be used without the crashing or instability in the master branch that is caused by older versions of WiFiManager. Its also been migrated to the latest version of the IRRemote library and ArduinoJSON library
-
 Hardware
 --------------
 ![Fancy](https://user-images.githubusercontent.com/3608298/33769535-93793c30-dbf8-11e7-97ef-263cef2ec0c4.jpg)
