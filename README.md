@@ -11,6 +11,10 @@ Includes a functional web portal for code capture, output monitoring, and device
 
 Device gives real time LED feedback, can handle complex code sequences for multi-device home theater control, and full integration with Amazon Alexa via the smart home entertainment devices API and the `IR Controller` Alexa skill
 
+Development Branch
+--------------
+The development branch migrates some of the older more dated libraries to newer versions and adds some flexibility. The biggest fix here is that by using the development build of WiFiManager, dynamic and static IP addresses can be configured at the users preference and newer version of the ESP82666 Arduino Core and lwIP can be used without the crashing or instability in the master branch that is caused by older versions of WiFiManager. Its also been migrated to the latest version of the IRRemote library and ArduinoJSON library
+
 Hardware
 --------------
 ![Fancy](https://user-images.githubusercontent.com/3608298/33769535-93793c30-dbf8-11e7-97ef-263cef2ec0c4.jpg)
@@ -46,16 +50,15 @@ compile the library and upload it to a connected ESP8266-compatible board.
 
 Otherwise, here are the building steps:
 
-*As of the ESP8266 Arduino Core 2.4.0 lwIP vesion 2.0 is default. This causes problems and crashing and it is recommended you use lwIP 1.4. Go to `Tools > lwIP Variant > lwIP 1.4 (Prebuilt)`*
 1. Install [Arduino IDE](https://www.arduino.cc/en/main/software)
 2. Install [ESP8266 Arduino Core](https://github.com/esp8266/Arduino)
-3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson` `WiFiManager` `Time` `IRremoteESP8266` as well as [`Cryptosuite`](https://github.com/jjssoftware/Cryptosuite) which is not on the IDE
+3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson` `Time` `IRremoteESP8266` as well as [`Cryptosuite`](https://github.com/jjssoftware/Cryptosuite) and the developer version of [`WiFiManager`] which is now on the IDE (version >= 2.0)
 4. Load the `IRController.ino` blueprint from this repository
 5. Upload blueprint to your ESP8266 (the .ino file). Monitor via serial at 115200 baud rate
 
 After flashing, you can use the device like so:
 
-1. Device will boot into WiFi access point mode initially with SSID `IRBlaster Configuration`, IP address `192.168.4.1`. Connect to this and configure your access point settings using WiFi Manager. If your router supports mDNS/Bonjour you can now access your device on your local network via the hostname you specified (`http://hostname.local:port/`), otherwise via its local IP address (this IP address is displayed on the serial output)
+1. Device will boot into WiFi access point mode initially with SSID `IR Controller Configuration`, IP address `192.168.4.1`. Connect to this and configure your access point settings using WiFi Manager. If your router supports mDNS/Bonjour you can now access your device on your local network via the hostname you specified (`http://hostname.local:port/`), otherwise via its local IP address (this IP address is displayed on the serial output)
 2. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network, this is critical since Alexa commands come from Amazon's servers, not locally
 3. Download the IR Controller Alexa skill and start creating your devices. Each IR command will require a URL which can be saved. Choose whichever functionality you desire. Information on creating the URLs can be found below
 

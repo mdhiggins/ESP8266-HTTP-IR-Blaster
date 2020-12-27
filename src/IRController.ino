@@ -28,7 +28,7 @@ const bool enableMDNSServices = true;                         // Use mDNS servic
 
 const unsigned int captureBufSize = 150;                      // Size of the IR capture buffer.
 
-// WEMOS users may need to adjust pins for compatibility
+// WEMOS/LoLin V3 users may need to adjust pins for compatability, these are designed for NodeMCU V2
 const int pinr1 = 14;                                         // Receiving pin
 const int pins1 = 4;                                          // Transmitting preset 1
 const int pins2 = 5;                                          // Transmitting preset 2
@@ -50,6 +50,7 @@ const char* fingerprint = "8D 83 C3 5F 0A 09 84 AE B0 64 39 23 8F 05 9E 4D 5E 08
 char static_ip[16] = "10.0.1.10";
 char static_gw[16] = "10.0.1.1";
 char static_sn[16] = "255.255.255.0";
+char static_dns[16] = "10.0.1.1";
 
 DynamicJsonDocument deviceState(1024);
 
@@ -364,9 +365,6 @@ bool setupWifi(bool resetConf) {
   // WiFiManager
   // Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
-  // reset settings - for testing
-  if (resetConf)
-    wifiManager.resetSettings();
 
   // set callback that gets called when connecting to previous WiFi fails, and enters Access Point mode
   wifiManager.setAPCallback(configModeCallback);
@@ -405,6 +403,7 @@ bool setupWifi(bool resetConf) {
           if (json.containsKey("ip")) strncpy(static_ip, json["ip"], 16);
           if (json.containsKey("gw")) strncpy(static_gw, json["gw"], 16);
           if (json.containsKey("sn")) strncpy(static_sn, json["sn"], 16);
+          if (json.containsKey("dns")) strncpy(static_dns, json["dns"], 16);
         } else {
           Serial.println("failed to load json config");
         }
@@ -423,12 +422,22 @@ bool setupWifi(bool resetConf) {
   WiFiManagerParameter custom_userid("user_id", "Enter your Amazon user_id", user_id, 60);
   wifiManager.addParameter(&custom_userid);
 
-  IPAddress sip, sgw, ssn;
+  wifiManager.setShowStaticFields(true);
+  wifiManager.setShowDnsFields(true);
+
+  IPAddress sip, sgw, ssn, dns;
   sip.fromString(static_ip);
   sgw.fromString(static_gw);
   ssn.fromString(static_sn);
-  Serial.println("Using Static IP");
-  wifiManager.setSTAStaticIPConfig(sip, sgw, ssn);
+  dns.fromString(static_dns);
+
+  if (resetConf) {
+    Serial.println("Reset triggered, launching in AP mode");
+    wifiManager.startConfigPortal(wifi_config_name);
+  } else {
+    Serial.println("Setting static WiFi data from config");
+    wifiManager.setSTAStaticIPConfig(sip, sgw, ssn, dns);
+  }
 
   // fetches ssid and pass and tries to connect
   // if it does not connect it starts an access point with the specified name
@@ -468,6 +477,7 @@ bool setupWifi(bool resetConf) {
     json["ip"] = WiFi.localIP().toString();
     json["gw"] = WiFi.gatewayIP().toString();
     json["sn"] = WiFi.subnetMask().toString();
+    json["dns"] = WiFi.dnsIP().toString();
 
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) {
@@ -539,6 +549,8 @@ void setup() {
 
   Serial.print("Local IP: ");
   Serial.println(WiFi.localIP().toString());
+  Serial.print("DNS IP: ");
+  Serial.println(WiFi.dnsIP().toString());
   Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
 
   if (enableMDNSServices) {
@@ -1009,31 +1021,7 @@ IRsend pickIRsend (int out) {
 // Display encoding type
 //
 String encoding(decode_results *results) {
-  String output;
-  switch (results->decode_type) {
-    default:
-    case UNKNOWN:      output = "UNKNOWN";            break;
-    case NEC:          output = "NEC";                break;
-    case SONY:         output = "SONY";               break;
-    case RC5:          output = "RC5";                break;
-    case RC6:          output = "RC6";                break;
-    case DISH:         output = "DISH";               break;
-    case SHARP:        output = "SHARP";              break;
-    case JVC:          output = "JVC";                break;
-    case SANYO:        output = "SANYO";              break;
-    case SANYO_LC7461: output = "SANYO_LC7461";       break;
-    case MITSUBISHI:   output = "MITSUBISHI";         break;
-    case SAMSUNG:      output = "SAMSUNG";            break;
-    case LG:           output = "LG";                 break;
-    case WHYNTER:      output = "WHYNTER";            break;
-    case AIWA_RC_T501: output = "AIWA_RC_T501";       break;
-    case PANASONIC:    output = "PANASONIC";          break;
-    case DENON:        output = "DENON";              break;
-    case COOLIX:       output = "COOLIX";             break;
-    case GREE:         output = "GREE";               break;
-    case LUTRON:       output = "LUTRON";             break;
-  }
-  return output;
+  return typeToString(results->decode_type);
 }
 
 //+=============================================================================
@@ -1083,6 +1071,8 @@ void sendHeader(int httpcode) {
   server->sendContent("            <li class='active'>\n");
   server->sendContent("              <a href='http://" + WiFi.localIP().toString() + ":" + String(port) + "'>Local <span class='badge'>" + WiFi.localIP().toString() + ":" + String(port) + "</span></a></li>\n");
   server->sendContent("            <li class='active'>\n");
+  server->sendContent("              <a href='http://" + WiFi.dnsIP().toString() + "'>DNS <span class='badge'>" + WiFi.dnsIP().toString() + "</span></a></li>\n");
+  server->sendContent("            <li class='active'>\n");
   server->sendContent("              <a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>\n");
   server->sendContent("            <li class='active'>\n");
   server->sendContent("              <a>MAC <span class='badge'>" + String(WiFi.macAddress()) + "</span></a></li>\n");
@@ -1105,7 +1095,7 @@ void sendFooter() {
   if (timeAuthError > 0)
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - last authentication failed because your timestamps are out of sync, see serial output for debugging details. Timediff: " + String(timeAuthError) + "</em></div></div>");
   if (externalIPError)
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - unable to retrieve external IP address, this may be due to bad network settings. There is currently a bug with the latest versions of ESP8266 for Arduino, please use version 2.4.0 along with lwIP v1.4 Prebuilt to resolve this</em></div></div>");
+  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - unable to retrieve external IP address, this may be due to bad network settings.</em></div></div>");
   time_t timenow = now() - (timeZone * SECS_PER_HOUR);
   if (!validEPOCH(timenow))
   server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - EPOCH time is inappropriately low, likely connection to external time server has failed, check your network settings</em></div></div>");
