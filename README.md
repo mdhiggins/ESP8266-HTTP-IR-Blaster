@@ -32,7 +32,7 @@ Drivers
 --------------
 Install the NodeMCU drivers for your respective operating system if they are not autodetected
 
-https://www.silabs.com/products/mcu/Pages/USBtoUARTBridgeVCPDrivers.aspx
+https://www.silabs.com/products/development-tools/software/usb-to-uart-bridge-vcp-drivers
 
 Alexa Skill
 --------------
@@ -198,7 +198,7 @@ Default mapping
 
 Force WiFi Reconfiguration
 ---------------
-Set GPIO10 to ground to force a WiFi configuration reset, this will boot the device into WiFi host mode with an SSID of 'IRBlaster Configuration' and IP of `192.168.4.1`
+Set GPIO10 to ground to force a WiFi configuration reset, this will boot the device into WiFi host mode with an SSID of 'IR Controller Configuration' and IP of `192.168.4.1`
 
 Device State Memory
 ---------------
