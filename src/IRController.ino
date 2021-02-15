@@ -361,7 +361,9 @@ void lostWifiCallback (const WiFiEventStationModeDisconnected& evt) {
 bool setupWifi(bool resetConf) {
   // start ticker with 0.5 because we start in AP mode and try to connect
   ticker.attach(0.5, tick);
-
+  
+  WiFi.mode(WIFI_STA); // To make sure STA mode is preserved by WiFiManager and resets it after config is done.
+  
   // WiFiManager
   // Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
