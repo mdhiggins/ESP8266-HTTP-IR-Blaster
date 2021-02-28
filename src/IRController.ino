@@ -26,6 +26,8 @@ const int timeZone = -5;                                      // Timezone (-5 is
 
 const bool enableMDNSServices = true;                         // Use mDNS services, must be enabled for ArduinoOTA
 
+const bool bypassLocalAuth = true;                            // Allow local traffic to bypass HMAC check
+
 const unsigned int captureBufSize = 150;                      // Size of the IR capture buffer.
 
 // WEMOS/LoLin V3 users may need to adjust pins for compatability, these are designed for NodeMCU V2
@@ -177,11 +179,16 @@ String epochToString(time_t timenow) {
 //+=============================================================================
 // Valid command request using HMAC
 //
-bool validateHMAC(String epid, String mid, String timestamp, String signature) {
+bool validateHMAC(String epid, String mid, String timestamp, String signature, IPAddress clientIP) {
     userIDError = false;
     authError = false;
     ntpError = false;
     timeAuthError = 0;
+
+    if (bypassLocalAuth && isInSubnet(clientIP)) {
+      Serial.println("Bypassing HMAC security as this is a local network request");
+      return true;
+    }
 
     userIDError = !(validUID(user_id));
 
@@ -226,6 +233,25 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature) {
     Serial.print("MID: ");
     Serial.println(mid);
     return true;
+}
+
+//+=============================================================================
+// Check if client request is coming from a local IP address
+//
+bool isInSubnet(IPAddress address) {
+    Serial.print("Client IP: ");
+    Serial.println(address.toString());
+
+    uint32_t mask = uint32_t(WiFi.subnetMask());
+
+    /*
+    uint32_t net_lower = (uint32_t(WiFi.localIP()) & mask);
+    uint32_t net_upper = (net_lower | (~mask));
+    Serial.println(IPAddress(net_lower).toString());
+    Serial.println(IPAddress(net_upper).toString());
+    */
+
+    return ((uint32_t(address) & mask) == (uint32_t(WiFi.localIP()) & mask));
 }
 
 
@@ -618,7 +644,7 @@ void setup() {
         sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
       }
       root.clear();
-    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature)) {
+    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
       server->send(401, "text/plain", "Unauthorized, HMAC security authentication failed");
     } else {
       digitalWrite(ledpin, LOW);
@@ -749,7 +775,7 @@ void setup() {
       } else {
         sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
       }
-    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature)) {
+    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
       server->send(401, "text/plain", "Unauthorized, HMAC security authentication");
     } else {
       digitalWrite(ledpin, LOW);
