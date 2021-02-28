@@ -17,6 +17,9 @@
 #include <Ticker.h>                                           // For LED status
 #include <TimeLib.h>
 
+#define SPIFFS LittleFS
+#include <LittleFS.h>
+
 // User settings are below here
 
 const bool getExternalIP = true;                              // Set to false to disable querying external IP
