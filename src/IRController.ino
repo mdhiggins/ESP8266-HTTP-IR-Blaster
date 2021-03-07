@@ -31,7 +31,7 @@ const bool enableMDNSServices = true;                         // Use mDNS servic
 
 const bool bypassLocalAuth = true;                            // Allow local traffic to bypass HMAC check
 
-const unsigned int captureBufSize = 150;                      // Size of the IR capture buffer.
+const unsigned int captureBufSize = 1024;                      // Size of the IR capture buffer.
 
 // WEMOS/LoLin V3 users may need to adjust pins for compatability, these are designed for NodeMCU V2
 const int pinr1 = 14;                                         // Receiving pin
@@ -1506,6 +1506,8 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
         irsend.sendLutron(data, len);
       } else if (type == "roomba") {
         roomba_send(atoi(dataStr.c_str()), pulse, pdelay, irsend);
+      } else if (type == "ecoclim") {
+        irsend.sendEcoclim(data, len);
       }
       if (p + 1 < pulse) delay(pdelay);
     }
