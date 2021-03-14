@@ -32,7 +32,7 @@ const bool bypassLocalAuth = true;                             // Allow local tr
 
 const unsigned int captureBufSize = 1024;                      // Size of the IR capture buffer.
 
-#if defined(ARDUINO_ESP8266_WEMOS_D1MINI) || defined(ARDUINO_ESP8266_WEMOS_D1MINIPRO) || defined(ARDUINO_ESP8266_WEMOS_D1MINILITE)
+#if defined(ARDUINO_ESP8266_WEMOS_D1R1) || defined(ARDUINO_ESP8266_WEMOS_D1MINI) || defined(ARDUINO_ESP8266_WEMOS_D1MINIPRO) || defined(ARDUINO_ESP8266_WEMOS_D1MINILITE)
 const int pinr1 = D5;                                          // Receiving pin (GPIO14)
 const int pins1 = D6;                                          // Transmitting preset 1 (GPIO12)
 const int configpin = D2;                                      // Reset Pin (GPIO4)
