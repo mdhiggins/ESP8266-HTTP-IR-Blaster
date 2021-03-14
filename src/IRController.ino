@@ -17,32 +17,40 @@
 #include <Ticker.h>                                           // For LED status
 #include <TimeLib.h>
 
-#define SPIFFS LittleFS
 #include <LittleFS.h>
 
 // User settings are below here
+//+=============================================================================
+const bool getExternalIP = true;                               // Set to false to disable querying external IP
 
-const bool getExternalIP = true;                              // Set to false to disable querying external IP
+const bool getTime = true;                                     // Set to false to disable querying for the time
+const int timeZone = -5;                                       // Timezone (-5 is EST)
 
-const bool getTime = true;                                    // Set to false to disable querying for the time
-const int timeZone = -5;                                      // Timezone (-5 is EST)
+const bool enableMDNSServices = true;                          // Use mDNS services, must be enabled for ArduinoOTA
 
-const bool enableMDNSServices = true;                         // Use mDNS services, must be enabled for ArduinoOTA
-
-const bool bypassLocalAuth = true;                            // Allow local traffic to bypass HMAC check
+const bool bypassLocalAuth = true;                             // Allow local traffic to bypass HMAC check
 
 const unsigned int captureBufSize = 1024;                      // Size of the IR capture buffer.
 
-// WEMOS/LoLin V3 users may need to adjust pins for compatability, these are designed for NodeMCU V2
-const int pinr1 = 14;                                         // Receiving pin
-const int pins1 = 4;                                          // Transmitting preset 1
-const int pins2 = 5;                                          // Transmitting preset 2
-const int pins3 = 12;                                         // Transmitting preset 3
-const int pins4 = 13;                                         // Transmitting preset 4
-const int configpin = 10;                                     // Reset Pin
-
+#if defined(ARDUINO_ESP8266_WEMOS_D1MINI) || defined(ARDUINO_ESP8266_WEMOS_D1MINIPRO) || defined(ARDUINO_ESP8266_WEMOS_D1MINILITE)
+const int pinr1 = D5;                                          // Receiving pin (GPIO14)
+const int pins1 = D6;                                          // Transmitting preset 1 (GPIO12)
+const int configpin = D2;                                      // Reset Pin (GPIO4)
+const int pins2 = 5;                                           // Transmitting preset 2
+const int pins3 = 12;                                          // Transmitting preset 3
+const int pins4 = 13;                                          // Transmitting preset 4
+#else
+const int pinr1 = 14;                                          // Receiving pin
+const int pins1 = 4;                                           // Transmitting preset 1
+const int configpin = 10;                                      // Reset Pin
+const int pins2 = 5;                                           // Transmitting preset 2
+const int pins3 = 12;                                          // Transmitting preset 3
+const int pins4 = 13;                                          // Transmitting preset 4
+#endif
+//+=============================================================================
 // User settings are above here
-const int ledpin = LED_BUILTIN;                               // Built in LED defined for WEMOS people
+
+const int ledpin = LED_BUILTIN;                                // Built in LED defined for WEMOS people
 const char *wifi_config_name = "IR Controller Configuration";
 const char serverName[] = "checkip.dyndns.org";
 int port = 80;
@@ -50,8 +58,8 @@ char passcode[20] = "";
 char host_name[20] = "";
 char port_str[6] = "80";
 char user_id[60] = "";
-const char* fingerprint = "8D 83 C3 5F 0A 09 84 AE B0 64 39 23 8F 05 9E 4D 5E 08 60 06";
 
+// Do not modify these values with your own, they are placeholder values that WiFiManager will overwrite
 char static_ip[16] = "10.0.1.10";
 char static_gw[16] = "10.0.1.1";
 char static_sn[16] = "255.255.255.0";
@@ -63,8 +71,8 @@ WiFiClient client;
 ESP8266WebServer *server = NULL;
 Ticker ticker;
 
-bool shouldSaveConfig = false;                                // Flag for saving data
-bool holdReceive = false;                                     // Flag to prevent IR receiving while transmitting
+bool shouldSaveConfig = false;                                 // Flag for saving data
+bool holdReceive = false;                                      // Flag to prevent IR receiving while transmitting
 
 IRrecv irrecv(pinr1, captureBufSize, 35);
 IRsend irsend1(pins1);
@@ -405,12 +413,12 @@ bool setupWifi(bool resetConf) {
   // Reset device if on config portal for greater than 3 minutes
   wifiManager.setConfigPortalTimeout(180);
 
-  if (SPIFFS.begin()) {
+  if (LittleFS.begin()) {
     Serial.println("mounted file system");
-    if (SPIFFS.exists("/config.json")) {
+    if (LittleFS.exists("/config.json")) {
       //file exists, reading and loading
       Serial.println("reading config file");
-      File configFile = SPIFFS.open("/config.json", "r");
+      File configFile = LittleFS.open("/config.json", "r");
       if (configFile) {
         Serial.println("opened config file");
         size_t size = configFile.size();
@@ -497,7 +505,7 @@ bool setupWifi(bool resetConf) {
 
   Serial.println("WiFi connected! User chose hostname '" + String(host_name) + String("' passcode '") + String(passcode) + "' and port '" + String(port_str) + "'");
 
-  // save the custom parameters to FS
+  // Save the custom parameters to FS
   if (shouldSaveConfig) {
     Serial.println(" config...");
     DynamicJsonDocument json(1024);
@@ -510,7 +518,7 @@ bool setupWifi(bool resetConf) {
     json["sn"] = WiFi.subnetMask().toString();
     json["dns"] = WiFi.dnsIP().toString();
 
-    File configFile = SPIFFS.open("/config.json", "w");
+    File configFile = LittleFS.open("/config.json", "w");
     if (!configFile) {
       Serial.println("failed to open config file for writing");
     }
