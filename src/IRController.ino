@@ -623,153 +623,7 @@ void setup() {
 
   // Configure the server
   server->on("/json", []() { // JSON handler for more complicated IR blaster routines
-    Serial.println("Connection received - JSON");
-
-    DynamicJsonDocument root(4096);
-    DeserializationError error = deserializeJson(root, server->arg("plain"));
-
-    int simple = 0;
-    if (server->hasArg("simple")) simple = server->arg("simple").toInt();
-    String signature = server->arg("auth");
-    String epid = server->arg("epid");
-    String mid = server->arg("mid");
-    String timestamp = server->arg("time");
-    int out = (server->hasArg("out")) ? server->arg("out").toInt() : 1;
-
-    if (error) {
-      Serial.println("JSON parsing failed");
-      Serial.println(error.c_str());
-      if (simple) {
-        sendCorsHeaders();
-        server->send(400, "text/plain", "JSON parsing failed, " + String(error.c_str()));
-      } else {
-        sendHomePage("JSON parsing failed", "Error", 3, 400); // 400
-      }
-      root.clear();
-    } else if (strlen(passcode) != 0 && server->arg("pass") != passcode) {
-      Serial.println("Unauthorized access");
-      if (simple) {
-        sendCorsHeaders();
-        server->send(401, "text/plain", "Unauthorized, invalid passcode");
-      } else {
-        sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
-      }
-      root.clear();
-    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
-      server->send(401, "text/plain", "Unauthorized, HMAC security authentication failed");
-    } else {
-      digitalWrite(ledpin, LOW);
-      ticker.attach(0.5, disableLed);
-
-      // Handle device state limitations for the global JSON command request
-      if (server->hasArg("device")) {
-        String device = server->arg("device");
-        Serial.println("Device name detected " + device);
-        int state = (server->hasArg("state")) ? server->arg("state").toInt() : 0;
-        if (deviceState.containsKey(device)) {
-          Serial.println("Contains the key!");
-          Serial.println(state);
-          int currentState = deviceState[device];
-          Serial.println(currentState);
-          if (state == currentState) {
-            if (simple) {
-              sendCorsHeaders();
-              server->send(200, "text/html", "Not sending command to " + device + ", already in state " + state);
-            } else {
-              sendHomePage("Not sending command to " + device + ", already in state " + state, "Warning", 2); // 200
-            }
-            Serial.println("Not sending command to " + device + ", already in state " + state);
-            return;
-          } else {
-            Serial.println("Setting device " + device + " to state " + state);
-            deviceState[device] = state;
-          }
-        } else {
-          Serial.println("Setting device " + device + " to state " + state);
-          deviceState[device] = state;
-        }
-      }
-
-      if (simple) {
-        sendCorsHeaders();
-        server->send(200, "text/html", "Success, code sent");
-      }
-
-      String message = "Code sent";
-
-      for (size_t x = 0; x < root.size(); x++) {
-        String type = root[x]["type"];
-        String ip = root[x]["ip"];
-        int rdelay = root[x]["rdelay"];
-        int pulse = root[x]["pulse"];
-        int pdelay = root[x]["pdelay"];
-        int repeat = root[x]["repeat"];
-        int xout = root[x]["out"];
-        if (xout == 0) {
-          xout = out;
-        }
-        int duty = root[x]["duty"];
-
-        if (pulse <= 0) pulse = 1; // Make sure pulse isn't 0
-        if (repeat <= 0) repeat = 1; // Make sure repeat isn't 0
-        if (pdelay <= 0) pdelay = 100; // Default pdelay
-        if (rdelay <= 0) rdelay = 1000; // Default rdelay
-        if (duty <= 0) duty = 50; // Default duty
-
-        // Handle device state limitations on a per JSON object basis
-        String device = root[x]["device"];
-        if (device != "null") {
-          int state = root[x]["state"];
-          if (deviceState.containsKey(device)) {
-            int currentState = deviceState[device];
-            if (state == currentState) {
-              Serial.println("Not sending command to " + device + ", already in state " + state);
-              message = "Code sent. Some components of the code were held because device was already in appropriate state";
-              continue;
-            } else {
-              Serial.println("Setting device " + device + " to state " + state);
-              deviceState[device] = state;
-            }
-          } else {
-            Serial.println("Setting device " + device + " to state " + state);
-            deviceState[device] = state;
-          }
-        }
-
-        if (type == "delay") {
-          delay(rdelay);
-        } else if (type == "raw") {
-          JsonArray raw = root[x]["data"]; // Array of unsigned int values for the raw signal
-          int khz = root[x]["khz"];
-          if (khz <= 0) khz = 38; // Default to 38khz if not set
-          rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(xout),duty);
-        } else if (type == "pronto") {
-          JsonArray pdata = root[x]["data"]; // Array of values for pronto
-          pronto(pdata, rdelay, pulse, pdelay, repeat, pickIRsend(xout));
-        } else if (type == "roku") {
-          String data = root[x]["data"];
-          rokuCommand(ip, data, repeat, rdelay);
-        } else {
-          String data = root[x]["data"];
-          String addressString = root[x]["address"];
-          long address = strtoul(addressString.c_str(), 0, 0);
-          int len = root[x]["length"];
-          irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(xout));
-        }
-      }
-
-      if (!simple) {
-        Serial.println("Sending home page");
-        sendHomePage(message, "Success", 1); // 200
-      }
-
-      root.clear();
-    }
-  });
-
-  // Setup simple msg server to mirror version 1.0 functionality
-  server->on("/msg", []() {
-    Serial.println("Connection received - MSG");
+    Serial.println("Connection received endpoint '/json'");
 
     int simple = 0;
     if (server->hasArg("simple")) simple = server->arg("simple").toInt();
@@ -780,13 +634,155 @@ void setup() {
 
     if (strlen(passcode) != 0 && server->arg("pass") != passcode) {
       Serial.println("Unauthorized access");
-      if (simple) {
-        sendCorsHeaders();
-        server->send(401, "text/plain", "Unauthorized, invalid passcode");
-      } else {
-        sendHomePage("Invalid passcode", "Unauthorized", 3, 401); // 401
-      }
+      sendCorsHeaders();
+      server->send(401, "text/plain", "Unauthorized, invalid passcode");
     } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
+      Serial.println("Unauthorized access");
+      sendCorsHeaders();
+      server->send(401, "text/plain", "Unauthorized, HMAC security authentication failed");
+    } else {
+      DynamicJsonDocument root(4096);
+      DeserializationError error = deserializeJson(root, server->arg("plain"));
+      int out = (server->hasArg("out")) ? server->arg("out").toInt() : 1;
+      if (error) {
+        Serial.println("JSON parsing failed");
+        Serial.println(error.c_str());
+        if (simple) {
+          sendCorsHeaders();
+          server->send(400, "text/plain", "JSON parsing failed, " + String(error.c_str()));
+        } else {
+          sendHomePage("JSON parsing failed", "Error", 3, 400); // 400
+        }
+        root.clear();
+      } else {
+        digitalWrite(ledpin, LOW);
+        ticker.attach(0.5, disableLed);
+
+        // Handle device state limitations for the global JSON command request
+        if (server->hasArg("device")) {
+          String device = server->arg("device");
+          Serial.println("Device name detected " + device);
+          int state = (server->hasArg("state")) ? server->arg("state").toInt() : 0;
+          if (deviceState.containsKey(device)) {
+            Serial.println("Contains the key!");
+            Serial.println(state);
+            int currentState = deviceState[device];
+            Serial.println(currentState);
+            if (state == currentState) {
+              if (simple) {
+                sendCorsHeaders();
+                server->send(200, "text/html", "Not sending command to " + device + ", already in state " + state);
+              } else {
+                sendHomePage("Not sending command to " + device + ", already in state " + state, "Warning", 2); // 200
+              }
+              Serial.println("Not sending command to " + device + ", already in state " + state);
+              return;
+            } else {
+              Serial.println("Setting device " + device + " to state " + state);
+              deviceState[device] = state;
+            }
+          } else {
+            Serial.println("Setting device " + device + " to state " + state);
+            deviceState[device] = state;
+          }
+        }
+
+        if (simple) {
+          sendCorsHeaders();
+          server->send(200, "text/html", "Success, code sent");
+        }
+
+        String message = "Code sent";
+
+        for (size_t x = 0; x < root.size(); x++) {
+          String type = root[x]["type"];
+          String ip = root[x]["ip"];
+          int rdelay = root[x]["rdelay"];
+          int pulse = root[x]["pulse"];
+          int pdelay = root[x]["pdelay"];
+          int repeat = root[x]["repeat"];
+          int xout = root[x]["out"];
+          if (xout == 0) {
+            xout = out;
+          }
+          int duty = root[x]["duty"];
+
+          if (pulse <= 0) pulse = 1; // Make sure pulse isn't 0
+          if (repeat <= 0) repeat = 1; // Make sure repeat isn't 0
+          if (pdelay <= 0) pdelay = 100; // Default pdelay
+          if (rdelay <= 0) rdelay = 1000; // Default rdelay
+          if (duty <= 0) duty = 50; // Default duty
+
+          // Handle device state limitations on a per JSON object basis
+          String device = root[x]["device"];
+          if (device != "null") {
+            int state = root[x]["state"];
+            if (deviceState.containsKey(device)) {
+              int currentState = deviceState[device];
+              if (state == currentState) {
+                Serial.println("Not sending command to " + device + ", already in state " + state);
+                message = "Code sent. Some components of the code were held because device was already in appropriate state";
+                continue;
+              } else {
+                Serial.println("Setting device " + device + " to state " + state);
+                deviceState[device] = state;
+              }
+            } else {
+              Serial.println("Setting device " + device + " to state " + state);
+              deviceState[device] = state;
+            }
+          }
+
+          if (type == "delay") {
+            delay(rdelay);
+          } else if (type == "raw") {
+            JsonArray raw = root[x]["data"]; // Array of unsigned int values for the raw signal
+            int khz = root[x]["khz"];
+            if (khz <= 0) khz = 38; // Default to 38khz if not set
+            rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(xout),duty);
+          } else if (type == "pronto") {
+            JsonArray pdata = root[x]["data"]; // Array of values for pronto
+            pronto(pdata, rdelay, pulse, pdelay, repeat, pickIRsend(xout));
+          } else if (type == "roku") {
+            String data = root[x]["data"];
+            rokuCommand(ip, data, repeat, rdelay);
+          } else {
+            String data = root[x]["data"];
+            String addressString = root[x]["address"];
+            long address = strtoul(addressString.c_str(), 0, 0);
+            int len = root[x]["length"];
+            irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(xout));
+          }
+        }
+
+        if (!simple) {
+          Serial.println("Sending home page");
+          sendHomePage(message, "Success", 1); // 200
+        }
+
+        root.clear();
+      }
+    }
+  });
+
+  // Setup simple msg server to mirror version 1.0 functionality
+  server->on("/msg", []() {
+    Serial.println("Connection received endpoint '/msg'");
+
+    int simple = 0;
+    if (server->hasArg("simple")) simple = server->arg("simple").toInt();
+    String signature = server->arg("auth");
+    String epid = server->arg("epid");
+    String mid = server->arg("mid");
+    String timestamp = server->arg("time");
+
+    if (strlen(passcode) != 0 && server->arg("pass") != passcode) {
+      Serial.println("Unauthorized access");
+      sendCorsHeaders();
+      server->send(401, "text/plain", "Unauthorized, invalid passcode");
+    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
+      Serial.println("Unauthorized access");
+      sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, HMAC security authentication");
     } else {
       digitalWrite(ledpin, LOW);
@@ -862,27 +858,57 @@ void setup() {
   });
 
   server->on("/received", []() {
-    Serial.println("Connection received");
-    int id = server->arg("id").toInt();
-    String output;
-    if (id == 1 && last_recv.valid) {
-      sendCodePage(last_recv);
-    } else if (id == 2 && last_recv_2.valid) {
-      sendCodePage(last_recv_2);
-    } else if (id == 3 && last_recv_3.valid) {
-      sendCodePage(last_recv_3);
-    } else if (id == 4 && last_recv_4.valid) {
-      sendCodePage(last_recv_4);
-    } else if (id == 5 && last_recv_5.valid) {
-      sendCodePage(last_recv_5);
+    Serial.println("Connection received endpoint '/received'");
+    String signature = server->arg("auth");
+    String epid = server->arg("epid");
+    String mid = server->arg("mid");
+    String timestamp = server->arg("time");
+    
+    if (strlen(passcode) != 0 && server->arg("pass") != passcode) {
+      Serial.println("Unauthorized access");
+      sendCorsHeaders();
+      server->send(401, "text/plain", "Unauthorized, invalid passcode");
+    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
+      Serial.println("Unauthorized access");
+      sendCorsHeaders();
+      server->send(401, "text/plain", "Unauthorized, HMAC security authentication");
     } else {
-      sendHomePage("Code does not exist", "Alert", 2, 404); // 404
+      int id = server->arg("id").toInt();
+      String output;
+      if (id == 1 && last_recv.valid) {
+        sendCodePage(last_recv);
+      } else if (id == 2 && last_recv_2.valid) {
+        sendCodePage(last_recv_2);
+      } else if (id == 3 && last_recv_3.valid) {
+        sendCodePage(last_recv_3);
+      } else if (id == 4 && last_recv_4.valid) {
+        sendCodePage(last_recv_4);
+      } else if (id == 5 && last_recv_5.valid) {
+        sendCodePage(last_recv_5);
+      } else {
+        sendHomePage("Code does not exist", "Alert", 2, 404); // 404
+      }
     }
   });
 
   server->on("/", []() {
-    Serial.println("Connection received");
-    sendHomePage(); // 200
+    Serial.println("Connection received endpoint '/'");
+    String signature = server->arg("auth");
+    String epid = server->arg("epid");
+    String mid = server->arg("mid");
+    String timestamp = server->arg("time");
+    
+    if (strlen(passcode) != 0 && server->arg("pass") != passcode) {
+      Serial.println("Unauthorized access");
+      sendCorsHeaders();
+      server->send(401, "text/plain", "Unauthorized, invalid passcode");
+    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
+      Serial.println("Unauthorized access");
+      sendCorsHeaders();
+      server->send(401, "text/plain", "Unauthorized, HMAC security authentication");
+    } else {
+      sendHomePage(); // 200
+    }
   });
 
   server->begin();
