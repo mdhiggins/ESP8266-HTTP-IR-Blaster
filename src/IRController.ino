@@ -196,7 +196,7 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature, I
     ntpError = false;
     timeAuthError = 0;
 
-    if (bypassLocalAuth && isInSubnet(clientIP)) {
+    if (allowLocalBypass(clientIP)) {
       Serial.println("Bypassing HMAC security as this is a local network request");
       return true;
     }
@@ -265,6 +265,19 @@ bool isInSubnet(IPAddress address) {
     return ((uint32_t(address) & mask) == (uint32_t(WiFi.localIP()) & mask));
 }
 
+//+=============================================================================
+// Allow local traffic to bypass security
+//
+bool allowLocalBypass(IPAddress clientIP) {
+  return (bypassLocalAuth && isInSubnet(clientIP));
+}
+
+//+=============================================================================
+// Passcode valid check
+//
+bool isPasscodeValid(String pass) {
+  return ((strlen(passcode) == 0) || (pass == passcode));
+}
 
 //+=============================================================================
 // Get User_ID from Amazon Token (memory intensive and causes crashing)
@@ -632,7 +645,7 @@ void setup() {
     String mid = server->arg("mid");
     String timestamp = server->arg("time");
 
-    if (strlen(passcode) != 0 && server->arg("pass") != passcode) {
+    if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, invalid passcode");
@@ -776,7 +789,7 @@ void setup() {
     String mid = server->arg("mid");
     String timestamp = server->arg("time");
 
-    if (strlen(passcode) != 0 && server->arg("pass") != passcode) {
+    if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, invalid passcode");
@@ -864,7 +877,7 @@ void setup() {
     String mid = server->arg("mid");
     String timestamp = server->arg("time");
     
-    if (strlen(passcode) != 0 && server->arg("pass") != passcode) {
+    if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, invalid passcode");
@@ -898,7 +911,7 @@ void setup() {
     String mid = server->arg("mid");
     String timestamp = server->arg("time");
     
-    if (strlen(passcode) != 0 && server->arg("pass") != passcode) {
+    if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, invalid passcode");
