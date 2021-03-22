@@ -87,6 +87,9 @@ void sendNTPpacket(IPAddress &address);
 time_t getNtpTime();
 WiFiUDP ntpUDP;
 
+bool _rc5toggle = false;
+bool _rc6toggle = false;
+
 char _ip[16] = "";
 
 unsigned long lastupdate = 0;
@@ -1536,9 +1539,9 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
       } else if (type == "dish") {
         irsend.sendDISH(data, len);
       } else if (type == "rc5") {
-        irsend.sendRC5(data, len);
+        irsend.sendRC5(_rc5toggle ? data: irsend.toggleRC5(data), len);
       } else if (type == "rc6") {
-        irsend.sendRC6(data, len);
+        irsend.sendRC6(_rc6toggle ? data: irsend.toggleRC6(data, len), len);
       } else if (type == "denon") {
         irsend.sendDenon(data, len);
       } else if (type == "lg") {
@@ -1559,6 +1562,11 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
       if (p + 1 < pulse) delay(pdelay);
     }
     if (r + 1 < repeat) delay(rdelay);
+
+    if (toggleRC) {
+      if (type == "rc5") { _rc5toggle = !_rc5toggle; }
+      if (type == "rc6") { _rc6toggle = !_rc6toggle; }
+    }
   }
 
   Serial.println("Transmission complete");
