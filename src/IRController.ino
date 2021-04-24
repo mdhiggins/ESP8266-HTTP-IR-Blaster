@@ -680,7 +680,7 @@ void setup() {
         if (server->hasArg("device")) {
           String device = server->arg("device");
           Serial.println("Device name detected " + device);
-          int state = (server->hasArg("state")) ? server->arg("state").toInt() : 0;
+          int state = (server->hasArg("state")) ? server->arg("state").toInt() : 1;
           if (deviceState.containsKey(device)) {
             Serial.println("Contains the key!");
             Serial.println(state);
@@ -795,11 +795,11 @@ void setup() {
     if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
-      server->send(401, "application/json", '{"msg":"Unauthorized, invalid passcode"}');
+      server->send(401, "application/json", "{\"msg\":\"Unauthorized, invalid passcode\"}");
     } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
-      server->send(401, "application/json", '{"msg":"Unauthorized, HMAC security authentication"}');
+      server->send(401, "application/json", "{\"msg\":\"Unauthorized, HMAC security authentication\"}");
     } else {
       digitalWrite(ledpin, LOW);
       ticker.attach(0.5, disableLed);
@@ -807,19 +807,20 @@ void setup() {
       String data = server->arg("data");
       String ip = server->arg("ip");
 
+      int state = (server->hasArg("state")) ? server->arg("state").toInt() : 1;
+
       // Handle device state limitations
       if (server->hasArg("device")) {
         String device = server->arg("device");
         Serial.println("Device name detected " + device);
-        int state = (server->hasArg("state")) ? server->arg("state").toInt() : 0;
         if (deviceState.containsKey(device)) {
           Serial.println("Contains the key!");
-          Serial.println(state);
+          Serial.println(String("Requested state:") + state);
           int currentState = deviceState[device];
-          Serial.println(currentState);
+          Serial.println(String("Current state:") + currentState);
           if (state == currentState) {
             sendCorsHeaders();
-            server->send(200, "application/json", '{"status":"OK","msg":"Unchanged:' + device + " already in state " + state + '","state":' + state + '}');
+            server->send(200, "application/json", "{\"status\":\"OK\",\"msg\":\"Unchanged: '" + device + "' already in state " + state + "\",\"state\":" + state + "}");
             Serial.println("Not sending command to " + device + ", already in state " + state);
             return;
           } else {
@@ -853,14 +854,14 @@ void setup() {
       }
 
       sendCorsHeaders();
-      server->send(200, "application/json", '{"status":"OK","msg":"Success, code sent","state":' + state + '}');
+      server->send(200, "application/json", String("{\"status\":\"OK\",\"msg\":\"Success, code sent\",\"state\":") + state + String("}"));
       irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
     }
   });
 
   // Setup json send server to mirror version 1.0 functionality
   server->on("/state", []() {
-    Serial.println("Connection received endpoint '/send'");
+    Serial.println("Connection received endpoint '/state'");
 
     String signature = server->arg("auth");
     String epid = server->arg("epid");
@@ -870,11 +871,11 @@ void setup() {
     if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
-      server->send(401, "application/json", '{"error":"Unauthorized, invalid passcode"}');
+      server->send(401, "application/json", "{\"error\":\"Unauthorized, invalid passcode\"}");
     } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
-      server->send(401, "application/json", '{"error":"Unauthorized, HMAC security authentication"}');
+      server->send(401, "application/json", "{\"error\":\"Unauthorized, HMAC security authentication\"}");
     } else {
       digitalWrite(ledpin, LOW);
       ticker.attach(0.5, disableLed);
@@ -889,16 +890,16 @@ void setup() {
         if (deviceState.containsKey(device)) {
           Serial.println("Contains the key!");
           int currentState = deviceState[device];
-          Serial.println(currentState);
+          Serial.println(String("Current state: ") + currentState);
           sendCorsHeaders();
-          server->send(200, "application/json", '{"status":"OK","state":' + currentState + '}');
+          server->send(200, "application/json", String("{\"status\":\"OK\",\"state\":") + currentState + String("}"));
         } else {
           Serial.println("Device key not found!");
           sendCorsHeaders();
-          server->send(200, "application/json", '{"status":"Not Found","msg":"Device {' + device + '} state was not found. Returned default state off","state":0}');
+          server->send(200, "application/json", "{\"status\":\"Not Found\",\"msg\":\"Device '" + device + "' state was not found. Returned default state off\",\"state\":0}");
         }
       } else {
-        server->send(400, "application/json", '{"status":"Bad Request","msg":"{device} parameter is missing"}');
+        server->send(400, "application/json", "{\"status\":\"Bad Request\",\"msg\":\"'device' parameter is missing\"}");
       }
     }
   });
@@ -933,7 +934,7 @@ void setup() {
       if (server->hasArg("device")) {
         String device = server->arg("device");
         Serial.println("Device name detected " + device);
-        int state = (server->hasArg("state")) ? server->arg("state").toInt() : 0;
+        int state = (server->hasArg("state")) ? server->arg("state").toInt() : 1;
         if (deviceState.containsKey(device)) {
           Serial.println("Contains the key!");
           Serial.println(state);
