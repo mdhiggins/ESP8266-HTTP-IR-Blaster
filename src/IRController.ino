@@ -795,11 +795,11 @@ void setup() {
     if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
-      server->send(401, "text/json", '{"error":"Unauthorized, invalid passcode"}');
+      server->send(401, "application/json", '{"msg":"Unauthorized, invalid passcode"}');
     } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
-      server->send(401, "text/json", '{"error":"Unauthorized, HMAC security authentication"}');
+      server->send(401, "application/json", '{"msg":"Unauthorized, HMAC security authentication"}');
     } else {
       digitalWrite(ledpin, LOW);
       ticker.attach(0.5, disableLed);
@@ -819,7 +819,7 @@ void setup() {
           Serial.println(currentState);
           if (state == currentState) {
             sendCorsHeaders();
-            server->send(200, "text/json", '{"status":"OK","msg":"Unchanged:' + device + " already in state " + state + '","state":' + state + '}');
+            server->send(200, "application/json", '{"status":"OK","msg":"Unchanged:' + device + " already in state " + state + '","state":' + state + '}');
             Serial.println("Not sending command to " + device + ", already in state " + state);
             return;
           } else {
@@ -853,7 +853,7 @@ void setup() {
       }
 
       sendCorsHeaders();
-      server->send(200, "text/json", '{"status":"OK","msg":"Success, code sent","state":' + state + '}');
+      server->send(200, "application/json", '{"status":"OK","msg":"Success, code sent","state":' + state + '}');
       irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
     }
   });
@@ -870,11 +870,11 @@ void setup() {
     if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
-      server->send(401, "text/json", '{"error":"Unauthorized, invalid passcode"}');
+      server->send(401, "application/json", '{"error":"Unauthorized, invalid passcode"}');
     } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
-      server->send(401, "text/json", '{"error":"Unauthorized, HMAC security authentication"}');
+      server->send(401, "application/json", '{"error":"Unauthorized, HMAC security authentication"}');
     } else {
       digitalWrite(ledpin, LOW);
       ticker.attach(0.5, disableLed);
@@ -891,12 +891,15 @@ void setup() {
           int currentState = deviceState[device];
           Serial.println(currentState);
           sendCorsHeaders();
-          server->send(200, "text/json", '{"status":"OK","state":' + currentState + '}');
+          server->send(200, "application/json", '{"status":"OK","state":' + currentState + '}');
         } else {
           Serial.println("Device key not found!");
           sendCorsHeaders();
-          server->send(200, "text/json", '{"status":"Not Found","msg":"Device {' + device + '} state was not found. Returned default state off","state":0}');
+          server->send(200, "application/json", '{"status":"Not Found","msg":"Device {' + device + '} state was not found. Returned default state off","state":0}');
         }
+      } else {
+        server->send(400, "application/json", '{"status":"Bad Request","msg":"{device} parameter is missing"}');
+      }
     }
   });
 
