@@ -35,19 +35,19 @@ const unsigned int captureBufSize = 1024;                      // Size of the IR
 const bool toggleRC = true;                                    // Toggle RC signals every other transmission
 
 #if defined(ARDUINO_ESP8266_WEMOS_D1R1) || defined(ARDUINO_ESP8266_WEMOS_D1MINI) || defined(ARDUINO_ESP8266_WEMOS_D1MINIPRO) || defined(ARDUINO_ESP8266_WEMOS_D1MINILITE)
-const int pinr1 = D5;                                          // Receiving pin (GPIO14)
-const int pins1 = D6;                                          // Transmitting preset 1 (GPIO12)
-const int configpin = D2;                                      // Reset Pin (GPIO4)
-const int pins2 = 5;                                           // Transmitting preset 2
-const int pins3 = 12;                                          // Transmitting preset 3
-const int pins4 = 13;                                          // Transmitting preset 4
+const uint16_t  pinr1 = D5;                                          // Receiving pin (GPIO14)
+const uint16_t  pins1 = D6;                                          // Transmitting preset 1 (GPIO12)
+const uint16_t  configpin = D2;                                      // Reset Pin (GPIO4)
+const uint16_t  pins2 = 5;                                           // Transmitting preset 2
+const uint16_t  pins3 = 12;                                          // Transmitting preset 3
+const uint16_t  pins4 = 13;                                          // Transmitting preset 4
 #else
-const int pinr1 = 14;                                          // Receiving pin
-const int pins1 = 4;                                           // Transmitting preset 1
-const int configpin = 10;                                      // Reset Pin
-const int pins2 = 5;                                           // Transmitting preset 2
-const int pins3 = 12;                                          // Transmitting preset 3
-const int pins4 = 13;                                          // Transmitting preset 4
+const uint16_t  pinr1 = 14;                                          // Receiving pin
+const uint16_t  pins1 = 4;                                           // Transmitting preset 1
+const uint16_t  configpin = 10;                                      // Reset Pin
+const uint16_t  pins2 = 5;                                           // Transmitting preset 2
+const uint16_t  pins3 = 12;                                          // Transmitting preset 3
+const uint16_t  pins4 = 13;                                          // Transmitting preset 4
 #endif
 //+=============================================================================
 // User settings are above here
