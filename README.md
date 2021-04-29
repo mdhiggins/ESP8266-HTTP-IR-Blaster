@@ -174,20 +174,15 @@ Sample URL using the same 3 button JSON sequence as above
 http://xxx.xxx.xxx.xxx:port/json?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
 ```
 
-Homebridge Usage
+Determine Device State
 --------------
-New endpoints that respond with JSON have been created so you can easily determine the state of the device. 
 
-#### /send
-Identical to the `/msg` endpoint, except that the `simple` query parameter is removed and all responses are in `application/json` format.
+To lookup and determine the state of the device, make an HTTP rest call to the `/state` endpoint.
 
-Example Response:
+Sample URL
 ```
-{"status":"OK","msg":"Success, code sent","state":1}
+http://xxx.xxx.xxx.xxx:port/state?pass=yourpass&device=yourdevice
 ```
-
-#### /state
-Simple endpoint that retrieves the current saved state of the device
 
 Example Response:
 ```
