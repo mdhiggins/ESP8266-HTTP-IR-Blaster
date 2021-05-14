@@ -91,6 +91,7 @@ For sending simple commands such as a single button press, or a repeating sequen
 Parameters
 - `pass` - password required to execute IR command sending
 - `code` - IR code such as `A90:SONY:12`
+- `address` - (optional) Additional address data for NEC codes. Hex format
 - `pulse` - (optional) Repeat a signal rapidly. Default `1`
 - `pdelay` - (optional) Delay between pulses in milliseconds. Default `100`
 - `repeat` - (optional) Number of times to send the signal. Default `1`. Useful for emulating multiple button presses for functions like large volume adjustments or sleep timer
@@ -115,6 +116,7 @@ Parameters
 - `repeat` - (optional) Number of times to send the signal. Default `1`. *Useful for emulating multiple button presses for functions like large volume adjustments or sleep timer*
 - `rdelay` - (optional) Delay between repeats in milliseconds. Default `1000`
 - `khz` - (conditional) Transmission frequency in kilohertz. Default `38`. *Only required when transmitting RAW signal*
+- `address` - (optional) Additional address data used for NEC codes. Hex format
 - `out` - (optional) Set which IRsend present to transmit over. Default `1`. Choose between `1-4`. Corresponding output pins set in the blueprint. Useful for a single ESP8266 that needs multiple LEDs pointed in different directions to trigger different devices.
 
 3 Button Sequence Example JSON
