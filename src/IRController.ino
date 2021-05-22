@@ -6,12 +6,9 @@
 #include <IRutils.h>
 #include <ESP8266WiFi.h>
 #include <WiFiManager.h>                                      // https://github.com/tzapu/WiFiManager WiFi Configuration Magic
-#include <ESP8266mDNS.h>                                      // Useful to access to ESP by hostname.local
+#include <ESP8266HTTPClient.h>
 
 #include <ArduinoJson.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266HTTPClient.h>
-#include <ArduinoOTA.h>
 #include "sha256.h"
 
 #include <Ticker.h>                                           // For LED status
@@ -21,6 +18,8 @@
 
 // User settings are below here
 //+=============================================================================
+#define enabledMQTT 1                                           // Enable MQTT; this disables lots of other code as the MQTT client is very memory intensive
+
 const bool getExternalIP = true;                               // Set to false to disable querying external IP
 
 const bool getTime = true;                                     // Set to false to disable querying for the time
@@ -52,14 +51,31 @@ const uint16_t  pins4 = 13;                                          // Transmit
 //+=============================================================================
 // User settings are above here
 
+#if enabledMQTT == 1
+#include <PubSubClient.h>
+WiFiClientSecure secureClient;
+PubSubClient mqtt_client(secureClient);
+#else
+#include <ESP8266WebServer.h>
+#include <ArduinoOTA.h>
+#include <ESP8266mDNS.h>
+#endif
+
 const int ledpin = LED_BUILTIN;                                // Built in LED defined for WEMOS people
 const char *wifi_config_name = "IR Controller Configuration";
 const char serverName[] = "checkip.dyndns.org";
 int port = 80;
+int mqtt_port = 8883;
 char passcode[20] = "";
 char host_name[20] = "";
 char port_str[6] = "80";
 char user_id[60] = "";
+
+// MQTT settings
+char mqtt_host[100] = "b-397770a4-fa3e-4e01-9951-cc3a556005aa-1.mq.us-east-1.amazonaws.com";
+char mqtt_port_str[6] = "8883";
+char mqtt_user[20] = "public";
+char mqtt_pass[20] = "publicaccess";
 
 // Do not modify these values with your own, they are placeholder values that WiFiManager will overwrite
 char static_ip[16] = "10.0.1.10";
@@ -67,11 +83,14 @@ char static_gw[16] = "10.0.1.1";
 char static_sn[16] = "255.255.255.0";
 char static_dns[16] = "10.0.1.1";
 
-DynamicJsonDocument deviceState(1024);
-
+Ticker ticker;
+HTTPClient http;
 WiFiClient client;
 ESP8266WebServer *server = NULL;
-Ticker ticker;
+
+long mqtt_lastReconnectAttempt = 0;
+
+DynamicJsonDocument deviceState(1024);
 
 bool shouldSaveConfig = false;                                 // Flag for saving data
 bool holdReceive = false;                                      // Flag to prevent IR receiving while transmitting
@@ -85,8 +104,8 @@ IRsend irsend4(pins4);
 const unsigned long resetfrequency = 259200000;                // 72 hours in milliseconds for external IP reset
 static const char ntpServerName[] = "time.google.com";
 unsigned int localPort = 8888;                                 // Local port to listen for UDP packets
-void sendNTPpacket(IPAddress &address);
-time_t getNtpTime();
+//void sendNTPpacket(IPAddress &address);
+//time_t getNtpTime();
 WiFiUDP ntpUDP;
 
 bool _rc5toggle = false;
@@ -284,33 +303,6 @@ bool isPasscodeValid(String pass) {
   return ((strlen(passcode) == 0) || (pass == passcode));
 }
 
-//+=============================================================================
-// Get User_ID from Amazon Token (memory intensive and causes crashing)
-//
-String getUserID(String token)
-{
-  HTTPClient http;
-  http.setTimeout(5000);
-  String url = "https://api.amazon.com/user/profile?access_token=";
-  String uid = "";
-  http.begin(client, url + token);
-  int httpCode = http.GET();
-  String payload = http.getString();
-  Serial.println(url + token);
-  Serial.println(httpCode);
-  Serial.println(payload);
-  if (httpCode > 0 && httpCode == HTTP_CODE_OK) {
-    DynamicJsonDocument json(1024);
-    deserializeJson(json, payload);
-    uid = json["user_id"].as<String>();
-  } else {
-    Serial.println("Error retrieving user_id");
-    payload = "";
-  }
-  http.end();
-  return uid;
-}
-
 
 //+=============================================================================
 // Toggle state
@@ -341,7 +333,6 @@ String externalIP()
     }
   }
 
-  HTTPClient http;
   externalIPError = false;
   unsigned long start = millis();
   http.setTimeout(5000);
@@ -452,6 +443,13 @@ bool setupWifi(bool resetConf) {
 
           if (json.containsKey("hostname")) strncpy(host_name, json["hostname"], 20);
           if (json.containsKey("passcode")) strncpy(passcode, json["passcode"], 20);
+          if (json.containsKey("mqtt_host")) strncpy(mqtt_host, json["mqtt_host"], 100);
+          if (json.containsKey("mqtt_port_str")) {
+            strncpy(mqtt_port_str, json["mqtt_port_str"], 6);
+            port = atoi(json["mqtt_port_str"]);
+          }
+          if (json.containsKey("mqtt_user")) strncpy(mqtt_user, json["mqtt_user"], 20);
+          if (json.containsKey("mqtt_pass")) strncpy(mqtt_pass, json["mqtt_pass"], 20);
           if (json.containsKey("user_id")) strncpy(user_id, json["user_id"], 60);
           if (json.containsKey("port_str")) {
             strncpy(port_str, json["port_str"], 6);
@@ -474,10 +472,18 @@ bool setupWifi(bool resetConf) {
   wifiManager.addParameter(&custom_hostname);
   WiFiManagerParameter custom_passcode("passcode", "Choose a passcode", passcode, 20);
   wifiManager.addParameter(&custom_passcode);
-  WiFiManagerParameter custom_port("port_str", "Choose a port", port_str, 6);
-  wifiManager.addParameter(&custom_port);
+  WiFiManagerParameter custom_mqtt_host("mqtt_host", "Choose a MQTT host", mqtt_host, 100);
+  wifiManager.addParameter(&custom_mqtt_host);
+  WiFiManagerParameter custom_mqtt_port("port_str", "Choose MQTT server port", mqtt_port_str, 6);
+  wifiManager.addParameter(&custom_mqtt_port);
+  WiFiManagerParameter custom_mqtt_user("mqtt_user", "Choose a MQTT user", mqtt_user, 20);
+  wifiManager.addParameter(&custom_mqtt_user);
+  WiFiManagerParameter custom_mqtt_pass("mqtt_pass", "Choose a MQTT password", mqtt_pass, 20);
+  wifiManager.addParameter(&custom_mqtt_pass);
   WiFiManagerParameter custom_userid("user_id", "Enter your Amazon user_id", user_id, 60);
   wifiManager.addParameter(&custom_userid);
+  WiFiManagerParameter custom_port("port_str", "Choose a port", port_str, 6);
+  wifiManager.addParameter(&custom_port);
 
   wifiManager.setShowStaticFields(true);
   wifiManager.setShowDnsFields(true);
@@ -509,9 +515,14 @@ bool setupWifi(bool resetConf) {
   // if you get here you have connected to the WiFi
   strncpy(host_name, custom_hostname.getValue(), 20);
   strncpy(passcode, custom_passcode.getValue(), 20);
-  strncpy(port_str, custom_port.getValue(), 6);
+  strncpy(mqtt_host, custom_mqtt_host.getValue(), 100);
+  strncpy(mqtt_port_str, custom_mqtt_port.getValue(), 6);
+  strncpy(mqtt_user, custom_mqtt_user.getValue(), 20);
+  strncpy(mqtt_pass, custom_mqtt_pass.getValue(), 20);
   strncpy(user_id, custom_userid.getValue(), 60);
+  strncpy(port_str, custom_port.getValue(), 6);
   port = atoi(port_str);
+  mqtt_port = atoi(mqtt_port_str);
 
   if (server != NULL) {
     delete server;
@@ -529,8 +540,11 @@ bool setupWifi(bool resetConf) {
     DynamicJsonDocument json(1024);
     json["hostname"] = host_name;
     json["passcode"] = passcode;
-    json["port_str"] = port_str;
+    json["mqtt_host"] = mqtt_host;
+    json["mqtt_user"] = mqtt_user;
+    json["mqtt_pass"] = mqtt_pass;
     json["user_id"] = user_id;
+    json["port_str"] = port_str;
     json["ip"] = WiFi.localIP().toString();
     json["gw"] = WiFi.gatewayIP().toString();
     json["sn"] = WiFi.subnetMask().toString();
@@ -558,16 +572,7 @@ bool setupWifi(bool resetConf) {
 
 
 //+=============================================================================
-// Send CORS HTTP headers
-//
-void sendCorsHeaders() {
-  server->sendHeader("Access-Control-Allow-Origin", "*");
-  server->sendHeader("Access-Control-Allow-Methods", "GET, POST");
-}
-
-
-//+=============================================================================
-// Setup web server and IR receiver/blaster
+// Setup ESP8266WebServer/MQTT and IR receiver/blaster
 //
 void setup() {
   // Initialize serial
@@ -610,6 +615,25 @@ void setup() {
   Serial.println(WiFi.dnsIP().toString());
   Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
 
+#if enabledMQTT == 1
+  // MQTT
+  const char fingerprint[] = "4F 75 27 A0 9B E2 23 85 5E B0 63 DA 40 73 51 D8 0E 7B 70 2E";
+
+  if (mqtt_enabled()) {
+    secureClient.setFingerprint(fingerprint);
+    IPAddress mqtt_ip;
+    if (mqtt_ip.fromString(mqtt_host)) {
+      Serial.println("MQTT IP: " + String(mqtt_host));
+      mqtt_client.setServer(mqtt_ip, mqtt_port);
+    } else {
+      Serial.println("MQTT host: " + String(mqtt_host));
+      mqtt_client.setServer(mqtt_host, mqtt_port);
+    }
+    mqtt_client.setCallback(mqtt_callback);
+  } else {
+    Serial.println("MQTT not enabled, host not set");
+  }
+#else
   if (enableMDNSServices) {
     // Configure OTA Update
     ArduinoOTA.setPort(8266);
@@ -638,6 +662,14 @@ void setup() {
     MDNS.addService("http", "tcp", port); // Announce the ESP as an HTTP service
     Serial.println("MDNS http service added. Hostname is set to " + String(host_name) + ".local:" + String(port));
   }
+
+  Serial.println("Starting UDP");
+  ntpUDP.begin(localPort);
+  Serial.print("Local port: ");
+  Serial.println(ntpUDP.localPort());
+  Serial.println("Waiting for sync");
+  setSyncProvider(getNtpTime);
+  setSyncInterval(300);
 
   // Configure the server
   server->on("/json", []() { // JSON handler for more complicated IR blaster routines
@@ -710,68 +742,7 @@ void setup() {
           server->send(200, "text/html", "Success, code sent");
         }
 
-        String message = "Code sent";
-
-        for (size_t x = 0; x < root.size(); x++) {
-          String type = root[x]["type"];
-          String ip = root[x]["ip"];
-          int rdelay = root[x]["rdelay"];
-          int pulse = root[x]["pulse"];
-          int pdelay = root[x]["pdelay"];
-          int repeat = root[x]["repeat"];
-          int xout = root[x]["out"];
-          if (xout == 0) {
-            xout = out;
-          }
-          int duty = root[x]["duty"];
-
-          if (pulse <= 0) pulse = 1; // Make sure pulse isn't 0
-          if (repeat <= 0) repeat = 1; // Make sure repeat isn't 0
-          if (pdelay <= 0) pdelay = 100; // Default pdelay
-          if (rdelay <= 0) rdelay = 1000; // Default rdelay
-          if (duty <= 0) duty = 50; // Default duty
-
-          // Handle device state limitations on a per JSON object basis
-          String device = root[x]["device"];
-          if (device != "null") {
-            int state = root[x]["state"];
-            if (deviceState.containsKey(device)) {
-              int currentState = deviceState[device];
-              if (state == currentState) {
-                Serial.println("Not sending command to " + device + ", already in state " + state);
-                message = "Code sent. Some components of the code were held because device was already in appropriate state";
-                continue;
-              } else {
-                Serial.println("Setting device " + device + " to state " + state);
-                deviceState[device] = state;
-              }
-            } else {
-              Serial.println("Setting device " + device + " to state " + state);
-              deviceState[device] = state;
-            }
-          }
-
-          if (type == "delay") {
-            delay(rdelay);
-          } else if (type == "raw") {
-            JsonArray raw = root[x]["data"]; // Array of unsigned int values for the raw signal
-            int khz = root[x]["khz"];
-            if (khz <= 0) khz = 38; // Default to 38khz if not set
-            rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(xout),duty);
-          } else if (type == "pronto") {
-            JsonArray pdata = root[x]["data"]; // Array of values for pronto
-            pronto(pdata, rdelay, pulse, pdelay, repeat, pickIRsend(xout));
-          } else if (type == "roku") {
-            String data = root[x]["data"];
-            rokuCommand(ip, data, repeat, rdelay);
-          } else {
-            String data = root[x]["data"];
-            String addressString = root[x]["address"];
-            long address = strtoul(addressString.c_str(), 0, 0);
-            int len = root[x]["length"];
-            irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(xout));
-          }
-        }
+        String message = blastJson(root, out);
 
         if (!simple) {
           Serial.println("Sending home page");
@@ -930,17 +901,9 @@ void setup() {
   });
 
   server->begin();
+
   Serial.println("HTTP Server started on port " + String(port));
 
-
-  Serial.println("Starting UDP");
-  ntpUDP.begin(localPort);
-  Serial.print("Local port: ");
-  Serial.println(ntpUDP.localPort());
-  Serial.println("Waiting for sync");
-  setSyncProvider(getNtpTime);
-  setSyncInterval(300);
-  
   externalIP();
 
   if (strlen(user_id) > 0) {
@@ -958,6 +921,7 @@ void setup() {
       Serial.println("Invalid EPOCH time, security checks may fail if unable to sync with NTP server");
     }
   }
+#endif
 
   irsend1.begin();
   irsend2.begin();
@@ -965,6 +929,131 @@ void setup() {
   irsend4.begin();
   irrecv.enableIRIn();
   Serial.println("Ready to send and receive IR signals");
+}
+
+String blastJson(DynamicJsonDocument& root, int out) {
+  String message = "Code sent";
+  for (size_t x = 0; x < root.size(); x++) {
+    String type = root[x]["type"];
+    String ip = root[x]["ip"];
+    int rdelay = root[x]["rdelay"];
+    int pulse = root[x]["pulse"];
+    int pdelay = root[x]["pdelay"];
+    int repeat = root[x]["repeat"];
+    int xout = root[x]["out"];
+    if (xout == 0) {
+      xout = out;
+    }
+    int duty = root[x]["duty"];
+
+    if (pulse <= 0) pulse = 1; // Make sure pulse isn't 0
+    if (repeat <= 0) repeat = 1; // Make sure repeat isn't 0
+    if (pdelay <= 0) pdelay = 100; // Default pdelay
+    if (rdelay <= 0) rdelay = 1000; // Default rdelay
+    if (duty <= 0) duty = 50; // Default duty
+
+    // Handle device state limitations on a per JSON object basis
+    String device = root[x]["device"];
+    if (device != "null") {
+      int state = root[x]["state"];
+      if (deviceState.containsKey(device)) {
+        int currentState = deviceState[device];
+        if (state == currentState) {
+          Serial.println("Not sending command to " + device + ", already in state " + state);
+          message = "Code sent. Some components of the code were held because device was already in appropriate state";
+          continue;
+        } else {
+          Serial.println("Setting device " + device + " to state " + state);
+          deviceState[device] = state;
+        }
+      } else {
+        Serial.println("Setting device " + device + " to state " + state);
+        deviceState[device] = state;
+      }
+    }
+
+    if (type == "delay") {
+      delay(rdelay);
+    } else if (type == "raw") {
+      JsonArray raw = root[x]["data"]; // Array of unsigned int values for the raw signal
+      int khz = root[x]["khz"];
+      if (khz <= 0) khz = 38; // Default to 38khz if not set
+      rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(xout),duty);
+    } else if (type == "pronto") {
+      JsonArray pdata = root[x]["data"]; // Array of values for pronto
+      pronto(pdata, rdelay, pulse, pdelay, repeat, pickIRsend(xout));
+    } else if (type == "roku") {
+      String data = root[x]["data"];
+      rokuCommand(ip, data, repeat, rdelay);
+    } else {
+      String data = root[x]["data"];
+      String addressString = root[x]["address"];
+      long address = strtoul(addressString.c_str(), 0, 0);
+      int len = root[x]["length"];
+      irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(xout));
+    }
+  }
+  return message;
+}
+
+#if enabledMQTT == 1
+//+=============================================================================
+// MQTT Enabled
+//
+boolean mqtt_enabled() {
+  return (String(mqtt_host).length() > 0) && (String(user_id).length() > 0) && (String(host_name).length() > 0);
+}
+
+
+//+=============================================================================
+// MQTT Reconnect
+//
+boolean mqtt_reconnect() {
+  Serial.print("Attempting MQTT connection... ");
+  // Create a random client ID
+  String clientId = String(host_name);
+  clientId += String(random(0xffff), HEX);
+  // Attempt to connect
+  if ((String(mqtt_user).length() == 0 && mqtt_client.connect(host_name)) || mqtt_client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
+    String sub = String(user_id) + "/" + String(host_name);
+    mqtt_client.subscribe(sub.c_str());
+    Serial.println("MQTT connected");
+    Serial.print("Subscribed to ");
+    Serial.println(sub);
+  } else {
+    Serial.print("Failed, rc=");
+    Serial.println(mqtt_client.state());
+  }
+  return mqtt_client.connected();
+}
+
+
+//+=============================================================================
+// MQTT Callback
+//
+void mqtt_callback(char* topic, byte * payload, unsigned int length) {
+  Serial.println("MQTT message received");
+  DynamicJsonDocument root(2048);
+  DeserializationError error = deserializeJson(root, payload);
+  if (error) {
+    Serial.println("JSON parsing failed");
+    Serial.println(error.c_str());
+  } else {
+    // serializeJson(root, Serial);
+    blastJson(root, 1);
+    digitalWrite(ledpin, LOW);
+    ticker.attach(0.5, disableLed);
+  }
+  root.clear();
+}
+
+#else
+//+=============================================================================
+// Send CORS HTTP headers
+//
+void sendCorsHeaders() {
+  server->sendHeader("Access-Control-Allow-Origin", "*");
+  server->sendHeader("Access-Control-Allow-Methods", "GET, POST");
 }
 
 
@@ -1029,100 +1118,6 @@ void sendNTPpacket(IPAddress &address)
   ntpUDP.beginPacket(address, 123); //NTP requests are to port 123
   ntpUDP.write(packetBuffer, NTP_PACKET_SIZE);
   ntpUDP.endPacket();
-}
-
-//+=============================================================================
-// Send command to local roku
-//
-int rokuCommand(String ip, String data, int repeat, int rdelay) {
-  String url = "http://" + ip + ":8060/" + data;
-  HTTPClient http;
-
-  int output = 0;
-
-  for (int r = 0; r < repeat; r++) {
-    http.begin(client, url);
-    Serial.println(url);
-    Serial.println("Sending roku command");
-  
-    copyCode(last_send_4, last_send_5);
-    copyCode(last_send_3, last_send_4);
-    copyCode(last_send_2, last_send_3);
-    copyCode(last_send, last_send_2);
-  
-    strncpy(last_send.data, data.c_str(), 40);
-    last_send.bits = 1;
-    strncpy(last_send.encoding, "roku", 14);
-    strncpy(last_send.address, ip.c_str(), 20);
-    last_send.timestamp = now();
-    last_send.valid = true;
-  
-    output = http.POST("");
-    http.end();
-
-    if (r + 1 < repeat) delay(rdelay);
-  }
-  return output;
-}
-
-//+=============================================================================
-// Split string by character
-//
-String getValue(String data, char separator, int index)
-{
-  int found = 0;
-  int strIndex[] = {0, -1};
-  int maxIndex = data.length() - 1;
-
-  for (int i = 0; i <= maxIndex && found <= index; i++) {
-    if (data.charAt(i) == separator || i == maxIndex) {
-      found++;
-      strIndex[0] = strIndex[1] + 1;
-      strIndex[1] = (i == maxIndex) ? i + 1 : i;
-    }
-  }
-
-  return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
-}
-
-
-//+=============================================================================
-// Return which IRsend object to act on
-//
-IRsend pickIRsend (int out) {
-  switch (out) {
-    case 1: return irsend1;
-    case 2: return irsend2;
-    case 3: return irsend3;
-    case 4: return irsend4;
-    default: return irsend1;
-  }
-}
-
-
-//+=============================================================================
-// Display encoding type
-//
-String encoding(decode_results *results) {
-  return typeToString(results->decode_type);
-}
-
-//+=============================================================================
-// Code to string
-//
-void fullCode (decode_results *results)
-{
-  Serial.print("One line: ");
-  serialPrintUint64(results->value, 16);
-  Serial.print(":");
-  Serial.print(encoding(results));
-  Serial.print(":");
-  Serial.print(results->bits, DEC);
-  if (results->repeat) Serial.print(" (Repeat)");
-  Serial.println("");
-  if (results->overflow)
-    Serial.println("WARNING: IR code too long. "
-                   "Edit IRController.ino and increase captureBufSize");
 }
 
 //+=============================================================================
@@ -1352,6 +1347,105 @@ void sendCodePage(Code selCode, int httpcode){
   server->sendContent("        </div>\n");
   server->sendContent("     </div>\n");
   sendFooter();
+}
+#endif
+
+
+//+=============================================================================
+// Send command to local roku
+//
+int rokuCommand(String ip, String data, int repeat, int rdelay) {
+  String url = "http://" + ip + ":8060/" + data;
+
+  int output = 0;
+
+  for (int r = 0; r < repeat; r++) {
+    http.begin(client, url);
+    Serial.println(url);
+    Serial.println("Sending roku command");
+  
+    copyCode(last_send_4, last_send_5);
+    copyCode(last_send_3, last_send_4);
+    copyCode(last_send_2, last_send_3);
+    copyCode(last_send, last_send_2);
+  
+    strncpy(last_send.data, data.c_str(), 40);
+    last_send.bits = 1;
+    strncpy(last_send.encoding, "roku", 14);
+    strncpy(last_send.address, ip.c_str(), 20);
+    last_send.timestamp = now();
+    last_send.valid = true;
+  
+    output = http.POST("");
+    if (output < 0) {
+      r--;
+    }
+    Serial.println(output);
+    http.end();
+
+    if (r + 1 < repeat) delay(rdelay);
+  }
+  return output;
+}
+
+//+=============================================================================
+// Split string by character
+//
+String getValue(String data, char separator, int index)
+{
+  int found = 0;
+  int strIndex[] = {0, -1};
+  int maxIndex = data.length() - 1;
+
+  for (int i = 0; i <= maxIndex && found <= index; i++) {
+    if (data.charAt(i) == separator || i == maxIndex) {
+      found++;
+      strIndex[0] = strIndex[1] + 1;
+      strIndex[1] = (i == maxIndex) ? i + 1 : i;
+    }
+  }
+
+  return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
+}
+
+
+//+=============================================================================
+// Return which IRsend object to act on
+//
+IRsend pickIRsend (int out) {
+  switch (out) {
+    case 1: return irsend1;
+    case 2: return irsend2;
+    case 3: return irsend3;
+    case 4: return irsend4;
+    default: return irsend1;
+  }
+}
+
+
+//+=============================================================================
+// Display encoding type
+//
+String encoding(decode_results *results) {
+  return typeToString(results->decode_type);
+}
+
+//+=============================================================================
+// Code to string
+//
+void fullCode (decode_results *results)
+{
+  Serial.print("One line: ");
+  serialPrintUint64(results->value, 16);
+  Serial.print(":");
+  Serial.print(encoding(results));
+  Serial.print(":");
+  Serial.print(results->bits, DEC);
+  if (results->repeat) Serial.print(" (Repeat)");
+  Serial.println("");
+  if (results->overflow)
+    Serial.println("WARNING: IR code too long. "
+                   "Edit IRController.ino and increase captureBufSize");
 }
 
 //+=============================================================================
@@ -1713,8 +1807,27 @@ void copyCode (Code& c1, Code& c2) {
 }
 
 void loop() {
+#if enabledMQTT == 1
+  if (mqtt_enabled()) {
+    if (!mqtt_client.connected()) {
+      long now = millis();
+      if (now - mqtt_lastReconnectAttempt > 5000) {
+        mqtt_lastReconnectAttempt = now;
+        // Attempt to reconnect
+        if (mqtt_reconnect()) {
+          mqtt_lastReconnectAttempt = 0;
+        }
+      }
+    } else {
+      // Client connected
+      mqtt_client.loop();
+    }
+  }
+#else
   ArduinoOTA.handle();
   server->handleClient();
+#endif
+
   decode_results  results;                                        // Somewhere to store the results
 
   if (irrecv.decode(&results) && !holdReceive) {                  // Grab an IR code
@@ -1733,5 +1846,6 @@ void loop() {
     digitalWrite(ledpin, LOW);                                    // Turn on the LED for 0.5 seconds
     ticker.attach(0.5, disableLed);
   }
+
   delay(200);
 }
