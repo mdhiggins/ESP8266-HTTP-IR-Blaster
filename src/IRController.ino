@@ -5,6 +5,7 @@
 #include <ESP8266WiFi.h>
 #include <WiFiManager.h>                                      // https://github.com/tzapu/WiFiManager WiFi Configuration Magic
 #include <ESP8266HTTPClient.h>
+#include <ESP8266WebServer.h>
 
 #include <ArduinoJson.h>
 #include "sha256.h"
@@ -56,7 +57,6 @@ const uint16_t  pins4 = 13;                                          // Transmit
 WiFiClientSecure secureClient;
 PubSubClient mqtt_client(secureClient);
 #else
-#include <ESP8266WebServer.h>
 #include <ArduinoOTA.h>
 #include <ESP8266mDNS.h>
 #endif
@@ -90,7 +90,7 @@ ESP8266WebServer *server = NULL;
 
 long mqtt_lastReconnectAttempt = 0;
 
-StaticJsonDocument<256> deviceState;
+DynamicJsonDocument deviceState(256);
 
 bool shouldSaveConfig = false;                                 // Flag for saving data
 bool holdReceive = false;                                      // Flag to prevent IR receiving while transmitting
@@ -522,11 +522,6 @@ bool setupWifi(bool resetConf) {
   port = atoi(port_str);
   mqtt_port = atoi(mqtt_port_str);
 
-  if (server != NULL) {
-    delete server;
-  }
-  server = new ESP8266WebServer(port);
-
   // Reset device if lost wifi Connection
   WiFi.onStationModeDisconnected(&lostWifiCallback);
 
@@ -612,6 +607,11 @@ void setup() {
   Serial.print("DNS IP: ");
   Serial.println(WiFi.dnsIP().toString());
   Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
+
+  if (server != NULL) {
+    delete server;
+  }
+  server = new ESP8266WebServer(port);
 
 #if enabledMQTT == 1
   // MQTT
@@ -740,7 +740,7 @@ void setup() {
           server->send(200, "text/html", "Success, code sent");
         }
 
-        String message = blastJson(root, out);
+        String message = processJson(root, out);
 
         if (!simple) {
           Serial.println("Sending home page");
@@ -843,6 +843,7 @@ void setup() {
       }
     }
   });
+#endif
 
   server->on("/received", []() {
     Serial.println("Connection received endpoint '/received'");
@@ -919,7 +920,6 @@ void setup() {
       Serial.println("Invalid EPOCH time, security checks may fail if unable to sync with NTP server");
     }
   }
-#endif
 
   irsend1.begin();
   irsend2.begin();
@@ -929,7 +929,7 @@ void setup() {
   Serial.println("Ready to send and receive IR signals");
 }
 
-String blastJson(DynamicJsonDocument& root, int out) {
+String processJson(DynamicJsonDocument& root, int out) {
   String message = "Code sent";
   for (size_t x = 0; x < root.size(); x++) {
     String type = root[x]["type"];
@@ -991,6 +991,7 @@ String blastJson(DynamicJsonDocument& root, int out) {
       irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(xout));
     }
   }
+  Serial.println(ESP.getFreeHeap());
   return message;
 }
 
@@ -1038,14 +1039,13 @@ void mqtt_callback(char* topic, byte * payload, unsigned int length) {
     Serial.println(error.c_str());
   } else {
     // serializeJson(root, Serial);
-    blastJson(root, 1);
+    processJson(root, 1);
     digitalWrite(ledpin, LOW);
     ticker.attach(0.5, disableLed);
   }
   root.clear();
 }
 
-#else
 //+=============================================================================
 // Send CORS HTTP headers
 //
@@ -1128,60 +1128,60 @@ void sendHeader() {
 void sendHeader(int httpcode) {
   server->setContentLength(CONTENT_LENGTH_UNKNOWN);
   server->send(httpcode, "text/html; charset=utf-8", "");
-  server->sendContent("<!DOCTYPE html PUBLIC '-//W3C//DTD XHTML 1.0 Strict//EN' 'http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd'>\n");
-  server->sendContent("<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en'>\n");
-  server->sendContent("  <head>\n");
-  server->sendContent("    <meta name='viewport' content='width=device-width, initial-scale=.75' />\n");
-  server->sendContent("    <link rel='stylesheet' href='https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css' />\n");
-  server->sendContent("    <style>@media (max-width: 991px) {.nav-pills>li {float: none; margin-left: 0; margin-top: 5px; text-align: center;}}</style>\n");
-  server->sendContent("    <title>ESP8266 IR Controller (" + String(host_name) + ")</title>\n");
-  server->sendContent("  </head>\n");
-  server->sendContent("  <body>\n");
-  server->sendContent("    <div class='container'>\n");
-  server->sendContent("      <h1><a href='https://github.com/mdhiggins/ESP8266-HTTP-IR-Blaster'>ESP8266 IR Controller</a></h1>\n");
-  server->sendContent("      <div class='row'>\n");
-  server->sendContent("        <div class='col-md-12'>\n");
-  server->sendContent("          <ul class='nav nav-pills'>\n");
-  server->sendContent("            <li class='active'>\n");
-  server->sendContent("              <a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'>Hostname <span class='badge'>" + String(host_name) + ".local" + ":" + String(port) + "</span></a></li>\n");
-  server->sendContent("            <li class='active'>\n");
-  server->sendContent("              <a href='http://" + WiFi.localIP().toString() + ":" + String(port) + "'>Local <span class='badge'>" + WiFi.localIP().toString() + ":" + String(port) + "</span></a></li>\n");
-  server->sendContent("            <li class='active'>\n");
-  server->sendContent("              <a href='http://" + WiFi.dnsIP().toString() + "'>DNS <span class='badge'>" + WiFi.dnsIP().toString() + "</span></a></li>\n");
-  server->sendContent("            <li class='active'>\n");
-  server->sendContent("              <a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>\n");
-  server->sendContent("            <li class='active'>\n");
-  server->sendContent("              <a>MAC <span class='badge'>" + String(WiFi.macAddress()) + "</span></a></li>\n");
-  server->sendContent("          </ul>\n");
-  server->sendContent("        </div>\n");
-  server->sendContent("      </div><hr />\n");
+  server->sendContent_P("<!DOCTYPE html PUBLIC '-//W3C//DTD XHTML 1.0 Strict//EN' 'http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd'>\n");
+  server->sendContent_P("<html xmlns='http://www.w3.org/1999/xhtml' xml:lang='en'>\n");
+  server->sendContent_P("  <head>\n");
+  server->sendContent_P("    <meta name='viewport' content='width=device-width, initial-scale=.75' />\n");
+  server->sendContent_P("    <link rel='stylesheet' href='https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css' />\n");
+  server->sendContent_P("    <style>@media (max-width: 991px) {.nav-pills>li {float: none; margin-left: 0; margin-top: 5px; text-align: center;}}</style>\n");
+  server->sendContent_P(("    <title>ESP8266 IR Controller (" + String(host_name) + ")</title>\n").c_str());
+  server->sendContent_P("  </head>\n");
+  server->sendContent_P("  <body>\n");
+  server->sendContent_P("    <div class='container'>\n");
+  server->sendContent_P("      <h1><a href='https://github.com/mdhiggins/ESP8266-HTTP-IR-Blaster'>ESP8266 IR Controller</a></h1>\n");
+  server->sendContent_P("      <div class='row'>\n");
+  server->sendContent_P("        <div class='col-md-12'>\n");
+  server->sendContent_P("          <ul class='nav nav-pills'>\n");
+  server->sendContent_P("            <li class='active'>\n");
+  server->sendContent_P(("              <a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'>Hostname <span class='badge'>" + String(host_name) + ".local" + ":" + String(port) + "</span></a></li>\n").c_str());
+  server->sendContent_P("            <li class='active'>\n");
+  server->sendContent_P(("              <a href='http://" + WiFi.localIP().toString() + ":" + String(port) + "'>Local <span class='badge'>" + WiFi.localIP().toString() + ":" + String(port) + "</span></a></li>\n").c_str());
+  server->sendContent_P("            <li class='active'>\n");
+  server->sendContent_P(("              <a href='http://" + WiFi.dnsIP().toString() + "'>DNS <span class='badge'>" + WiFi.dnsIP().toString() + "</span></a></li>\n").c_str());
+  server->sendContent_P("            <li class='active'>\n");
+  server->sendContent_P(("              <a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>\n").c_str());
+  server->sendContent_P("            <li class='active'>\n");
+  server->sendContent_P(("              <a>MAC <span class='badge'>" + String(WiFi.macAddress()) + "</span></a></li>\n").c_str());
+  server->sendContent_P("          </ul>\n");
+  server->sendContent_P("        </div>\n");
+  server->sendContent_P("      </div><hr />\n");
 }
 
 //+=============================================================================
 // Send footer HTML
 //
 void sendFooter() {
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime; EPOCH " + String(now() - (timeZone * SECS_PER_HOUR)) + "</em> / <em id='jepoch'></em> ( <em id='jdiff'></em> )</div></div>\n");
-  server->sendContent("      <script>document.getElementById('jepoch').innerHTML = Math.round((new Date()).getTime() / 1000)</script>");
-  server->sendContent("      <script>document.getElementById('jdiff').innerHTML = Math.abs(Math.round((new Date()).getTime() / 1000) - " + String(now() - (timeZone * SECS_PER_HOUR)) + ")</script>");
+  server->sendContent_P(("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime; EPOCH " + String(now() - (timeZone * SECS_PER_HOUR)) + "</em> / <em id='jepoch'></em> ( <em id='jdiff'></em> )</div></div>\n").c_str());
+  server->sendContent_P("      <script>document.getElementById('jepoch').innerHTML = Math.round((new Date()).getTime() / 1000)</script>");
+  server->sendContent_P(("      <script>document.getElementById('jdiff').innerHTML = Math.abs(Math.round((new Date()).getTime() / 1000) - " + String(now() - (timeZone * SECS_PER_HOUR)) + ")</script>").c_str());
   if (strlen(user_id) != 0)
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>Device secured with SHA256 authentication. Only commands sent and verified with Amazon Alexa and the IR Controller Skill will be processed</em></div></div>");
+  server->sendContent_P("      <div class='row'><div class='col-md-12'><em>Device secured with SHA256 authentication. Only commands sent and verified with Amazon Alexa and the IR Controller Skill will be processed</em></div></div>");
   if (authError)
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - last authentication failed because HMAC signatures did not match, see serial output for debugging details</em></div></div>");
+  server->sendContent_P("      <div class='row'><div class='col-md-12'><em>Error - last authentication failed because HMAC signatures did not match, see serial output for debugging details</em></div></div>");
   if (timeAuthError > 0)
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - last authentication failed because your timestamps are out of sync, see serial output for debugging details. Timediff: " + String(timeAuthError) + "</em></div></div>");
+  server->sendContent_P(("      <div class='row'><div class='col-md-12'><em>Error - last authentication failed because your timestamps are out of sync, see serial output for debugging details. Timediff: " + String(timeAuthError) + "</em></div></div>").c_str());
   if (externalIPError)
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - unable to retrieve external IP address, this may be due to bad network settings.</em></div></div>");
+  server->sendContent_P("      <div class='row'><div class='col-md-12'><em>Error - unable to retrieve external IP address, this may be due to bad network settings.</em></div></div>");
   time_t timenow = now() - (timeZone * SECS_PER_HOUR);
   if (!validEPOCH(timenow))
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - EPOCH time is inappropriately low, likely connection to external time server has failed, check your network settings</em></div></div>");
+  server->sendContent_P("      <div class='row'><div class='col-md-12'><em>Error - EPOCH time is inappropriately low, likely connection to external time server has failed, check your network settings</em></div></div>");
   if (userIDError)
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - your userID is in the wrong format and authentication will not work</em></div></div>");
+  server->sendContent_P("      <div class='row'><div class='col-md-12'><em>Error - your userID is in the wrong format and authentication will not work</em></div></div>");
   if (ntpError)
-  server->sendContent("      <div class='row'><div class='col-md-12'><em>Error - last attempt to connect to the NTP server failed, check NTP settings and networking settings</em></div></div>");
-  server->sendContent("    </div>\n");
-  server->sendContent("  </body>\n");
-  server->sendContent("</html>\n");
+  server->sendContent_P("      <div class='row'><div class='col-md-12'><em>Error - last attempt to connect to the NTP server failed, check NTP settings and networking settings</em></div></div>");
+  server->sendContent_P("    </div>\n");
+  server->sendContent_P("  </body>\n");
+  server->sendContent_P("</html>\n");
   server->client().stop();
 }
 
@@ -1203,61 +1203,61 @@ void sendHomePage(String message, String header, int type) {
 void sendHomePage(String message, String header, int type, int httpcode) {
   sendHeader(httpcode);
   if (type == 1)
-  server->sendContent("      <div class='row'><div class='col-md-12'><div class='alert alert-success'><strong>" + header + "!</strong> " + message + "</div></div></div>\n");
+  server->sendContent_P(("      <div class='row'><div class='col-md-12'><div class='alert alert-success'><strong>" + header + "!</strong> " + message + "</div></div></div>\n").c_str());
   if (type == 2)
-  server->sendContent("      <div class='row'><div class='col-md-12'><div class='alert alert-warning'><strong>" + header + "!</strong> " + message + "</div></div></div>\n");
+  server->sendContent_P(("      <div class='row'><div class='col-md-12'><div class='alert alert-warning'><strong>" + header + "!</strong> " + message + "</div></div></div>\n").c_str());
   if (type == 3)
-  server->sendContent("      <div class='row'><div class='col-md-12'><div class='alert alert-danger'><strong>" + header + "!</strong> " + message + "</div></div></div>\n");
-  server->sendContent("      <div class='row'>\n");
-  server->sendContent("        <div class='col-md-12'>\n");
-  server->sendContent("          <h3>Codes Transmitted</h3>\n");
-  server->sendContent("          <table class='table table-striped' style='table-layout: fixed;'>\n");
-  server->sendContent("            <thead><tr><th>Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>\n"); //Title
-  server->sendContent("            <tbody>\n");
+  server->sendContent_P(("      <div class='row'><div class='col-md-12'><div class='alert alert-danger'><strong>" + header + "!</strong> " + message + "</div></div></div>\n").c_str());
+  server->sendContent_P("      <div class='row'>\n");
+  server->sendContent_P("        <div class='col-md-12'>\n");
+  server->sendContent_P("          <h3>Codes Transmitted</h3>\n");
+  server->sendContent_P("          <table class='table table-striped' style='table-layout: fixed;'>\n");
+  server->sendContent_P("            <thead><tr><th>Sent</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>\n"); //Title
+  server->sendContent_P("            <tbody>\n");
   if (last_send.valid)
-  server->sendContent("              <tr class='text-uppercase'><td>" + epochToString(last_send.timestamp) + "</td><td><code>" + String(last_send.data) + "</code></td><td><code>" + String(last_send.encoding) + "</code></td><td><code>" + String(last_send.bits) + "</code></td><td><code>" + String(last_send.address) + "</code></td></tr>\n");
+  server->sendContent_P(("              <tr class='text-uppercase'><td>" + epochToString(last_send.timestamp) + "</td><td><code>" + String(last_send.data) + "</code></td><td><code>" + String(last_send.encoding) + "</code></td><td><code>" + String(last_send.bits) + "</code></td><td><code>" + String(last_send.address) + "</code></td></tr>\n").c_str());
   if (last_send_2.valid)
-  server->sendContent("              <tr class='text-uppercase'><td>" + epochToString(last_send_2.timestamp) + "</td><td><code>" + String(last_send_2.data) + "</code></td><td><code>" + String(last_send_2.encoding) + "</code></td><td><code>" + String(last_send_2.bits) + "</code></td><td><code>" + String(last_send_2.address) + "</code></td></tr>\n");
+  server->sendContent_P(("              <tr class='text-uppercase'><td>" + epochToString(last_send_2.timestamp) + "</td><td><code>" + String(last_send_2.data) + "</code></td><td><code>" + String(last_send_2.encoding) + "</code></td><td><code>" + String(last_send_2.bits) + "</code></td><td><code>" + String(last_send_2.address) + "</code></td></tr>\n").c_str());
   if (last_send_3.valid)
-  server->sendContent("              <tr class='text-uppercase'><td>" + epochToString(last_send_3.timestamp) + "</td><td><code>" + String(last_send_3.data) + "</code></td><td><code>" + String(last_send_3.encoding) + "</code></td><td><code>" + String(last_send_3.bits) + "</code></td><td><code>" + String(last_send_3.address) + "</code></td></tr>\n");
+  server->sendContent_P(("              <tr class='text-uppercase'><td>" + epochToString(last_send_3.timestamp) + "</td><td><code>" + String(last_send_3.data) + "</code></td><td><code>" + String(last_send_3.encoding) + "</code></td><td><code>" + String(last_send_3.bits) + "</code></td><td><code>" + String(last_send_3.address) + "</code></td></tr>\n").c_str());
   if (last_send_4.valid)
-  server->sendContent("              <tr class='text-uppercase'><td>" + epochToString(last_send_4.timestamp) + "</td><td><code>" + String(last_send_4.data) + "</code></td><td><code>" + String(last_send_4.encoding) + "</code></td><td><code>" + String(last_send_4.bits) + "</code></td><td><code>" + String(last_send_4.address) + "</code></td></tr>\n");
+  server->sendContent_P(("              <tr class='text-uppercase'><td>" + epochToString(last_send_4.timestamp) + "</td><td><code>" + String(last_send_4.data) + "</code></td><td><code>" + String(last_send_4.encoding) + "</code></td><td><code>" + String(last_send_4.bits) + "</code></td><td><code>" + String(last_send_4.address) + "</code></td></tr>\n").c_str());
   if (last_send_5.valid)
-  server->sendContent("              <tr class='text-uppercase'><td>" + epochToString(last_send_5.timestamp) + "</td><td><code>" + String(last_send_5.data) + "</code></td><td><code>" + String(last_send_5.encoding) + "</code></td><td><code>" + String(last_send_5.bits) + "</code></td><td><code>" + String(last_send_5.address) + "</code></td></tr>\n");
+  server->sendContent_P(("              <tr class='text-uppercase'><td>" + epochToString(last_send_5.timestamp) + "</td><td><code>" + String(last_send_5.data) + "</code></td><td><code>" + String(last_send_5.encoding) + "</code></td><td><code>" + String(last_send_5.bits) + "</code></td><td><code>" + String(last_send_5.address) + "</code></td></tr>\n").c_str());
   if (!last_send.valid && !last_send_2.valid && !last_send_3.valid && !last_send_4.valid && !last_send_5.valid)
-  server->sendContent("              <tr><td colspan='5' class='text-center'><em>No codes sent</em></td></tr>");
-  server->sendContent("            </tbody></table>\n");
-  server->sendContent("          </div></div>\n");
-  server->sendContent("      <div class='row'>\n");
-  server->sendContent("        <div class='col-md-12'>\n");
-  server->sendContent("          <h3>Codes Received</h3>\n");
-  server->sendContent("          <table class='table table-striped' style='table-layout: fixed;'>\n");
-  server->sendContent("            <thead><tr><th>Received</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>\n"); //Title
-  server->sendContent("            <tbody>\n");
+  server->sendContent_P("              <tr><td colspan='5' class='text-center'><em>No codes sent</em></td></tr>");
+  server->sendContent_P("            </tbody></table>\n");
+  server->sendContent_P("          </div></div>\n");
+  server->sendContent_P("      <div class='row'>\n");
+  server->sendContent_P("        <div class='col-md-12'>\n");
+  server->sendContent_P("          <h3>Codes Received</h3>\n");
+  server->sendContent_P("          <table class='table table-striped' style='table-layout: fixed;'>\n");
+  server->sendContent_P("            <thead><tr><th>Received</th><th>Command</th><th>Type</th><th>Length</th><th>Address</th></tr></thead>\n"); //Title
+  server->sendContent_P("            <tbody>\n");
   if (last_recv.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=1'>" + epochToString(last_recv.timestamp) + "</a></td><td><code>" + String(last_recv.data) + "</code></td><td><code>" + String(last_recv.encoding) + "</code></td><td><code>" + String(last_recv.bits) + "</code></td><td><code>" + String(last_recv.address) + "</code></td></tr>\n");
+  server->sendContent_P(("              <tr class='text-uppercase'><td><a href='/received?id=1'>" + epochToString(last_recv.timestamp) + "</a></td><td><code>" + String(last_recv.data) + "</code></td><td><code>" + String(last_recv.encoding) + "</code></td><td><code>" + String(last_recv.bits) + "</code></td><td><code>" + String(last_recv.address) + "</code></td></tr>\n").c_str());
   if (last_recv_2.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=2'>" + epochToString(last_recv_2.timestamp) + "</a></td><td><code>" + String(last_recv_2.data) + "</code></td><td><code>" + String(last_recv_2.encoding) + "</code></td><td><code>" + String(last_recv_2.bits) + "</code></td><td><code>" + String(last_recv_2.address) + "</code></td></tr>\n");
+  server->sendContent_P(("              <tr class='text-uppercase'><td><a href='/received?id=2'>" + epochToString(last_recv_2.timestamp) + "</a></td><td><code>" + String(last_recv_2.data) + "</code></td><td><code>" + String(last_recv_2.encoding) + "</code></td><td><code>" + String(last_recv_2.bits) + "</code></td><td><code>" + String(last_recv_2.address) + "</code></td></tr>\n").c_str());
   if (last_recv_3.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=3'>" + epochToString(last_recv_3.timestamp) + "</a></td><td><code>" + String(last_recv_3.data) + "</code></td><td><code>" + String(last_recv_3.encoding) + "</code></td><td><code>" + String(last_recv_3.bits) + "</code></td><td><code>" + String(last_recv_3.address) + "</code></td></tr>\n");
+  server->sendContent_P(("              <tr class='text-uppercase'><td><a href='/received?id=3'>" + epochToString(last_recv_3.timestamp) + "</a></td><td><code>" + String(last_recv_3.data) + "</code></td><td><code>" + String(last_recv_3.encoding) + "</code></td><td><code>" + String(last_recv_3.bits) + "</code></td><td><code>" + String(last_recv_3.address) + "</code></td></tr>\n").c_str());
   if (last_recv_4.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=4'>" + epochToString(last_recv_4.timestamp) + "</a></td><td><code>" + String(last_recv_4.data) + "</code></td><td><code>" + String(last_recv_4.encoding) + "</code></td><td><code>" + String(last_recv_4.bits) + "</code></td><td><code>" + String(last_recv_4.address) + "</code></td></tr>\n");
+  server->sendContent_P(("              <tr class='text-uppercase'><td><a href='/received?id=4'>" + epochToString(last_recv_4.timestamp) + "</a></td><td><code>" + String(last_recv_4.data) + "</code></td><td><code>" + String(last_recv_4.encoding) + "</code></td><td><code>" + String(last_recv_4.bits) + "</code></td><td><code>" + String(last_recv_4.address) + "</code></td></tr>\n").c_str());
   if (last_recv_5.valid)
-  server->sendContent("              <tr class='text-uppercase'><td><a href='/received?id=5'>" + epochToString(last_recv_5.timestamp) + "</a></td><td><code>" + String(last_recv_5.data) + "</code></td><td><code>" + String(last_recv_5.encoding) + "</code></td><td><code>" + String(last_recv_5.bits) + "</code></td><td><code>" + String(last_recv_5.address) + "</code></td></tr>\n");
+  server->sendContent_P(("              <tr class='text-uppercase'><td><a href='/received?id=5'>" + epochToString(last_recv_5.timestamp) + "</a></td><td><code>" + String(last_recv_5.data) + "</code></td><td><code>" + String(last_recv_5.encoding) + "</code></td><td><code>" + String(last_recv_5.bits) + "</code></td><td><code>" + String(last_recv_5.address) + "</code></td></tr>\n").c_str());
   if (!last_recv.valid && !last_recv_2.valid && !last_recv_3.valid && !last_recv_4.valid && !last_recv_5.valid)
-  server->sendContent("              <tr><td colspan='5' class='text-center'><em>No codes received</em></td></tr>");
-  server->sendContent("            </tbody></table>\n");
-  server->sendContent("          </div></div>\n");
-  server->sendContent("      <div class='row'>\n");
-  server->sendContent("        <div class='col-md-12'>\n");
-  server->sendContent("          <ul class='list-unstyled'>\n");
-  server->sendContent("            <li><span class='badge'>GPIO " + String(pinr1) + "</span> Receiving </li>\n");
-  server->sendContent("            <li><span class='badge'>GPIO " + String(pins1) + "</span> Transmitter 1 </li>\n");
-  server->sendContent("            <li><span class='badge'>GPIO " + String(pins2) + "</span> Transmitter 2 </li>\n");
-  server->sendContent("            <li><span class='badge'>GPIO " + String(pins3) + "</span> Transmitter 3 </li>\n");
-  server->sendContent("            <li><span class='badge'>GPIO " + String(pins4) + "</span> Transmitter 4 </li></ul>\n");
-  server->sendContent("        </div>\n");
-  server->sendContent("      </div>\n");
+  server->sendContent_P("              <tr><td colspan='5' class='text-center'><em>No codes received</em></td></tr>");
+  server->sendContent_P("            </tbody></table>\n");
+  server->sendContent_P("          </div></div>\n");
+  server->sendContent_P("      <div class='row'>\n");
+  server->sendContent_P("        <div class='col-md-12'>\n");
+  server->sendContent_P("          <ul class='list-unstyled'>\n");
+  server->sendContent_P(("            <li><span class='badge'>GPIO " + String(pinr1) + "</span> Receiving </li>\n").c_str());
+  server->sendContent_P(("            <li><span class='badge'>GPIO " + String(pins1) + "</span> Transmitter 1 </li>\n").c_str());
+  server->sendContent_P(("            <li><span class='badge'>GPIO " + String(pins2) + "</span> Transmitter 2 </li>\n").c_str());
+  server->sendContent_P(("            <li><span class='badge'>GPIO " + String(pins3) + "</span> Transmitter 3 </li>\n").c_str());
+  server->sendContent_P(("            <li><span class='badge'>GPIO " + String(pins4) + "</span> Transmitter 4 </li></ul>\n").c_str());
+  server->sendContent_P("        </div>\n");
+  server->sendContent_P("      </div>\n");
   sendFooter();
 }
 
@@ -1270,80 +1270,80 @@ void sendCodePage(Code selCode) {
 
 void sendCodePage(Code selCode, int httpcode){
   sendHeader(httpcode);
-  server->sendContent("      <div class='row'>\n");
-  server->sendContent("        <div class='col-md-12'>\n");
-  server->sendContent("          <h2><span class='label label-success'>" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</span></h2><br/>\n");
-  server->sendContent("          <dl class='dl-horizontal'>\n");
-  server->sendContent("            <dt>Data</dt>\n");
-  server->sendContent("            <dd><code>" + String(selCode.data)  + "</code></dd></dl>\n");
-  server->sendContent("          <dl class='dl-horizontal'>\n");
-  server->sendContent("            <dt>Type</dt>\n");
-  server->sendContent("            <dd><code>" + String(selCode.encoding)  + "</code></dd></dl>\n");
-  server->sendContent("          <dl class='dl-horizontal'>\n");
-  server->sendContent("            <dt>Length</dt>\n");
-  server->sendContent("            <dd><code>" + String(selCode.bits)  + "</code></dd></dl>\n");
-  server->sendContent("          <dl class='dl-horizontal'>\n");
-  server->sendContent("            <dt>Address</dt>\n");
-  server->sendContent("            <dd><code>" + String(selCode.address)  + "</code></dd></dl>\n");
-  server->sendContent("          <dl class='dl-horizontal'>\n");
-  server->sendContent("            <dt>Raw</dt>\n");
-  server->sendContent("            <dd><code>" + String(selCode.raw)  + "</code></dd></dl>\n");
-  server->sendContent("          <dl class='dl-horizontal'>\n");
-  server->sendContent("            <dt>Timestamp</dt>\n");
-  server->sendContent("            <dd><code>" + epochToString(selCode.timestamp)  + "</code></dd></dl>\n");
-  server->sendContent("        </div></div>\n");
-  server->sendContent("      <div class='row'>\n");
-  server->sendContent("        <div class='col-md-12'>\n");
-  server->sendContent("          <div class='alert alert-warning'>Don't forget to add your passcode to the URLs below if you set one</div>\n");
-  server->sendContent("      </div></div>\n");
+  server->sendContent_P("      <div class='row'>\n");
+  server->sendContent_P("        <div class='col-md-12'>\n");
+  server->sendContent_P(("          <h2><span class='label label-success'>" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</span></h2><br/>\n").c_str());
+  server->sendContent_P("          <dl class='dl-horizontal'>\n");
+  server->sendContent_P("            <dt>Data</dt>\n");
+  server->sendContent_P(("            <dd><code>" + String(selCode.data)  + "</code></dd></dl>\n").c_str());
+  server->sendContent_P("          <dl class='dl-horizontal'>\n");
+  server->sendContent_P("            <dt>Type</dt>\n");
+  server->sendContent_P(("            <dd><code>" + String(selCode.encoding)  + "</code></dd></dl>\n").c_str());
+  server->sendContent_P("          <dl class='dl-horizontal'>\n");
+  server->sendContent_P("            <dt>Length</dt>\n");
+  server->sendContent_P(("            <dd><code>" + String(selCode.bits)  + "</code></dd></dl>\n").c_str());
+  server->sendContent_P("          <dl class='dl-horizontal'>\n");
+  server->sendContent_P("            <dt>Address</dt>\n");
+  server->sendContent_P(("            <dd><code>" + String(selCode.address)  + "</code></dd></dl>\n").c_str());
+  server->sendContent_P("          <dl class='dl-horizontal'>\n");
+  server->sendContent_P("            <dt>Raw</dt>\n");
+  server->sendContent_P(("            <dd><code>" + String(selCode.raw)  + "</code></dd></dl>\n").c_str());
+  server->sendContent_P("          <dl class='dl-horizontal'>\n");
+  server->sendContent_P("            <dt>Timestamp</dt>\n");
+  server->sendContent_P(("            <dd><code>" + epochToString(selCode.timestamp)  + "</code></dd></dl>\n").c_str());
+  server->sendContent_P("        </div></div>\n");
+  server->sendContent_P("      <div class='row'>\n");
+  server->sendContent_P("        <div class='col-md-12'>\n");
+  server->sendContent_P("          <div class='alert alert-warning'>Don't forget to add your passcode to the URLs below if you set one</div>\n");
+  server->sendContent_P("      </div></div>\n");
   if (String(selCode.encoding) == "UNKNOWN") {
-  server->sendContent("      <div class='row'>\n");
-  server->sendContent("        <div class='col-md-12'>\n");
-  server->sendContent("          <ul class='list-unstyled'>\n");
-  server->sendContent("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{data:[" + String(selCode.raw) + "],type:'raw',khz:38}]</pre></li>\n");
-  server->sendContent("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{data:[" + String(selCode.raw) + "],type:'raw',khz:38}]</pre></li>\n");
-  server->sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{data:[" + String(selCode.raw) + "],type:'raw',khz:38}]</pre></li></ul>\n");
+  server->sendContent_P("      <div class='row'>\n");
+  server->sendContent_P("        <div class='col-md-12'>\n");
+  server->sendContent_P("          <ul class='list-unstyled'>\n");
+  server->sendContent_P("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{data:[" + String(selCode.raw) + "],type:'raw',khz:38}]</pre></li>\n").c_str());
+  server->sendContent_P("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{data:[" + String(selCode.raw) + "],type:'raw',khz:38}]</pre></li>\n").c_str());
+  server->sendContent_P("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{data:[" + String(selCode.raw) + "],type:'raw',khz:38}]</pre></li></ul>\n").c_str());
   } else if (String(selCode.encoding) == "PANASONIC" || String(selCode.encoding) == "NEC") {
   //} else if (strtoul(selCode.address, 0, 0) > 0) {
-  server->sendContent("      <div class='row'>\n");
-  server->sendContent("        <div class='col-md-12'>\n");
-  server->sendContent("          <ul class='list-unstyled'>\n");
-  server->sendContent("            <li>Hostname <span class='label label-default'>MSG</span></li>\n");
-  server->sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "&address=" + String(selCode.address) + "</pre></li>\n");
-  server->sendContent("            <li>Local IP <span class='label label-default'>MSG</span></li>\n");
-  server->sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "&address=" + String(selCode.address) + "</pre></li>\n");
-  server->sendContent("            <li>External IP <span class='label label-default'>MSG</span></li>\n");
-  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode.data + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "&address=" + String(selCode.address) + "</pre></li></ul>\n");
-  server->sendContent("          <ul class='list-unstyled'>\n");
-  server->sendContent("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + ",address:'" + String(selCode.address) + "'}]</pre></li>\n");
-  server->sendContent("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + ",address:'" + String(selCode.address) + "'}]</pre></li>\n");
-  server->sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + ",address:'" + String(selCode.address) + "'}]</pre></li></ul>\n");
+  server->sendContent_P("      <div class='row'>\n");
+  server->sendContent_P("        <div class='col-md-12'>\n");
+  server->sendContent_P("          <ul class='list-unstyled'>\n");
+  server->sendContent_P("            <li>Hostname <span class='label label-default'>MSG</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "&address=" + String(selCode.address) + "</pre></li>\n").c_str());
+  server->sendContent_P("            <li>Local IP <span class='label label-default'>MSG</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "&address=" + String(selCode.address) + "</pre></li>\n").c_str());
+  server->sendContent_P("            <li>External IP <span class='label label-default'>MSG</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode.data + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "&address=" + String(selCode.address) + "</pre></li></ul>\n").c_str());
+  server->sendContent_P("          <ul class='list-unstyled'>\n");
+  server->sendContent_P("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + ",address:'" + String(selCode.address) + "'}]</pre></li>\n").c_str());
+  server->sendContent_P("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + ",address:'" + String(selCode.address) + "'}]</pre></li>\n").c_str());
+  server->sendContent_P("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + ",address:'" + String(selCode.address) + "'}]</pre></li></ul>\n").c_str());
   } else {
-  server->sendContent("      <div class='row'>\n");
-  server->sendContent("        <div class='col-md-12'>\n");
-  server->sendContent("          <ul class='list-unstyled'>\n");
-  server->sendContent("            <li>Hostname <span class='label label-default'>MSG</span></li>\n");
-  server->sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li>\n");
-  server->sendContent("            <li>Local IP <span class='label label-default'>MSG</span></li>\n");
-  server->sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li>\n");
-  server->sendContent("            <li>External IP <span class='label label-default'>MSG</span></li>\n");
-  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode.data + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li></ul>\n");
-  server->sendContent("          <ul class='list-unstyled'>\n");
-  server->sendContent("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + "}]</pre></li>\n");
-  server->sendContent("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + "}]</pre></li>\n");
-  server->sendContent("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
-  server->sendContent("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + "}]</pre></li></ul>\n");
+  server->sendContent_P("      <div class='row'>\n");
+  server->sendContent_P("        <div class='col-md-12'>\n");
+  server->sendContent_P("          <ul class='list-unstyled'>\n");
+  server->sendContent_P("            <li>Hostname <span class='label label-default'>MSG</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li>\n").c_str());
+  server->sendContent_P("            <li>Local IP <span class='label label-default'>MSG</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/msg?code=" + String(selCode.data) + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li>\n").c_str());
+  server->sendContent_P("            <li>External IP <span class='label label-default'>MSG</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + externalIP() + ":" + String(port) + "/msg?code=" + selCode.data + ":" + String(selCode.encoding) + ":" + String(selCode.bits) + "</pre></li></ul>\n").c_str());
+  server->sendContent_P("          <ul class='list-unstyled'>\n");
+  server->sendContent_P("            <li>Hostname <span class='label label-default'>JSON</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + String(host_name) + ".local:" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + "}]</pre></li>\n").c_str());
+  server->sendContent_P("            <li>Local IP <span class='label label-default'>JSON</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + WiFi.localIP().toString() + ":" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + "}]</pre></li>\n").c_str());
+  server->sendContent_P("            <li>External IP <span class='label label-default'>JSON</span></li>\n");
+  server->sendContent_P(("            <li><pre>http://" + externalIP() + ":" + String(port) + "/json?plain=[{data:'" + String(selCode.data) + "',type:'" + String(selCode.encoding) + "',length:" + String(selCode.bits) + "}]</pre></li></ul>\n").c_str());
   }
-  server->sendContent("        </div>\n");
-  server->sendContent("     </div>\n");
+  server->sendContent_P("        </div>\n");
+  server->sendContent_P("     </div>\n");
   sendFooter();
 }
 #endif
@@ -1384,6 +1384,7 @@ int rokuCommand(String ip, String data, int repeat, int rdelay) {
     }
     Serial.println(output);
     http.end();
+    delay(100);
 
     if (r + 1 < repeat) delay(rdelay);
   }
@@ -1393,8 +1394,7 @@ int rokuCommand(String ip, String data, int repeat, int rdelay) {
 //+=============================================================================
 // Split string by character
 //
-String getValue(String data, char separator, int index)
-{
+String getValue(String data, char separator, int index) {
   int found = 0;
   int strIndex[] = {0, -1};
   int maxIndex = data.length() - 1;
@@ -1809,7 +1809,6 @@ void copyCode (Code& c1, Code& c2) {
 }
 
 void loop() {
-  Serial.println(ESP.getFreeHeap());
 #if enabledMQTT == 1
   if (mqtt_enabled()) {
     if (!mqtt_client.connected()) {
@@ -1828,9 +1827,8 @@ void loop() {
   }
 #else
   ArduinoOTA.handle();
-  server->handleClient();
 #endif
-
+  server->handleClient();
   decode_results  results;                                        // Somewhere to store the results
 
   if (irrecv.decode(&results) && !holdReceive) {                  // Grab an IR code
@@ -1840,9 +1838,9 @@ void loop() {
 #if enabledMQTT == 0
     copyCode(last_recv_4, last_recv_5);                           // Pass
     copyCode(last_recv_3, last_recv_4);                           // Pass
+#endif
     copyCode(last_recv_2, last_recv_3);                           // Pass
     copyCode(last_recv, last_recv_2);                             // Pass
-#endif
     cvrtCode(last_recv, &results);                                // Store the results
     last_recv.timestamp = now();                                  // Set the new update time
     last_recv.valid = true;
