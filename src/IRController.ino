@@ -432,7 +432,7 @@ bool setupWifi(bool resetConf) {
         std::unique_ptr<char[]> buf(new char[size]);
 
         configFile.readBytes(buf.get(), size);
-        DynamicJsonDocument json(256);
+        DynamicJsonDocument json(512);
         DeserializationError error = deserializeJson(json, buf.get());
         serializeJson(json, Serial);
         if (!error) {
@@ -530,7 +530,7 @@ bool setupWifi(bool resetConf) {
   // Save the custom parameters to FS
   if (shouldSaveConfig) {
     Serial.println(" config...");
-    DynamicJsonDocument json(256);
+    DynamicJsonDocument json(512);
     json["hostname"] = host_name;
     json["passcode"] = passcode;
     json["mqtt_host"] = mqtt_host;
@@ -991,7 +991,6 @@ String processJson(DynamicJsonDocument& root, int out) {
       irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(xout));
     }
   }
-  Serial.println(ESP.getFreeHeap());
   return message;
 }
 
@@ -1008,6 +1007,8 @@ boolean mqtt_enabled() {
 // MQTT Reconnect
 //
 boolean mqtt_reconnect() {
+  Serial.println(mqtt_user);
+  Serial.println(mqtt_pass);
   Serial.print("Attempting MQTT connection... ");
   // Create a random client ID
   String clientId = String(host_name);
@@ -1045,14 +1046,7 @@ void mqtt_callback(char* topic, byte * payload, unsigned int length) {
   }
   root.clear();
 }
-
-//+=============================================================================
-// Send CORS HTTP headers
-//
-void sendCorsHeaders() {
-  server->sendHeader("Access-Control-Allow-Origin", "*");
-  server->sendHeader("Access-Control-Allow-Methods", "GET, POST");
-}
+#else
 
 
 //+=============================================================================
@@ -1117,6 +1111,17 @@ void sendNTPpacket(IPAddress &address)
   ntpUDP.write(packetBuffer, NTP_PACKET_SIZE);
   ntpUDP.endPacket();
 }
+#endif
+
+
+//+=============================================================================
+// Send CORS HTTP headers
+//
+void sendCorsHeaders() {
+  server->sendHeader("Access-Control-Allow-Origin", "*");
+  server->sendHeader("Access-Control-Allow-Methods", "GET, POST");
+}
+
 
 //+=============================================================================
 // Send header HTML
@@ -1144,8 +1149,10 @@ void sendHeader(int httpcode) {
   server->sendContent_P("          <ul class='nav nav-pills'>\n");
   server->sendContent_P("            <li class='active'>\n");
   server->sendContent_P(("              <a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'>Hostname <span class='badge'>" + String(host_name) + ".local" + ":" + String(port) + "</span></a></li>\n").c_str());
+#if enabledMQTT == 0
   server->sendContent_P("            <li class='active'>\n");
   server->sendContent_P(("              <a href='http://" + WiFi.localIP().toString() + ":" + String(port) + "'>Local <span class='badge'>" + WiFi.localIP().toString() + ":" + String(port) + "</span></a></li>\n").c_str());
+#endif
   server->sendContent_P("            <li class='active'>\n");
   server->sendContent_P(("              <a href='http://" + WiFi.dnsIP().toString() + "'>DNS <span class='badge'>" + WiFi.dnsIP().toString() + "</span></a></li>\n").c_str());
   server->sendContent_P("            <li class='active'>\n");
@@ -1157,10 +1164,16 @@ void sendHeader(int httpcode) {
   server->sendContent_P("      </div><hr />\n");
 }
 
+
 //+=============================================================================
 // Send footer HTML
 //
 void sendFooter() {
+#if enabledMQTT == 1
+  server->sendContent_P(("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime</em></div></div>\n").c_str());
+  server->sendContent_P("      <div class='row'><div class='col-md-12'><em>Device in MQTT mode, HTTP commands and SHA256 HTTP authentincation disabled to save memory, TLS based MQTT SSL enabled</em></div></div>");
+  server->sendContent_P("      <div class='row'><div class='col-md-12'><em>mDNS services, NTP, and ArduinoOTA disabled, not compatible with MQTT</em></div></div>");
+#else
   server->sendContent_P(("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime; EPOCH " + String(now() - (timeZone * SECS_PER_HOUR)) + "</em> / <em id='jepoch'></em> ( <em id='jdiff'></em> )</div></div>\n").c_str());
   server->sendContent_P("      <script>document.getElementById('jepoch').innerHTML = Math.round((new Date()).getTime() / 1000)</script>");
   server->sendContent_P(("      <script>document.getElementById('jdiff').innerHTML = Math.abs(Math.round((new Date()).getTime() / 1000) - " + String(now() - (timeZone * SECS_PER_HOUR)) + ")</script>").c_str());
@@ -1179,11 +1192,13 @@ void sendFooter() {
   server->sendContent_P("      <div class='row'><div class='col-md-12'><em>Error - your userID is in the wrong format and authentication will not work</em></div></div>");
   if (ntpError)
   server->sendContent_P("      <div class='row'><div class='col-md-12'><em>Error - last attempt to connect to the NTP server failed, check NTP settings and networking settings</em></div></div>");
+#endif
   server->sendContent_P("    </div>\n");
   server->sendContent_P("  </body>\n");
   server->sendContent_P("</html>\n");
   server->client().stop();
 }
+
 
 //+=============================================================================
 // Stream home page HTML
@@ -1346,7 +1361,6 @@ void sendCodePage(Code selCode, int httpcode){
   server->sendContent_P("     </div>\n");
   sendFooter();
 }
-#endif
 
 
 //+=============================================================================
@@ -1809,6 +1823,7 @@ void copyCode (Code& c1, Code& c2) {
 }
 
 void loop() {
+  Serial.println(ESP.getFreeHeap());
 #if enabledMQTT == 1
   if (mqtt_enabled()) {
     if (!mqtt_client.connected()) {
