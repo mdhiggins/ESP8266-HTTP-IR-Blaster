@@ -18,7 +18,7 @@
 //+=============================================================================
 #define enabledMQTT 1                                           // Enable MQTT; this disables lots of other code as the MQTT client is very memory intensive
 
-const uint16 packetSize = 2048
+const uint16 packetSize = 2048;
 
 const bool getExternalIP = true;                               // Set to false to disable querying external IP
 
