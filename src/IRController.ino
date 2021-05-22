@@ -472,7 +472,7 @@ bool setupWifi(bool resetConf) {
   wifiManager.addParameter(&custom_passcode);
   WiFiManagerParameter custom_mqtt_host("mqtt_host", "Choose a MQTT host", mqtt_host, 100);
   wifiManager.addParameter(&custom_mqtt_host);
-  WiFiManagerParameter custom_mqtt_port("port_str", "Choose MQTT server port", mqtt_port_str, 6);
+  WiFiManagerParameter custom_mqtt_port("mqtt_port_str", "Choose MQTT server port", mqtt_port_str, 6);
   wifiManager.addParameter(&custom_mqtt_port);
   WiFiManagerParameter custom_mqtt_user("mqtt_user", "Choose a MQTT user", mqtt_user, 20);
   wifiManager.addParameter(&custom_mqtt_user);
@@ -534,6 +534,7 @@ bool setupWifi(bool resetConf) {
     json["hostname"] = host_name;
     json["passcode"] = passcode;
     json["mqtt_host"] = mqtt_host;
+    json["mqtt_port_str"] = mqtt_port_str;
     json["mqtt_user"] = mqtt_user;
     json["mqtt_pass"] = mqtt_pass;
     json["user_id"] = user_id;
@@ -1007,14 +1008,13 @@ boolean mqtt_enabled() {
 // MQTT Reconnect
 //
 boolean mqtt_reconnect() {
-  Serial.println(mqtt_user);
-  Serial.println(mqtt_pass);
-  Serial.print("Attempting MQTT connection... ");
   // Create a random client ID
   String clientId = String(host_name);
-  clientId += String(random(0xffff), HEX);
+  clientId += "_" + String(random(0xffff), HEX);
+
+  Serial.print("Attempting MQTT connection... ");
   // Attempt to connect
-  if ((String(mqtt_user).length() == 0 && mqtt_client.connect(host_name)) || mqtt_client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
+  if ((String(mqtt_user).length() == 0 && mqtt_client.connect(clientId.c_str())) || mqtt_client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
     String sub = String(user_id) + "/" + String(host_name);
     mqtt_client.subscribe(sub.c_str());
     Serial.println("MQTT connected");
