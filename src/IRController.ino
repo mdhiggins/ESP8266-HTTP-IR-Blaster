@@ -1,5 +1,3 @@
-#include <FS.h>                                               // This needs to be first, or it all crashes and burns
-
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 #include <IRrecv.h>
@@ -19,6 +17,8 @@
 // User settings are below here
 //+=============================================================================
 #define enabledMQTT 1                                           // Enable MQTT; this disables lots of other code as the MQTT client is very memory intensive
+
+const uint16 packetSize = 2048
 
 const bool getExternalIP = true;                               // Set to false to disable querying external IP
 
@@ -90,7 +90,7 @@ ESP8266WebServer *server = NULL;
 
 long mqtt_lastReconnectAttempt = 0;
 
-DynamicJsonDocument deviceState(1024);
+StaticJsonDocument<256> deviceState;
 
 bool shouldSaveConfig = false;                                 // Flag for saving data
 bool holdReceive = false;                                      // Flag to prevent IR receiving while transmitting
@@ -104,8 +104,6 @@ IRsend irsend4(pins4);
 const unsigned long resetfrequency = 259200000;                // 72 hours in milliseconds for external IP reset
 static const char ntpServerName[] = "time.google.com";
 unsigned int localPort = 8888;                                 // Local port to listen for UDP packets
-//void sendNTPpacket(IPAddress &address);
-//time_t getNtpTime();
 WiFiUDP ntpUDP;
 
 bool _rc5toggle = false;
@@ -369,7 +367,6 @@ String externalIP()
 //
 void disableLed()
 {
-  Serial.println("Turning off the LED to save power.");
   digitalWrite(ledpin, HIGH);                           // Shut down the LED
   ticker.detach();                                      // Stopping the ticker
 }
@@ -435,7 +432,7 @@ bool setupWifi(bool resetConf) {
         std::unique_ptr<char[]> buf(new char[size]);
 
         configFile.readBytes(buf.get(), size);
-        DynamicJsonDocument json(1024);
+        DynamicJsonDocument json(256);
         DeserializationError error = deserializeJson(json, buf.get());
         serializeJson(json, Serial);
         if (!error) {
@@ -462,6 +459,7 @@ bool setupWifi(bool resetConf) {
         } else {
           Serial.println("failed to load json config");
         }
+        json.clear();
       }
     }
   } else {
@@ -537,7 +535,7 @@ bool setupWifi(bool resetConf) {
   // Save the custom parameters to FS
   if (shouldSaveConfig) {
     Serial.println(" config...");
-    DynamicJsonDocument json(1024);
+    DynamicJsonDocument json(256);
     json["hostname"] = host_name;
     json["passcode"] = passcode;
     json["mqtt_host"] = mqtt_host;
@@ -691,7 +689,7 @@ void setup() {
       sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, HMAC security authentication failed");
     } else {
-      DynamicJsonDocument root(4096);
+      DynamicJsonDocument root(packetSize);
       DeserializationError error = deserializeJson(root, server->arg("plain"));
       int out = (server->hasArg("out")) ? server->arg("out").toInt() : 1;
       if (error) {
@@ -1033,7 +1031,7 @@ boolean mqtt_reconnect() {
 //
 void mqtt_callback(char* topic, byte * payload, unsigned int length) {
   Serial.println("MQTT message received");
-  DynamicJsonDocument root(2048);
+  DynamicJsonDocument root(packetSize);
   DeserializationError error = deserializeJson(root, payload);
   if (error) {
     Serial.println("JSON parsing failed");
@@ -1358,6 +1356,7 @@ int rokuCommand(String ip, String data, int repeat, int rdelay) {
   String url = "http://" + ip + ":8060/" + data;
 
   int output = 0;
+  bool retry = true;
 
   for (int r = 0; r < repeat; r++) {
     http.begin(client, url);
@@ -1377,8 +1376,11 @@ int rokuCommand(String ip, String data, int repeat, int rdelay) {
     last_send.valid = true;
   
     output = http.POST("");
-    if (output < 0) {
+    if (output < 0 && retry) {
       r--;
+      retry = false;
+    } else {
+      retry = true;
     }
     Serial.println(output);
     http.end();
@@ -1807,6 +1809,7 @@ void copyCode (Code& c1, Code& c2) {
 }
 
 void loop() {
+  Serial.println(ESP.getFreeHeap());
 #if enabledMQTT == 1
   if (mqtt_enabled()) {
     if (!mqtt_client.connected()) {
@@ -1834,10 +1837,12 @@ void loop() {
     Serial.println("Signal received:");
     fullCode(&results);                                           // Print the singleline value
     dumpCode(&results);                                           // Output the results as source code
+#if enabledMQTT == 0
     copyCode(last_recv_4, last_recv_5);                           // Pass
     copyCode(last_recv_3, last_recv_4);                           // Pass
     copyCode(last_recv_2, last_recv_3);                           // Pass
     copyCode(last_recv, last_recv_2);                             // Pass
+#endif
     cvrtCode(last_recv, &results);                                // Store the results
     last_recv.timestamp = now();                                  // Set the new update time
     last_recv.valid = true;
