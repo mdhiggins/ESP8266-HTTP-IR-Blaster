@@ -1823,7 +1823,7 @@ void copyCode (Code& c1, Code& c2) {
 }
 
 void loop() {
-  Serial.println(ESP.getFreeHeap());
+  // Serial.println(ESP.getFreeHeap());
 #if enabledMQTT == 1
   if (mqtt_enabled()) {
     if (!mqtt_client.connected()) {
