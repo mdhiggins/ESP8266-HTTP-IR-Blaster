@@ -11,7 +11,7 @@ This was designed with the NodeMCU board but should be compatible with multiple 
 
 Includes a functional web portal for code capture, output monitoring, and device state tracking
 
-Device gives real time LED feedback, can handle complex code sequences for multi-device home theater control, and full integration with Amazon Alexa via the smart home entertainment devices API and the `IR Controller` Alexa skill
+Device gives real time LED feedback, can handle complex code sequences for multi-device home theater control, and full integration with Amazon Alexa via the smart home entertainment devices API and the [`IR Controller`](https://www.amazon.com/Michael-Higgins-IR-Controller/dp/B0762YYDS9) Alexa skill
 
 Hardware
 --------------
