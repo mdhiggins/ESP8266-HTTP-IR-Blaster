@@ -67,7 +67,7 @@ MQTT Setup
    4. `password` - publicaccess
 4. Ensure you set your MQTT device name in the device configuration page to match the `host_name` set during device setup
 
-Port forwarding is not required for MQTT and all data TLS encrypted. Due to memory limitations of the ESP8266, sending commands via HTTP is disabled to reduce memory footprint and prevent crashes (TLS authentication is very memory demanding).
+Port forwarding is not required for MQTT and all data TLS encrypted. Due to memory limitations of the ESP8266, sending commands via HTTP is disabled to reduce memory footprint and prevent crashes (TLS authentication is very memory demanding). ArduinoOTA and mDNS services are also disabled also due to memory limitations as well as networking conflicts with PubSubClient
 
 HTTP Setup
 --------------
