@@ -607,12 +607,19 @@ void setup() {
   Serial.println(WiFi.localIP().toString());
   Serial.print("DNS IP: ");
   Serial.println(WiFi.dnsIP().toString());
-  Serial.println("URL to send commands: http://" + String(host_name) + ".local:" + port_str);
 
   if (server != NULL) {
     delete server;
   }
   server = new ESP8266WebServer(port);
+
+  Serial.println("Starting UDP");
+  ntpUDP.begin(localPort);
+  Serial.print("Local port: ");
+  Serial.println(ntpUDP.localPort());
+  Serial.println("Waiting for sync");
+  setSyncProvider(getNtpTime);
+  setSyncInterval(300);
 
 #if enabledMQTT == 1
   // MQTT
@@ -661,14 +668,6 @@ void setup() {
     MDNS.addService("http", "tcp", port); // Announce the ESP as an HTTP service
     Serial.println("MDNS http service added. Hostname is set to " + String(host_name) + ".local:" + String(port));
   }
-
-  Serial.println("Starting UDP");
-  ntpUDP.begin(localPort);
-  Serial.print("Local port: ");
-  Serial.println(ntpUDP.localPort());
-  Serial.println("Waiting for sync");
-  setSyncProvider(getNtpTime);
-  setSyncInterval(300);
 
   // Configure the server
   server->on("/json", []() { // JSON handler for more complicated IR blaster routines
@@ -1044,7 +1043,7 @@ void mqtt_callback(char* topic, byte * payload, unsigned int length) {
   }
   root.clear();
 }
-#else
+#endif
 
 
 //+=============================================================================
@@ -1109,7 +1108,6 @@ void sendNTPpacket(IPAddress &address)
   ntpUDP.write(packetBuffer, NTP_PACKET_SIZE);
   ntpUDP.endPacket();
 }
-#endif
 
 
 //+=============================================================================
