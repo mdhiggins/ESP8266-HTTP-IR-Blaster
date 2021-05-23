@@ -995,6 +995,7 @@ String processJson(DynamicJsonDocument& root, int out) {
   return message;
 }
 
+
 #if enabledMQTT == 1
 //+=============================================================================
 // MQTT Enabled
@@ -1005,9 +1006,9 @@ boolean mqtt_enabled() {
 
 
 //+=============================================================================
-// MQTT Reconnect
+// MQTT Connect
 //
-boolean mqtt_reconnect() {
+boolean mqtt_connect() {
   // Create a random client ID
   String clientId = String(host_name);
   clientId += "_" + String(random(0xffff), HEX);
@@ -1831,7 +1832,7 @@ void loop() {
       if (now - mqtt_lastReconnectAttempt > 5000) {
         mqtt_lastReconnectAttempt = now;
         // Attempt to reconnect
-        if (mqtt_reconnect()) {
+        if (mqtt_connect()) {
           mqtt_lastReconnectAttempt = 0;
         }
       }
