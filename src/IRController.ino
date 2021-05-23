@@ -1015,7 +1015,7 @@ boolean mqtt_reconnect() {
   Serial.print("Attempting MQTT connection... ");
   // Attempt to connect
   if ((String(mqtt_user).length() == 0 && mqtt_client.connect(clientId.c_str())) || mqtt_client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
-    String sub = String(user_id) + "/" + String(host_name);
+    String sub = String(user_id) + "." + String(host_name);
     mqtt_client.subscribe(sub.c_str());
     Serial.println("MQTT connected");
     Serial.print("Subscribed to ");
