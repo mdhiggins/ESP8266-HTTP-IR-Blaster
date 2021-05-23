@@ -38,9 +38,8 @@ Alexa Skill
 --------------
 The companion skill for the Amazon Alexa service is available [here](https://www.amazon.com/Michael-Higgins-IR-Controller/dp/B0762YYDS9) for US/CA/UK/IN/DE Alexa customers
 
-Setup
+Device Setup
 --------------
-
 If you use [PlatformIO](https://platformio.org/), you can clone the repository and run `platformio run -t upload` to
 compile the library and upload it to a connected ESP8266-compatible board.
 
@@ -48,12 +47,28 @@ Otherwise, here are the building steps:
 
 1. Install [Arduino IDE](https://www.arduino.cc/en/main/software)
 2. Install [ESP8266 Arduino Core](https://github.com/esp8266/Arduino)
-3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` `ArduinoJson` `Time` `IRremoteESP8266` as well as [`Cryptosuite`](https://github.com/jjssoftware/Cryptosuite) and the developer version of [`WiFiManager`] which is now on the IDE (version >= 2.0)
-4. Load the `IRController.ino` blueprint from this repository
-5. Upload blueprint to your ESP8266 (the .ino file). Monitor via serial at 115200 baud rate
+3. Install the following libraries from the Arduino IDE [Library Manager](https://www.arduino.cc/en/Guide/Libraries): `ESP8266WebServer` `ESP8266WiFi` [`ArduinoJson`](https://github.com/bblanchon/ArduinoJson) [`Time`](https://github.com/PaulStoffregen/Time) [`IRremoteESP8266`](https://github.com/crankyoldgit/IRremoteESP8266) as well as [`Cryptosuite`](https://github.com/jjssoftware/Cryptosuite) and the developer version of [`WiFiManager`] which is now on the IDE (version >= 2.0)
+4. If you wish to use MQTT instead of HTTP install [`PubSubClient`](https://github.com/knolleary/pubsubclient/)
+5. Load the `IRController.ino` blueprint from this repository
+6. Upload blueprint to your ESP8266 (the .ino file). Monitor via serial at 115200 baud rate
 
-After flashing, you can use the device like so:
+After flashing, you can use the device either in classic HTTP mode or new MQTT mode:
 
+MQTT Setup
+--------------
+1. Enabled MQTT in the blueprint by setting `#define enabledMQTT 1` at the top of the file. This will disable certain components of the HTTP functionality to reduce memory usage
+2. Device will boot into WiFi access point mode initially with SSID `IR Controller Configuration`, IP address `192.168.4.1`. Connect to this and configure your access point settings using WiFi Manager. If your router supports mDNS/Bonjour you can now access your device on your local network via the hostname you specified (`http://hostname.local:port/`), otherwise via its local IP address (this IP address is displayed on the serial output)
+3. Set your MQTT `server`, `port`, `username`, and `password`. A public MQTT server is available that uses your unique AmazonID for the skill along with your device name. This server is read only except for commands published by the Alexa skill and is meant to be used in conjunction with the skill
+   1. `server` - b-397770a4-fa3e-4e01-9951-cc3a556005aa-1.mq.us-east-1.amazonaws.com
+   2. `port` - 8883 (MQTTSSL)
+   3. `username` - public
+   4. `password` - publicaccess
+4. Ensure you set your MQTT device name in the device configuration page to match the `host_name` set during device setup
+
+Port forwarding is not required for MQTT and all data TLS encrypted. Due to memory limitations of the ESP8266, sending commands via HTTP is disabled to reduce memory footprint and prevent crashes (TLS authentication is very memory demanding).
+
+HTTP Setup
+--------------
 1. Device will boot into WiFi access point mode initially with SSID `IR Controller Configuration`, IP address `192.168.4.1`. Connect to this and configure your access point settings using WiFi Manager. If your router supports mDNS/Bonjour you can now access your device on your local network via the hostname you specified (`http://hostname.local:port/`), otherwise via its local IP address (this IP address is displayed on the serial output)
 2. Forward whichever port your ESP8266 web server is running on so that it can be accessed from outside your local network, this is critical since Alexa commands come from Amazon's servers, not locally
 3. Download the IR Controller Alexa skill and start creating your devices. Each IR command will require a URL which can be saved. Choose whichever functionality you desire. Information on creating the URLs can be found below
@@ -93,7 +108,6 @@ Parameters
 - `code` - IR code such as `A90:SONY:12`
 - `address` - (optional) Additional address data for NEC codes. Hex format
 - `pulse` - (optional) Repeat a signal rapidly. Default `1`
-- `pdelay` - (optional) Delay between pulses in milliseconds. Default `100`
 - `repeat` - (optional) Number of times to send the signal. Default `1`. Useful for emulating multiple button presses for functions like large volume adjustments or sleep timer
 - `rdelay` - (optional) Delay between repeats in milliseconds. Default `1000`
 - `out` - (optional) Set which IRsend present to transmit over. Default `1`. Choose between `1-4`. Corresponding output pins set in the blueprint. Useful for a single ESP8266 that needs multiple LEDs pointed in different directions to trigger different devices
@@ -112,7 +126,6 @@ Parameters
 - `type` - Type of signal transmitted. Example `"SONY"`, `"RAW"`, `"Delay"` or `"Roomba"` (and many others)
 - `length` - (conditional) Bit length, example `12`. *Parameter does not need to be specified for RAW or Roomba signals*
 - `pulse` - (optional) Repeat a signal rapidly. Default `1`
-- `pdelay` - (optional) Delay between pulses in milliseconds. Default `100`
 - `repeat` - (optional) Number of times to send the signal. Default `1`. *Useful for emulating multiple button presses for functions like large volume adjustments or sleep timer*
 - `rdelay` - (optional) Delay between repeats in milliseconds. Default `1000`
 - `khz` - (conditional) Transmission frequency in kilohertz. Default `38`. *Only required when transmitting RAW signal*

@@ -17,7 +17,7 @@
 
 // User settings are below here
 //+=============================================================================
-#define enabledMQTT 1                                           // Enable MQTT; this disables lots of other code as the MQTT client is very memory intensive
+#define enabledMQTT 0                                          // Enable MQTT; this disables lots of other code as the MQTT client is very memory intensive
 
 const uint16 packetSize = 2048;
 
@@ -817,7 +817,6 @@ void setup() {
 
       int rdelay = (server->hasArg("rdelay")) ? server->arg("rdelay").toInt() : 1000;
       int pulse = (server->hasArg("pulse")) ? server->arg("pulse").toInt() : 1;
-      int pdelay = (server->hasArg("pdelay")) ? server->arg("pdelay").toInt() : 100;
       int repeat = (server->hasArg("repeat")) ? server->arg("repeat").toInt() : 1;
       int out = (server->hasArg("out")) ? server->arg("out").toInt() : 1;
       if (server->hasArg("code")) {
@@ -836,7 +835,7 @@ void setup() {
       if (type == "roku") {
         rokuCommand(ip, data, repeat, rdelay);
       } else {
-        irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(out));
+        irblast(type, data, len, rdelay, pulse, repeat, address, pickIRsend(out));
       }
 
       if (!simple) {
@@ -937,7 +936,6 @@ String processJson(DynamicJsonDocument& root, int out) {
     String ip = root[x]["ip"];
     int rdelay = root[x]["rdelay"];
     int pulse = root[x]["pulse"];
-    int pdelay = root[x]["pdelay"];
     int repeat = root[x]["repeat"];
     int xout = root[x]["out"];
     if (xout == 0) {
@@ -947,7 +945,6 @@ String processJson(DynamicJsonDocument& root, int out) {
 
     if (pulse <= 0) pulse = 1; // Make sure pulse isn't 0
     if (repeat <= 0) repeat = 1; // Make sure repeat isn't 0
-    if (pdelay <= 0) pdelay = 100; // Default pdelay
     if (rdelay <= 0) rdelay = 1000; // Default rdelay
     if (duty <= 0) duty = 50; // Default duty
 
@@ -977,10 +974,10 @@ String processJson(DynamicJsonDocument& root, int out) {
       JsonArray raw = root[x]["data"]; // Array of unsigned int values for the raw signal
       int khz = root[x]["khz"];
       if (khz <= 0) khz = 38; // Default to 38khz if not set
-      rawblast(raw, khz, rdelay, pulse, pdelay, repeat, pickIRsend(xout),duty);
+      rawblast(raw, khz, rdelay, pulse, repeat, pickIRsend(xout),duty);
     } else if (type == "pronto") {
       JsonArray pdata = root[x]["data"]; // Array of values for pronto
-      pronto(pdata, rdelay, pulse, pdelay, repeat, pickIRsend(xout));
+      pronto(pdata, rdelay, pulse, repeat, pickIRsend(xout));
     } else if (type == "roku") {
       String data = root[x]["data"];
       rokuCommand(ip, data, repeat, rdelay);
@@ -989,7 +986,7 @@ String processJson(DynamicJsonDocument& root, int out) {
       String addressString = root[x]["address"];
       long address = strtoul(addressString.c_str(), 0, 0);
       int len = root[x]["length"];
-      irblast(type, data, len, rdelay, pulse, pdelay, repeat, address, pickIRsend(xout));
+      irblast(type, data, len, rdelay, pulse, repeat, address, pickIRsend(xout));
     }
   }
   return message;
@@ -1148,12 +1145,20 @@ void sendHeader(int httpcode) {
   server->sendContent_P("      <div class='row'>\n");
   server->sendContent_P("        <div class='col-md-12'>\n");
   server->sendContent_P("          <ul class='nav nav-pills'>\n");
-  server->sendContent_P("            <li class='active'>\n");
-  server->sendContent_P(("              <a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'>Hostname <span class='badge'>" + String(host_name) + ".local" + ":" + String(port) + "</span></a></li>\n").c_str());
 #if enabledMQTT == 0
   server->sendContent_P("            <li class='active'>\n");
-  server->sendContent_P(("              <a href='http://" + WiFi.localIP().toString() + ":" + String(port) + "'>Local <span class='badge'>" + WiFi.localIP().toString() + ":" + String(port) + "</span></a></li>\n").c_str());
+  server->sendContent_P(("              <a href='http://" + String(host_name) + ".local" + ":" + String(port) + "'>Hostname <span class='badge'>" + String(host_name) + ".local" + ":" + String(port) + "</span></a></li>\n").c_str());
+#else
+  if (mqtt_client.connected()) {
+  server->sendContent_P("            <li class='active'>\n");
+  server->sendContent_P(("              <a href='#' title='" + String(mqtt_host) + ":" + String(mqtt_port_str) + "'>MQTT <span class='badge'>Connected</span></a></li>\n").c_str());
+  } else {
+  server->sendContent_P("            <li class='active'>\n");
+  server->sendContent_P("              <a href='#'>MQTT <span class='badge'>Not Connected</span></a></li>\n");
+  }
 #endif
+  server->sendContent_P("            <li class='active'>\n");
+  server->sendContent_P(("              <a href='http://" + WiFi.localIP().toString() + ":" + String(port) + "'>Local <span class='badge'>" + WiFi.localIP().toString() + ":" + String(port) + "</span></a></li>\n").c_str());
   server->sendContent_P("            <li class='active'>\n");
   server->sendContent_P(("              <a href='http://" + WiFi.dnsIP().toString() + "'>DNS <span class='badge'>" + WiFi.dnsIP().toString() + "</span></a></li>\n").c_str());
   server->sendContent_P("            <li class='active'>\n");
@@ -1173,7 +1178,7 @@ void sendFooter() {
 #if enabledMQTT == 1
   server->sendContent_P(("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime</em></div></div>\n").c_str());
   server->sendContent_P("      <div class='row'><div class='col-md-12'><em>Device in MQTT mode, HTTP commands and SHA256 HTTP authentincation disabled to save memory, TLS based MQTT SSL enabled</em></div></div>");
-  server->sendContent_P("      <div class='row'><div class='col-md-12'><em>mDNS services, NTP, and ArduinoOTA disabled, not compatible with MQTT</em></div></div>");
+  server->sendContent_P("      <div class='row'><div class='col-md-12'><em>Device in MQTT mode, mDNS services, NTP, and ArduinoOTA disabled, not compatible with MQTT due to memory limiations</em></div></div>");
 #else
   server->sendContent_P(("      <div class='row'><div class='col-md-12'><em>" + String(millis()) + "ms uptime; EPOCH " + String(now() - (timeZone * SECS_PER_HOUR)) + "</em> / <em id='jepoch'></em> ( <em id='jdiff'></em> )</div></div>\n").c_str());
   server->sendContent_P("      <script>document.getElementById('jepoch').innerHTML = Math.round((new Date()).getTime() / 1000)</script>");
@@ -1256,10 +1261,12 @@ void sendHomePage(String message, String header, int type, int httpcode) {
   server->sendContent_P(("              <tr class='text-uppercase'><td><a href='/received?id=2'>" + epochToString(last_recv_2.timestamp) + "</a></td><td><code>" + String(last_recv_2.data) + "</code></td><td><code>" + String(last_recv_2.encoding) + "</code></td><td><code>" + String(last_recv_2.bits) + "</code></td><td><code>" + String(last_recv_2.address) + "</code></td></tr>\n").c_str());
   if (last_recv_3.valid)
   server->sendContent_P(("              <tr class='text-uppercase'><td><a href='/received?id=3'>" + epochToString(last_recv_3.timestamp) + "</a></td><td><code>" + String(last_recv_3.data) + "</code></td><td><code>" + String(last_recv_3.encoding) + "</code></td><td><code>" + String(last_recv_3.bits) + "</code></td><td><code>" + String(last_recv_3.address) + "</code></td></tr>\n").c_str());
+#if enabledMQTT == 0
   if (last_recv_4.valid)
   server->sendContent_P(("              <tr class='text-uppercase'><td><a href='/received?id=4'>" + epochToString(last_recv_4.timestamp) + "</a></td><td><code>" + String(last_recv_4.data) + "</code></td><td><code>" + String(last_recv_4.encoding) + "</code></td><td><code>" + String(last_recv_4.bits) + "</code></td><td><code>" + String(last_recv_4.address) + "</code></td></tr>\n").c_str());
   if (last_recv_5.valid)
   server->sendContent_P(("              <tr class='text-uppercase'><td><a href='/received?id=5'>" + epochToString(last_recv_5.timestamp) + "</a></td><td><code>" + String(last_recv_5.data) + "</code></td><td><code>" + String(last_recv_5.encoding) + "</code></td><td><code>" + String(last_recv_5.bits) + "</code></td><td><code>" + String(last_recv_5.address) + "</code></td></tr>\n").c_str());
+#endif
   if (!last_recv.valid && !last_recv_2.valid && !last_recv_3.valid && !last_recv_4.valid && !last_recv_5.valid)
   server->sendContent_P("              <tr><td colspan='5' class='text-center'><em>No codes received</em></td></tr>");
   server->sendContent_P("            </tbody></table>\n");
@@ -1616,63 +1623,38 @@ String bin2hex(const uint8_t* bin, const int length) {
 //+=============================================================================
 // Send IR codes to variety of sources
 //
-void irblast(String type, String dataStr, unsigned int len, int rdelay, int pulse, int pdelay, int repeat, long address, IRsend irsend) {
+void irblast(String type, String dataStr, unsigned int len, int rdelay, int pulse, int repeat, long address, IRsend irsend) {
   Serial.println("Blasting off");
   type.toLowerCase();
+  decode_type_t type_t = strToDecodeType(type.c_str());
   uint64_t data = strtoull(("0x" + dataStr).c_str(), 0, 0);
   holdReceive = true;
   Serial.println("Blocking incoming IR signals");
   // Repeat Loop
   for (int r = 0; r < repeat; r++) {
-    // Pulse Loop
-    for (int p = 0; p < pulse; p++) {
-      serialPrintUint64(data, HEX);
-      Serial.print(":");
-      Serial.print(type);
-      Serial.print(":");
-      Serial.println(len);
-      if (type == "nec") {
-        irsend.sendNEC(data, len);
-      } else if (type == "sony") {
-        irsend.sendSony(data, len);
-      } else if (type == "coolix") {
-        irsend.sendCOOLIX(data, len);
-      } else if (type == "whynter") {
-        irsend.sendWhynter(data, len);
-      } else if (type == "panasonic") {
-        Serial.print("Address: ");
-        Serial.println(address);
-        irsend.sendPanasonic(address, data);
-      } else if (type == "jvc") {
-        irsend.sendJVC(data, len, 0);
-      } else if (type == "samsung") {
-        irsend.sendSAMSUNG(data, len);
-      } else if (type == "sharpraw") {
-        irsend.sendSharpRaw(data, len);
-      } else if (type == "dish") {
-        irsend.sendDISH(data, len);
-      } else if (type == "rc5") {
-        irsend.sendRC5(_rc5toggle ? data: irsend.toggleRC5(data), len);
-      } else if (type == "rc6") {
-        irsend.sendRC6(_rc6toggle ? data: irsend.toggleRC6(data, len), len);
-      } else if (type == "denon") {
-        irsend.sendDenon(data, len);
-      } else if (type == "lg") {
-        irsend.sendLG(data, len);
-      } else if (type == "sharp") {
-        irsend.sendSharpRaw(data, len);
-      } else if (type == "rcmm") {
-        irsend.sendRCMM(data, len);
-      } else if (type == "gree") {
-        irsend.sendGree(data, len);
-      } else if (type == "lutron") {
-        irsend.sendLutron(data, len);
-      } else if (type == "roomba") {
-        roomba_send(atoi(dataStr.c_str()), pulse, pdelay, irsend);
-      } else if (type == "ecoclim") {
-        irsend.sendEcoclim(data, len);
+    serialPrintUint64(data, HEX);
+    Serial.print(":");
+    Serial.print(type);
+    Serial.print(":");
+    Serial.println(len);
+
+    switch (type_t)
+    {
+    case RC5:
+    case RC5X:
+      irsend.sendRC5(_rc5toggle ? data: irsend.toggleRC5(data), len, pulse);
+      break;
+    case RC6:
+      irsend.sendRC6(_rc6toggle ? data: irsend.toggleRC6(data, len), len, pulse);
+      break;
+    case UNKNOWN:
+      if (type == "roomba") {
+        roomba_send(atoi(dataStr.c_str()), pulse, irsend);
       }
-      if (p + 1 < pulse) delay(pdelay);
+      break;
+    default:
+      irsend.send(type_t, data, len, pulse);
+      break;
     }
     if (r + 1 < repeat) delay(rdelay);
 
@@ -1699,24 +1681,20 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
   resetReceive();
 }
 
-void pronto(JsonArray &pronto, int rdelay, int pulse, int pdelay, int repeat, IRsend irsend) {
+void pronto(JsonArray &pronto, int rdelay, int pulse, int repeat, IRsend irsend) {
   Serial.println("Pronto transmit");
   holdReceive = true;
   Serial.println("Blocking incoming IR signals");
   int psize = pronto.size();
   // Repeat Loop
   for (int r = 0; r < repeat; r++) {
-    // Pulse Loop
-    for (int p = 0; p < pulse; p++) {
-      Serial.println("Sending pronto code");
-      uint16_t output[psize];
-      for (int d = 0; d < psize; d++) {
-        String phexp = pronto[d];
-        output[d] = strtoul(phexp.c_str(), 0, 0);
-      }
-      irsend.sendPronto(output, psize);
-      if (p + 1 < pulse) delay(pdelay);
+    Serial.println("Sending pronto code");
+    uint16_t output[psize];
+    for (int d = 0; d < psize; d++) {
+      String phexp = pronto[d];
+      output[d] = strtoul(phexp.c_str(), 0, 0);
     }
+    irsend.sendPronto(output, psize, pulse);
     if (r + 1 < repeat) delay(rdelay);
   }
   Serial.println("Transmission complete");
@@ -1736,24 +1714,20 @@ void pronto(JsonArray &pronto, int rdelay, int pulse, int pdelay, int repeat, IR
   resetReceive();
 }
 
-void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int repeat, IRsend irsend,int duty) {
+void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int repeat, IRsend irsend,int duty) {
   Serial.println("Raw transmit");
   holdReceive = true;
   Serial.println("Blocking incoming IR signals");
   // Repeat Loop
   for (int r = 0; r < repeat; r++) {
-    // Pulse Loop
-    for (int p = 0; p < pulse; p++) {
-      Serial.println("Sending code");
-      irsend.enableIROut(khz,duty);
-      for (unsigned int i = 0; i < raw.size(); i++) {
-        int val = raw[i];
-        if (i & 1) irsend.space(std::max(0, val));
-        else       irsend.mark(val);
-      }
-      irsend.space(0);
-      if (p + 1 < pulse) delay(pdelay);
+    Serial.println("Sending code");
+    irsend.enableIROut(khz,duty);
+    for (unsigned int i = 0; i < raw.size(); i++) {
+      int val = raw[i];
+      if (i & 1) irsend.space(std::max(0, val));
+      else       irsend.mark(val);
     }
+    irsend.space(0);
     if (r + 1 < repeat) delay(rdelay);
   }
 
@@ -1775,7 +1749,7 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int pdelay, int re
 }
 
 
-void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
+void roomba_send(int code, int pulse, IRsend irsend)
 {
   Serial.print("Sending Roomba code ");
   Serial.println(code);
@@ -1803,11 +1777,8 @@ void roomba_send(int code, int pulse, int pdelay, IRsend irsend)
     }
     arrayposition = arrayposition + 2;
   }
-  for (int i = 0; i < pulse; i++) {
-    irsend.sendRaw(raw, len, hz);
-    delay(pdelay);
-  }
 
+  irsend.sendRaw(raw, len, hz);
   resetReceive();
 }
 
@@ -1851,7 +1822,7 @@ void loop() {
     Serial.println("Signal received:");
     fullCode(&results);                                           // Print the singleline value
     dumpCode(&results);                                           // Output the results as source code
-#if enabledMQTT == 0
+#if enabledMQTT == 0                                              // Save memory by only caching the last 3 commands in MQTT mode
     copyCode(last_recv_4, last_recv_5);                           // Pass
     copyCode(last_recv_3, last_recv_4);                           // Pass
 #endif
