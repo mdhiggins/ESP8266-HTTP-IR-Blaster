@@ -4,6 +4,8 @@ ESP8266 Compatible IR Blaster that accepts HTTP commands for use with services l
 
 <a href="https://youtu.be/JysKXOdrOlM"><img width="475" alt="Setup" src="https://user-images.githubusercontent.com/3608298/31304294-a24bb388-aaec-11e7-8061-e8c3a1556b18.png"></a>
 
+*Video is slightly out of date and does include recently added MQTT options or static network configuration settings but is still useful*
+
 The purpose of this project was to create a Wi-Fi enabled IR blaster that could be controlled with Amazon Alexa
 This was designed with the NodeMCU board but should be compatible with multiple ESP8266 variants
 
