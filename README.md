@@ -38,7 +38,7 @@ https://www.silabs.com/products/development-tools/software/usb-to-uart-bridge-vc
 
 Alexa Skill
 --------------
-The companion skill for the Amazon Alexa service is available [here](https://www.amazon.com/Michael-Higgins-IR-Controller/dp/B0762YYDS9) for US/CA/UK/IN/DE Alexa customers
+The [`IR Controller`](https://www.amazon.com/Michael-Higgins-IR-Controller/dp/B0762YYDS9) companion skill for the Amazon Alexa service is available for US/CA/UK/IN/DE Alexa customers
 
 Device Setup
 --------------
