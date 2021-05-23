@@ -925,7 +925,7 @@ void setup() {
   irsend3.begin();
   irsend4.begin();
   irrecv.enableIRIn();
-  Serial.println("Ready to send and receive IR signals");
+  Serial.println("IRRemoteESP8266 ready");
 }
 
 String processJson(DynamicJsonDocument& root, int out) {
