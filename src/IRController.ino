@@ -899,7 +899,6 @@ void setup() {
   });
 
   server->begin();
-
   Serial.println("HTTP Server started on port " + String(port));
 
   externalIP();
