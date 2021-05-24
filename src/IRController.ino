@@ -59,6 +59,9 @@ PubSubClient mqtt_client(secureClient);
 #else
 #include <ArduinoOTA.h>
 #include <ESP8266mDNS.h>
+static const char ntpServerName[] = "time.google.com";
+unsigned int localPort = 8888;                                 // Local port to listen for UDP packets
+WiFiUDP ntpUDP;
 #endif
 
 const int ledpin = LED_BUILTIN;                                // Built in LED defined for WEMOS people
@@ -102,9 +105,6 @@ IRsend irsend3(pins3);
 IRsend irsend4(pins4);
 
 const unsigned long resetfrequency = 259200000;                // 72 hours in milliseconds for external IP reset
-static const char ntpServerName[] = "time.google.com";
-unsigned int localPort = 8888;                                 // Local port to listen for UDP packets
-WiFiUDP ntpUDP;
 
 bool _rc5toggle = false;
 bool _rc6toggle = false;
@@ -117,7 +117,6 @@ bool authError = false;
 time_t timeAuthError = 0;
 bool externalIPError = false;
 bool userIDError = false;
-bool ntpError = false;
 
 class Code {
   public:
@@ -139,9 +138,11 @@ void copyCode (Code& c1, Code& c2);
 
 Code last_recv;
 Code last_recv_2;
+#if enabledMQTT == 0
 Code last_recv_3;
 Code last_recv_4;
 Code last_recv_5;
+#endif
 Code last_send;
 Code last_send_2;
 Code last_send_3;
@@ -215,7 +216,6 @@ String epochToString(time_t timenow) {
 bool validateHMAC(String epid, String mid, String timestamp, String signature, IPAddress clientIP) {
     userIDError = false;
     authError = false;
-    ntpError = false;
     timeAuthError = 0;
 
     if (allowLocalBypass(clientIP)) {
@@ -613,14 +613,6 @@ void setup() {
   }
   server = new ESP8266WebServer(port);
 
-  Serial.println("Starting UDP");
-  ntpUDP.begin(localPort);
-  Serial.print("Local port: ");
-  Serial.println(ntpUDP.localPort());
-  Serial.println("Waiting for sync");
-  setSyncProvider(getNtpTime);
-  setSyncInterval(300);
-
 #if enabledMQTT == 1
   // MQTT
   const char fingerprint[] = "4F 75 27 A0 9B E2 23 85 5E B0 63 DA 40 73 51 D8 0E 7B 70 2E";
@@ -668,6 +660,14 @@ void setup() {
     MDNS.addService("http", "tcp", port); // Announce the ESP as an HTTP service
     Serial.println("MDNS http service added. Hostname is set to " + String(host_name) + ".local:" + String(port));
   }
+
+  Serial.println("Starting UDP");
+  ntpUDP.begin(localPort);
+  Serial.print("Local port: ");
+  Serial.println(ntpUDP.localPort());
+  Serial.println("Waiting for sync");
+  setSyncProvider(getNtpTime);
+  setSyncInterval(300);
 
   // Configure the server
   server->on("/json", []() { // JSON handler for more complicated IR blaster routines
@@ -749,8 +749,11 @@ void setup() {
   // Setup simple msg server to mirror version 1.0 functionality
   server->on("/msg", []() {
     Serial.println("Connection received endpoint '/msg'");
-
-    if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
+    if (!enableHTTPTransmit) {
+      Serial.println("Unauthorized access");
+      sendCorsHeaders();
+      server->send(401, "text/plain", "Unauthorized, invalid passcode");
+    } else if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, invalid passcode");
@@ -850,12 +853,14 @@ void setup() {
         sendCodePage(last_recv);
       } else if (id == 2 && last_recv_2.valid) {
         sendCodePage(last_recv_2);
+#if enabledMQTT == 0
       } else if (id == 3 && last_recv_3.valid) {
         sendCodePage(last_recv_3);
       } else if (id == 4 && last_recv_4.valid) {
         sendCodePage(last_recv_4);
       } else if (id == 5 && last_recv_5.valid) {
         sendCodePage(last_recv_5);
+#endif
       } else {
         sendHomePage("Code does not exist", "Alert", 2, 404); // 404
       }
@@ -929,6 +934,7 @@ void setup() {
       Serial.println("No errors detected with security configuration");
     }
 
+#if enabledMQTT == 0
     // Validation check time
     time_t timenow = now() - (timeZone * SECS_PER_HOUR);
     bool validEpoch = validEPOCH(timenow);
@@ -937,6 +943,7 @@ void setup() {
     } else {
       Serial.println("Invalid EPOCH time, security checks may fail if unable to sync with NTP server");
     }
+#endif
   }
 
   irsend1.begin();
@@ -1070,7 +1077,7 @@ void mqtt_callback(char* topic, byte * payload, unsigned int length) {
   }
   root.clear();
 }
-#endif
+#else
 
 
 //+=============================================================================
@@ -1135,6 +1142,7 @@ void sendNTPpacket(IPAddress &address)
   ntpUDP.write(packetBuffer, NTP_PACKET_SIZE);
   ntpUDP.endPacket();
 }
+#endif
 
 
 //+=============================================================================
@@ -1221,8 +1229,6 @@ void sendFooter() {
   server->sendContent_P("      <div class='row'><div class='col-md-12'><em>Error - EPOCH time is inappropriately low, likely connection to external time server has failed, check your network settings</em></div></div>");
   if (userIDError)
   server->sendContent_P("      <div class='row'><div class='col-md-12'><em>Error - your userID is in the wrong format and authentication will not work</em></div></div>");
-  if (ntpError)
-  server->sendContent_P("      <div class='row'><div class='col-md-12'><em>Error - last attempt to connect to the NTP server failed, check NTP settings and networking settings</em></div></div>");
 #endif
   server->sendContent_P("    </div>\n");
   server->sendContent_P("  </body>\n");
@@ -1284,15 +1290,17 @@ void sendHomePage(String message, String header, int type, int httpcode) {
   server->sendContent_P(("              <tr class='text-uppercase'><td><a href='/received?id=1'>" + epochToString(last_recv.timestamp) + "</a></td><td><code>" + String(last_recv.data) + "</code></td><td><code>" + String(last_recv.encoding) + "</code></td><td><code>" + String(last_recv.bits) + "</code></td><td><code>" + String(last_recv.address) + "</code></td></tr>\n").c_str());
   if (last_recv_2.valid)
   server->sendContent_P(("              <tr class='text-uppercase'><td><a href='/received?id=2'>" + epochToString(last_recv_2.timestamp) + "</a></td><td><code>" + String(last_recv_2.data) + "</code></td><td><code>" + String(last_recv_2.encoding) + "</code></td><td><code>" + String(last_recv_2.bits) + "</code></td><td><code>" + String(last_recv_2.address) + "</code></td></tr>\n").c_str());
+#if enabledMQTT == 0
   if (last_recv_3.valid)
   server->sendContent_P(("              <tr class='text-uppercase'><td><a href='/received?id=3'>" + epochToString(last_recv_3.timestamp) + "</a></td><td><code>" + String(last_recv_3.data) + "</code></td><td><code>" + String(last_recv_3.encoding) + "</code></td><td><code>" + String(last_recv_3.bits) + "</code></td><td><code>" + String(last_recv_3.address) + "</code></td></tr>\n").c_str());
-#if enabledMQTT == 0
   if (last_recv_4.valid)
   server->sendContent_P(("              <tr class='text-uppercase'><td><a href='/received?id=4'>" + epochToString(last_recv_4.timestamp) + "</a></td><td><code>" + String(last_recv_4.data) + "</code></td><td><code>" + String(last_recv_4.encoding) + "</code></td><td><code>" + String(last_recv_4.bits) + "</code></td><td><code>" + String(last_recv_4.address) + "</code></td></tr>\n").c_str());
   if (last_recv_5.valid)
   server->sendContent_P(("              <tr class='text-uppercase'><td><a href='/received?id=5'>" + epochToString(last_recv_5.timestamp) + "</a></td><td><code>" + String(last_recv_5.data) + "</code></td><td><code>" + String(last_recv_5.encoding) + "</code></td><td><code>" + String(last_recv_5.bits) + "</code></td><td><code>" + String(last_recv_5.address) + "</code></td></tr>\n").c_str());
-#endif
   if (!last_recv.valid && !last_recv_2.valid && !last_recv_3.valid && !last_recv_4.valid && !last_recv_5.valid)
+#else
+  if (!last_recv.valid && !last_recv_2.valid)
+#endif
   server->sendContent_P("              <tr><td colspan='5' class='text-center'><em>No codes received</em></td></tr>");
   server->sendContent_P("            </tbody></table>\n");
   server->sendContent_P("          </div></div>\n");
@@ -1847,11 +1855,11 @@ void loop() {
     Serial.println("Signal received:");
     fullCode(&results);                                           // Print the singleline value
     dumpCode(&results);                                           // Output the results as source code
-#if enabledMQTT == 0                                              // Save memory by only caching the last 3 commands in MQTT mode
+#if enabledMQTT == 0                                              // Save memory by only caching the last 2 commands in MQTT mode
     copyCode(last_recv_4, last_recv_5);                           // Pass
     copyCode(last_recv_3, last_recv_4);                           // Pass
-#endif
     copyCode(last_recv_2, last_recv_3);                           // Pass
+#endif
     copyCode(last_recv, last_recv_2);                             // Pass
     cvrtCode(last_recv, &results);                                // Store the results
     last_recv.timestamp = now();                                  // Set the new update time
