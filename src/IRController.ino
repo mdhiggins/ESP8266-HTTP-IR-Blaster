@@ -673,24 +673,18 @@ void setup() {
   server->on("/json", []() { // JSON handler for more complicated IR blaster routines
     Serial.println("Connection received endpoint '/json'");
 
-    int simple = 0;
-    if (server->hasArg("simple")) simple = server->arg("simple").toInt();
-    String signature = server->arg("auth");
-    String epid = server->arg("epid");
-    String mid = server->arg("mid");
-    String timestamp = server->arg("time");
-
     if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, invalid passcode");
-    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
+    } else if (securityCheck(server, user_id)) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, HMAC security authentication failed");
     } else {
       DynamicJsonDocument root(packetSize);
       DeserializationError error = deserializeJson(root, server->arg("plain"));
+      int simple = (server->hasArg("simple")) ? server->arg("simple").toInt() : 0;
       int out = (server->hasArg("out")) ? server->arg("out").toInt() : 1;
       if (error) {
         Serial.println("JSON parsing failed");
@@ -719,7 +713,7 @@ void setup() {
             if (state == currentState) {
               if (simple) {
                 sendCorsHeaders();
-                server->send(200, "text/html", "Not sending command to " + device + ", already in state " + state);
+                server->send(200, "text/plain", "Not sending command to " + device + ", already in state " + state);
               } else {
                 sendHomePage("Not sending command to " + device + ", already in state " + state, "Warning", 2); // 200
               }
@@ -737,7 +731,7 @@ void setup() {
 
         if (simple) {
           sendCorsHeaders();
-          server->send(200, "text/html", "Success, code sent");
+          server->send(200, "text/plain", "Success, code sent");
         }
 
         String message = processJson(root, out);
@@ -756,24 +750,18 @@ void setup() {
   server->on("/msg", []() {
     Serial.println("Connection received endpoint '/msg'");
 
-    int simple = 0;
-    if (server->hasArg("simple")) simple = server->arg("simple").toInt();
-    String signature = server->arg("auth");
-    String epid = server->arg("epid");
-    String mid = server->arg("mid");
-    String timestamp = server->arg("time");
-
     if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, invalid passcode");
-    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
+    } else if (securityCheck(server, user_id)) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, HMAC security authentication");
     } else {
       digitalWrite(ledpin, LOW);
       ticker.attach(0.5, disableLed);
+      int simple = (server->hasArg("simple")) ? server->arg("simple").toInt() : 0;
       String type = server->arg("type");
       String data = server->arg("data");
       String ip = server->arg("ip");
@@ -791,7 +779,7 @@ void setup() {
           if (state == currentState) {
             if (simple) {
               sendCorsHeaders();
-              server->send(200, "text/html", "Not sending command to " + device + ", already in state " + state);
+              server->send(200, "text/plain", "Not sending command to " + device + ", already in state " + state);
             } else {
               sendHomePage("Not sending command to " + device + ", already in state " + state, "Warning", 2); // 200
             }
@@ -828,7 +816,7 @@ void setup() {
 
       if (simple) {
         sendCorsHeaders();
-        server->send(200, "text/html", "Success, code sent");
+        server->send(200, "text/plain", "Success, code sent");
       }
 
       if (type == "roku") {
@@ -846,16 +834,12 @@ void setup() {
 
   server->on("/received", []() {
     Serial.println("Connection received endpoint '/received'");
-    String signature = server->arg("auth");
-    String epid = server->arg("epid");
-    String mid = server->arg("mid");
-    String timestamp = server->arg("time");
     
     if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, invalid passcode");
-    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
+    } else if (securityCheck(server, user_id)) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, HMAC security authentication");
@@ -878,18 +862,54 @@ void setup() {
     }
   });
 
+  server->on("/state", []() {
+    Serial.println("Connection received endpoint '/state'");
+
+    if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
+      Serial.println("Unauthorized access");
+      sendCorsHeaders();
+      server->send(401, "application/json", "{\"error\":\"Unauthorized, invalid passcode\"}");
+    } else if (securityCheck(server, user_id)) {
+      Serial.println("Unauthorized access");
+      sendCorsHeaders();
+      server->send(401, "application/json", "{\"error\":\"Unauthorized, HMAC security authentication\"}");
+    } else {
+      digitalWrite(ledpin, LOW);
+      ticker.attach(0.5, disableLed);
+      String type = server->arg("type");
+      String data = server->arg("data");
+      String ip = server->arg("ip");
+
+      if (server->hasArg("device")) {
+        String device = server->arg("device");
+        if (deviceState.containsKey(device)) {
+          int currentState = deviceState[device];
+          Serial.println("Current state for " + device + ": " + String(currentState));
+          sendCorsHeaders();
+          server->send(200, "application/json", "{\"status\":\"OK\",\"state\":" + String(currentState) + "}");
+        } else {
+          Serial.println("Device " + device + " not found");
+          sendCorsHeaders();
+          server->send(200, "application/json", "{\"status\":\"Not Found\",\"msg\":\"Device '" + device + "' state was not found. Returned default state off\",\"state\":0}");
+        }
+      } else {
+        String allstates;
+        serializeJson(deviceState, allstates);
+        Serial.println("Device states:");
+        serializeJson(deviceState, Serial);
+        server->send(200, "application/json", "{\"status\":\"OK\",\"states\"" + allstates + "}");
+      }
+    }
+  });
+
   server->on("/", []() {
     Serial.println("Connection received endpoint '/'");
-    String signature = server->arg("auth");
-    String epid = server->arg("epid");
-    String mid = server->arg("mid");
-    String timestamp = server->arg("time");
-    
+
     if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, invalid passcode");
-    } else if (strlen(user_id) != 0 && !validateHMAC(epid, mid, timestamp, signature, server->client().remoteIP())) {
+    } else if (securityCheck(server, user_id)) {
       Serial.println("Unauthorized access");
       sendCorsHeaders();
       server->send(401, "text/plain", "Unauthorized, HMAC security authentication");
@@ -988,6 +1008,14 @@ String processJson(DynamicJsonDocument& root, int out) {
     }
   }
   return message;
+}
+
+
+//+=============================================================================
+// Security Check
+//
+boolean securityCheck(ESP8266WebServer *server, char* user_id) {
+    return (strlen(user_id) != 0 && !validateHMAC(server->arg("epid"), server->arg("mid"), server->arg("time"), server->arg("auth"), server->client().remoteIP()));
 }
 
 

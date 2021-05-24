@@ -226,6 +226,18 @@ Example Turn On URL (if TV was already turned on, this command will do nothing):
 Example Turn Off URL (if TV was already turned off, this command will do nothing):
 `http://xxx.xxx.xxx.xxx:port/msg?code=A90:SONY:12&pass=yourpass&device=tv&state=0`
 
+To lookup and determine the state of the device, make an HTTP rest call to the `/state` endpoint.
+
+Sample URL
+```
+http://xxx.xxx.xxx.xxx:port/state?pass=yourpass&device=yourdevice
+```
+
+Example Response:
+```
+{"status":"OK","state":1}
+```
+
 Minimal Output
 ---------------
 For configuring URLs to work with IFTTT or the IR Controller skill, or other automation services where the HTML output of the device will never be seen by a human, add `&simple=1` to the URL to simplify the data sent and speed up the response time
