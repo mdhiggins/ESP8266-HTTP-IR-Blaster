@@ -22,6 +22,7 @@
 const uint16 packetSize = 2048;
 
 const bool getExternalIP = true;                               // Set to false to disable querying external IP
+const bool enableHTTPTransmit = true;                          // Set to fales to disable sending commands over HTTP
 
 const bool getTime = true;                                     // Set to false to disable querying for the time
 const int timeZone = -5;                                       // Timezone (-5 is EST)
