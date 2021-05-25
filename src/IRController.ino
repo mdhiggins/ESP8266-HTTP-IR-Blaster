@@ -13,7 +13,7 @@
 
 // User settings are below here
 //+=============================================================================
-#define enabledMQTT 1                                          // Enable MQTT; this disables lots of other code as the MQTT client is very memory intensive
+// #define enabledMQTT 0                                          // Enable MQTT; this disables lots of other code as the MQTT client is very memory intensive
 
 const bool enableMDNSServices = true;                          // Use mDNS services, must be enabled for ArduinoOTA
 const bool bypassLocalAuth = true;                             // Allow local traffic to bypass HMAC check
@@ -985,7 +985,6 @@ boolean securityCheck(ESP8266WebServer *server, char* user_id) {
     }
     return true;
 }
-
 
 #if enabledMQTT == 1
 //+=============================================================================
