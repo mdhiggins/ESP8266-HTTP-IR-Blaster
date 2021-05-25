@@ -3,37 +3,29 @@
 #include <IRrecv.h>
 #include <IRutils.h>
 #include <ESP8266WiFi.h>
-#include <WiFiManager.h>                                      // https://github.com/tzapu/WiFiManager WiFi Configuration Magic
+#include <WiFiManager.h>
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WebServer.h>
-
 #include <ArduinoJson.h>
-#include "sha256.h"
-
-#include <Ticker.h>                                           // For LED status
+#include <Ticker.h>
 #include <TimeLib.h>
-
 #include <LittleFS.h>
 
 // User settings are below here
 //+=============================================================================
-#define enabledMQTT 0                                          // Enable MQTT; this disables lots of other code as the MQTT client is very memory intensive
+#define enabledMQTT 1                                          // Enable MQTT; this disables lots of other code as the MQTT client is very memory intensive
 
-const uint16 packetSize = 2048;
-
+const bool enableMDNSServices = true;                          // Use mDNS services, must be enabled for ArduinoOTA
+const bool bypassLocalAuth = true;                             // Allow local traffic to bypass HMAC check
 const bool getExternalIP = true;                               // Set to false to disable querying external IP
-const bool enableHTTPTransmit = true;                          // Set to fales to disable sending commands over HTTP
 
 const bool getTime = true;                                     // Set to false to disable querying for the time
 const int timeZone = -5;                                       // Timezone (-5 is EST)
 
-const bool enableMDNSServices = true;                          // Use mDNS services, must be enabled for ArduinoOTA
-
-const bool bypassLocalAuth = true;                             // Allow local traffic to bypass HMAC check
-
-const unsigned int captureBufSize = 1024;                      // Size of the IR capture buffer.
-
 const bool toggleRC = true;                                    // Toggle RC signals every other transmission
+
+const uint16 packetSize = 2048;                                // Size of the JSON array to decode incoming commands
+const unsigned int captureBufSize = 1024;                      // Size of the IR capture buffer.
 
 #if defined(ARDUINO_ESP8266_WEMOS_D1R1) || defined(ARDUINO_ESP8266_WEMOS_D1MINI) || defined(ARDUINO_ESP8266_WEMOS_D1MINIPRO) || defined(ARDUINO_ESP8266_WEMOS_D1MINILITE)
 const uint16_t  pinr1 = D5;                                          // Receiving pin (GPIO14)
@@ -60,6 +52,7 @@ PubSubClient mqtt_client(secureClient);
 #else
 #include <ArduinoOTA.h>
 #include <ESP8266mDNS.h>
+#include "sha256.h"
 static const char ntpServerName[] = "time.google.com";
 unsigned int localPort = 8888;                                 // Local port to listen for UDP packets
 WiFiUDP ntpUDP;
@@ -81,11 +74,11 @@ char mqtt_port_str[6] = "8883";
 char mqtt_user[20] = "public";
 char mqtt_pass[20] = "publicaccess";
 
-// Do not modify these values with your own, they are placeholder values that WiFiManager will overwrite
-char static_ip[16] = "10.0.1.10";
-char static_gw[16] = "10.0.1.1";
-char static_sn[16] = "255.255.255.0";
-char static_dns[16] = "10.0.1.1";
+// Static IP settings
+char static_ip[16];
+char static_gw[16];
+char static_sn[16];
+char static_dns[16];
 
 Ticker ticker;
 HTTPClient http;
@@ -224,6 +217,9 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature, I
       return true;
     }
 
+#if enabledMQTT == 1
+    return false;
+#else
     userIDError = !(validUID(user_id));
 
     time_t timethen = timestamp.toInt();
@@ -267,6 +263,7 @@ bool validateHMAC(String epid, String mid, String timestamp, String signature, I
     Serial.print("MID: ");
     Serial.println(mid);
     return true;
+#endif
 }
 
 //+=============================================================================
@@ -467,36 +464,37 @@ bool setupWifi(bool resetConf) {
     Serial.println("failed to mount FS");
   }
 
-  WiFiManagerParameter custom_hostname("hostname", "Choose a hostname to this IR Controller", host_name, 20);
+  WiFiManagerParameter custom_hostname("hostname", "Device name", host_name, 20);
   wifiManager.addParameter(&custom_hostname);
-  WiFiManagerParameter custom_passcode("passcode", "Choose a passcode", passcode, 20);
+  WiFiManagerParameter custom_passcode("passcode", "Passcode", passcode, 20);
   wifiManager.addParameter(&custom_passcode);
-  WiFiManagerParameter custom_mqtt_host("mqtt_host", "Choose a MQTT host", mqtt_host, 100);
+  WiFiManagerParameter custom_mqtt_host("mqtt_host", "MQTT server", mqtt_host, 100);
   wifiManager.addParameter(&custom_mqtt_host);
-  WiFiManagerParameter custom_mqtt_port("mqtt_port_str", "Choose MQTT server port", mqtt_port_str, 6);
+  WiFiManagerParameter custom_mqtt_port("mqtt_port_str", "MQTT server port", mqtt_port_str, 6);
   wifiManager.addParameter(&custom_mqtt_port);
-  WiFiManagerParameter custom_mqtt_user("mqtt_user", "Choose a MQTT user", mqtt_user, 20);
+  WiFiManagerParameter custom_mqtt_user("mqtt_user", "MQTT username", mqtt_user, 20);
   wifiManager.addParameter(&custom_mqtt_user);
-  WiFiManagerParameter custom_mqtt_pass("mqtt_pass", "Choose a MQTT password", mqtt_pass, 20);
+  WiFiManagerParameter custom_mqtt_pass("mqtt_pass", "MQTT password", mqtt_pass, 20);
   wifiManager.addParameter(&custom_mqtt_pass);
-  WiFiManagerParameter custom_userid("user_id", "Enter your Amazon user_id", user_id, 60);
+  WiFiManagerParameter custom_userid("user_id", "Amazon user_id", user_id, 60);
   wifiManager.addParameter(&custom_userid);
-  WiFiManagerParameter custom_port("port_str", "Choose a port", port_str, 6);
+  WiFiManagerParameter custom_port("port_str", "Webserver port", port_str, 6);
   wifiManager.addParameter(&custom_port);
 
   wifiManager.setShowStaticFields(true);
   wifiManager.setShowDnsFields(true);
-
-  IPAddress sip, sgw, ssn, dns;
-  sip.fromString(static_ip);
-  sgw.fromString(static_gw);
-  ssn.fromString(static_sn);
-  dns.fromString(static_dns);
+  wifiManager.setShowInfoErase(true);
+  wifiManager.setShowInfoUpdate(true);
 
   if (resetConf) {
     Serial.println("Reset triggered, launching in AP mode");
     wifiManager.startConfigPortal(wifi_config_name);
   } else {
+    IPAddress sip, sgw, ssn, dns;
+    sip.fromString(static_ip);
+    sgw.fromString(static_gw);
+    ssn.fromString(static_sn);
+    dns.fromString(static_dns);
     Serial.println("Setting static WiFi data from config");
     wifiManager.setSTAStaticIPConfig(sip, sgw, ssn, dns);
   }
@@ -630,7 +628,7 @@ void setup() {
     }
     mqtt_client.setCallback(mqtt_callback);
   } else {
-    Serial.println("MQTT not enabled, host not set");
+    Serial.println("MQTT not functional, MQTT server, device name, and user_id must be set");
   }
 #else
   if (enableMDNSServices) {
@@ -673,16 +671,7 @@ void setup() {
   // Configure the server
   server->on("/json", []() { // JSON handler for more complicated IR blaster routines
     Serial.println("Connection received endpoint '/json'");
-
-    if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
-      Serial.println("Unauthorized access");
-      sendCorsHeaders();
-      server->send(401, "text/plain", "Unauthorized, invalid passcode");
-    } else if (securityCheck(server, user_id)) {
-      Serial.println("Unauthorized access");
-      sendCorsHeaders();
-      server->send(401, "text/plain", "Unauthorized, HMAC security authentication failed");
-    } else {
+    if (securityCheck(server, user_id)) {
       DynamicJsonDocument root(packetSize);
       DeserializationError error = deserializeJson(root, server->arg("plain"));
       int simple = (server->hasArg("simple")) ? server->arg("simple").toInt() : 0;
@@ -750,19 +739,7 @@ void setup() {
   // Setup simple msg server to mirror version 1.0 functionality
   server->on("/msg", []() {
     Serial.println("Connection received endpoint '/msg'");
-    if (!enableHTTPTransmit) {
-      Serial.println("Unauthorized access");
-      sendCorsHeaders();
-      server->send(401, "text/plain", "Unauthorized, invalid passcode");
-    } else if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
-      Serial.println("Unauthorized access");
-      sendCorsHeaders();
-      server->send(401, "text/plain", "Unauthorized, invalid passcode");
-    } else if (securityCheck(server, user_id)) {
-      Serial.println("Unauthorized access");
-      sendCorsHeaders();
-      server->send(401, "text/plain", "Unauthorized, HMAC security authentication");
-    } else {
+    if (securityCheck(server, user_id)) {
       digitalWrite(ledpin, LOW);
       ticker.attach(0.5, disableLed);
       int simple = (server->hasArg("simple")) ? server->arg("simple").toInt() : 0;
@@ -838,16 +815,7 @@ void setup() {
 
   server->on("/received", []() {
     Serial.println("Connection received endpoint '/received'");
-    
-    if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
-      Serial.println("Unauthorized access");
-      sendCorsHeaders();
-      server->send(401, "text/plain", "Unauthorized, invalid passcode");
-    } else if (securityCheck(server, user_id)) {
-      Serial.println("Unauthorized access");
-      sendCorsHeaders();
-      server->send(401, "text/plain", "Unauthorized, HMAC security authentication");
-    } else {
+    if (securityCheck(server, user_id)) {
       int id = server->arg("id").toInt();
       String output;
       if (id == 1 && last_recv.valid) {
@@ -871,17 +839,7 @@ void setup() {
   server->on("/state", []() {
     Serial.println("Connection received endpoint '/state'");
 
-    if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
-      Serial.println("Unauthorized access");
-      sendCorsHeaders();
-      server->send(401, "application/json", "{\"error\":\"Unauthorized, invalid passcode\"}");
-    } else if (securityCheck(server, user_id)) {
-      Serial.println("Unauthorized access");
-      sendCorsHeaders();
-      server->send(401, "application/json", "{\"error\":\"Unauthorized, HMAC security authentication\"}");
-    } else {
-      digitalWrite(ledpin, LOW);
-      ticker.attach(0.5, disableLed);
+    if (securityCheck(server, user_id)) {
       String type = server->arg("type");
       String data = server->arg("data");
       String ip = server->arg("ip");
@@ -910,16 +868,7 @@ void setup() {
 
   server->on("/", []() {
     Serial.println("Connection received endpoint '/'");
-
-    if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
-      Serial.println("Unauthorized access");
-      sendCorsHeaders();
-      server->send(401, "text/plain", "Unauthorized, invalid passcode");
-    } else if (securityCheck(server, user_id)) {
-      Serial.println("Unauthorized access");
-      sendCorsHeaders();
-      server->send(401, "text/plain", "Unauthorized, HMAC security authentication");
-    } else {
+    if (securityCheck(server, user_id)) {
       sendHomePage(); // 200
     }
   });
@@ -1023,7 +972,18 @@ String processJson(DynamicJsonDocument& root, int out) {
 // Security Check
 //
 boolean securityCheck(ESP8266WebServer *server, char* user_id) {
-    return (strlen(user_id) != 0 && !validateHMAC(server->arg("epid"), server->arg("mid"), server->arg("time"), server->arg("auth"), server->client().remoteIP()));
+    if (!allowLocalBypass(server->client().remoteIP()) && !isPasscodeValid(server->arg("pass"))) {
+      Serial.println("Unauthorized access");
+      sendCorsHeaders();
+      server->send(401, "application/json", "{\"error\":\"Unauthorized, invalid passcode\"}");
+      return false;
+    } else if (strlen(user_id) != 0 && !validateHMAC(server->arg("epid"), server->arg("mid"), server->arg("time"), server->arg("auth"), server->client().remoteIP())) {
+      Serial.println("Unauthorized access");
+      sendCorsHeaders();
+      server->send(401, "application/json", "{\"error\":\"Unauthorized, HMAC security authentication\"}");
+      return false;
+    }
+    return true;
 }
 
 
