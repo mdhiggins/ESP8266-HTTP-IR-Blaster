@@ -13,7 +13,7 @@
 
 // User settings are below here
 //+=============================================================================
-// #define enabledMQTT 0                                          // Enable MQTT; this disables lots of other code as the MQTT client is very memory intensive
+// #define enabledMQTT 0                                       // Enable MQTT; this disables lots of other code as the MQTT client is very memory intensive
 
 const bool enableMDNSServices = true;                          // Use mDNS services, must be enabled for ArduinoOTA
 const bool bypassLocalAuth = true;                             // Allow local traffic to bypass HMAC check
@@ -28,19 +28,19 @@ const uint16 packetSize = 2048;                                // Size of the JS
 const unsigned int captureBufSize = 1024;                      // Size of the IR capture buffer.
 
 #if defined(ARDUINO_ESP8266_WEMOS_D1R1) || defined(ARDUINO_ESP8266_WEMOS_D1MINI) || defined(ARDUINO_ESP8266_WEMOS_D1MINIPRO) || defined(ARDUINO_ESP8266_WEMOS_D1MINILITE)
-const uint16_t  pinr1 = D5;                                          // Receiving pin (GPIO14)
-const uint16_t  pins1 = D6;                                          // Transmitting preset 1 (GPIO12)
-const uint16_t  configpin = D2;                                      // Reset Pin (GPIO4)
-const uint16_t  pins2 = 5;                                           // Transmitting preset 2
-const uint16_t  pins3 = 12;                                          // Transmitting preset 3
-const uint16_t  pins4 = 13;                                          // Transmitting preset 4
+const uint16_t  pinr1 = D5;                                    // Receiving pin (GPIO14)
+const uint16_t  pins1 = D6;                                    // Transmitting preset 1 (GPIO12)
+const uint16_t  configpin = D2;                                // Reset Pin (GPIO4)
+const uint16_t  pins2 = 5;                                     // Transmitting preset 2
+const uint16_t  pins3 = 12;                                    // Transmitting preset 3
+const uint16_t  pins4 = 13;                                    // Transmitting preset 4
 #else
-const uint16_t  pinr1 = 14;                                          // Receiving pin
-const uint16_t  pins1 = 4;                                           // Transmitting preset 1
-const uint16_t  configpin = 10;                                      // Reset Pin
-const uint16_t  pins2 = 5;                                           // Transmitting preset 2
-const uint16_t  pins3 = 12;                                          // Transmitting preset 3
-const uint16_t  pins4 = 13;                                          // Transmitting preset 4
+const uint16_t  pinr1 = 14;                                    // Receiving pin
+const uint16_t  pins1 = 4;                                     // Transmitting preset 1
+const uint16_t  configpin = 10;                                // Reset Pin
+const uint16_t  pins2 = 5;                                     // Transmitting preset 2
+const uint16_t  pins3 = 12;                                    // Transmitting preset 3
+const uint16_t  pins4 = 13;                                    // Transmitting preset 4
 #endif
 //+=============================================================================
 // User settings are above here
