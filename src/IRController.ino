@@ -618,6 +618,7 @@ void setup() {
 
   if (mqtt_enabled()) {
     secureClient.setFingerprint(fingerprint);
+    mqtt_client.setBufferSize(packetSize);
     IPAddress mqtt_ip;
     if (mqtt_ip.fromString(mqtt_host)) {
       Serial.println("MQTT IP: " + String(mqtt_host));
