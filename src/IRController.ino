@@ -132,16 +132,17 @@ void copyCode (Code& c1, Code& c2);
 
 Code last_recv;
 Code last_recv_2;
+Code last_send;
+Code last_send_2;
 #if enabledMQTT == 0
 Code last_recv_3;
 Code last_recv_4;
 Code last_recv_5;
-#endif
-Code last_send;
-Code last_send_2;
 Code last_send_3;
 Code last_send_4;
 Code last_send_5;
+#endif
+
 
 //+=============================================================================
 // Callback notifying us of the need to save config
@@ -418,13 +419,13 @@ bool setupWifi(bool resetConf) {
   wifiManager.setConfigPortalTimeout(180);
 
   if (LittleFS.begin()) {
-    Serial.println("mounted file system");
+    Serial.println("Mounted file system");
     if (LittleFS.exists("/config.json")) {
       //file exists, reading and loading
-      Serial.println("reading config file");
+      Serial.println("Reading config file");
       File configFile = LittleFS.open("/config.json", "r");
       if (configFile) {
-        Serial.println("opened config file");
+        Serial.println("Opened config file");
         size_t size = configFile.size();
         // Allocate a buffer to store contents of the file.
         std::unique_ptr<char[]> buf(new char[size]);
@@ -455,13 +456,13 @@ bool setupWifi(bool resetConf) {
           if (json.containsKey("sn")) strncpy(static_sn, json["sn"], 16);
           if (json.containsKey("dns")) strncpy(static_dns, json["dns"], 16);
         } else {
-          Serial.println("failed to load json config");
+          Serial.println("Failed to load json config");
         }
         json.clear();
       }
     }
   } else {
-    Serial.println("failed to mount FS");
+    Serial.println("Failed to mount FS");
   }
 
   WiFiManagerParameter custom_hostname("hostname", "Device name", host_name, 20);
@@ -487,6 +488,7 @@ bool setupWifi(bool resetConf) {
   wifiManager.setShowInfoUpdate(true);
 
   if (resetConf) {
+    eraseDeviceStates();
     Serial.println("Reset triggered, launching in AP mode");
     wifiManager.startConfigPortal(wifi_config_name);
   } else {
@@ -596,6 +598,8 @@ void setup() {
     delay(500);
     Serial.print(".");
   }
+
+  loadDeviceStates();
 
   wifi_set_sleep_type(LIGHT_SLEEP_T);
   digitalWrite(ledpin, LOW);
@@ -718,6 +722,7 @@ void setup() {
             Serial.println("Setting device " + device + " to state " + state);
             deviceState[device] = state;
           }
+          saveDeviceStates();
         }
 
         if (simple) {
@@ -775,6 +780,7 @@ void setup() {
           Serial.println("Setting device " + device + " to state " + state);
           deviceState[device] = state;
         }
+        saveDeviceStates();
       }
 
       int len = server->arg("length").toInt();
@@ -867,6 +873,14 @@ void setup() {
     }
   });
 
+  server->on("/erasestates", []() {
+    if (securityCheck(server, user_id)) {
+      eraseDeviceStates();
+      sendCorsHeaders();
+      server->send(200, "application/plainttext", "States reset");
+    }
+  });
+
   server->on("/", []() {
     Serial.println("Connection received endpoint '/'");
     if (securityCheck(server, user_id)) {
@@ -906,6 +920,7 @@ void setup() {
 }
 
 String processJson(DynamicJsonDocument& root, int out) {
+  bool needsSave = false;
   String message = "Code sent";
   for (size_t x = 0; x < root.size(); x++) {
     String type = root[x]["type"];
@@ -942,6 +957,7 @@ String processJson(DynamicJsonDocument& root, int out) {
         Serial.println("Setting device " + device + " to state " + state);
         deviceState[device] = state;
       }
+      needsSave = true;
     }
 
     if (type == "delay") {
@@ -965,7 +981,66 @@ String processJson(DynamicJsonDocument& root, int out) {
       irblast(type, data, len, rdelay, pulse, repeat, address, pickIRsend(xout));
     }
   }
+  if (needsSave) saveDeviceStates();
   return message;
+}
+
+
+//+=============================================================================
+// Reset Device States in LittleFS
+//
+void eraseDeviceStates() {
+  deviceState.clear();
+  if (LittleFS.exists("/states.json")) LittleFS.remove("/states.json");
+  Serial.println("States erased successfully");
+}
+
+
+//+=============================================================================
+// Save Device States to LittleFS
+//
+void saveDeviceStates() {
+    File statesFile = LittleFS.open("/states.json", "w");
+    if (!statesFile) {
+      Serial.println("Failed to open states file for writing");
+    }
+    serializeJson(deviceState, Serial);
+    Serial.println("");
+    Serial.println("Writing states file");
+    serializeJson(deviceState, statesFile);
+    statesFile.close();
+    Serial.println("States written successfully");
+}
+
+
+//+=============================================================================
+// Load Device States from LittleFS
+//
+void loadDeviceStates() {
+  if (LittleFS.begin()) {
+    Serial.println("Mounted file system");
+    if (LittleFS.exists("/states.json")) {
+      //file exists, reading and loading
+      Serial.println("Reading states file");
+      File statesFile = LittleFS.open("/states.json", "r");
+      if (statesFile) {
+        Serial.println("Opened states file");
+        size_t size = statesFile.size();
+        // Allocate a buffer to store contents of the file.
+        std::unique_ptr<char[]> buf(new char[size]);
+        statesFile.readBytes(buf.get(), size);
+        DeserializationError error = deserializeJson(deviceState, buf.get());
+        serializeJson(deviceState, Serial);
+        if (!error) {
+          Serial.println("\nParsed states json");
+        } else {
+          Serial.println("Failed to load json config");
+        }
+      }
+    }
+  } else {
+    Serial.println("Failed to mount FS");
+  }
 }
 
 
@@ -1231,6 +1306,7 @@ void sendHomePage(String message, String header, int type, int httpcode) {
   server->sendContent_P(("              <tr class='text-uppercase'><td>" + epochToString(last_send.timestamp) + "</td><td><code>" + String(last_send.data) + "</code></td><td><code>" + String(last_send.encoding) + "</code></td><td><code>" + String(last_send.bits) + "</code></td><td><code>" + String(last_send.address) + "</code></td></tr>\n").c_str());
   if (last_send_2.valid)
   server->sendContent_P(("              <tr class='text-uppercase'><td>" + epochToString(last_send_2.timestamp) + "</td><td><code>" + String(last_send_2.data) + "</code></td><td><code>" + String(last_send_2.encoding) + "</code></td><td><code>" + String(last_send_2.bits) + "</code></td><td><code>" + String(last_send_2.address) + "</code></td></tr>\n").c_str());
+#if enabledMQTT == 0
   if (last_send_3.valid)
   server->sendContent_P(("              <tr class='text-uppercase'><td>" + epochToString(last_send_3.timestamp) + "</td><td><code>" + String(last_send_3.data) + "</code></td><td><code>" + String(last_send_3.encoding) + "</code></td><td><code>" + String(last_send_3.bits) + "</code></td><td><code>" + String(last_send_3.address) + "</code></td></tr>\n").c_str());
   if (last_send_4.valid)
@@ -1238,6 +1314,9 @@ void sendHomePage(String message, String header, int type, int httpcode) {
   if (last_send_5.valid)
   server->sendContent_P(("              <tr class='text-uppercase'><td>" + epochToString(last_send_5.timestamp) + "</td><td><code>" + String(last_send_5.data) + "</code></td><td><code>" + String(last_send_5.encoding) + "</code></td><td><code>" + String(last_send_5.bits) + "</code></td><td><code>" + String(last_send_5.address) + "</code></td></tr>\n").c_str());
   if (!last_send.valid && !last_send_2.valid && !last_send_3.valid && !last_send_4.valid && !last_send_5.valid)
+#else
+  if (!last_send.valid && !last_send_2.valid)
+#endif
   server->sendContent_P("              <tr><td colspan='5' class='text-center'><em>No codes sent</em></td></tr>");
   server->sendContent_P("            </tbody></table>\n");
   server->sendContent_P("          </div></div>\n");
@@ -1379,9 +1458,11 @@ int rokuCommand(String ip, String data, int repeat, int rdelay) {
     Serial.println(url);
     Serial.println("Sending roku command");
   
+#if enabledMQTT == 0
     copyCode(last_send_4, last_send_5);
     copyCode(last_send_3, last_send_4);
     copyCode(last_send_2, last_send_3);
+#endif
     copyCode(last_send, last_send_2);
   
     strncpy(last_send.data, data.c_str(), 40);
@@ -1660,9 +1741,11 @@ void irblast(String type, String dataStr, unsigned int len, int rdelay, int puls
 
   Serial.println("Transmission complete");
 
+#if enabledMQTT == 0
   copyCode(last_send_4, last_send_5);
   copyCode(last_send_3, last_send_4);
   copyCode(last_send_2, last_send_3);
+#endif
   copyCode(last_send, last_send_2);
 
   strncpy(last_send.data, dataStr.c_str(), 40);
@@ -1693,9 +1776,11 @@ void pronto(JsonArray &pronto, int rdelay, int pulse, int repeat, IRsend irsend)
   }
   Serial.println("Transmission complete");
 
+#if enabledMQTT == 0
   copyCode(last_send_4, last_send_5);
   copyCode(last_send_3, last_send_4);
   copyCode(last_send_2, last_send_3);
+#endif
   copyCode(last_send, last_send_2);
 
   strncpy(last_send.data, "", 40);
@@ -1727,9 +1812,11 @@ void rawblast(JsonArray &raw, int khz, int rdelay, int pulse, int repeat, IRsend
 
   Serial.println("Transmission complete");
 
+#if enabledMQTT == 0
   copyCode(last_send_4, last_send_5);
   copyCode(last_send_3, last_send_4);
   copyCode(last_send_2, last_send_3);
+#endif
   copyCode(last_send, last_send_2);
 
   strncpy(last_send.data, "", 40);
