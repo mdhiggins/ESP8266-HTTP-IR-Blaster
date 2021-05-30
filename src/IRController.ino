@@ -87,8 +87,6 @@ ESP8266WebServer *server = NULL;
 
 long mqtt_lastReconnectAttempt = 0;
 
-DynamicJsonDocument deviceState(256);
-
 bool shouldSaveConfig = false;                                 // Flag for saving data
 bool holdReceive = false;                                      // Flag to prevent IR receiving while transmitting
 
@@ -599,8 +597,6 @@ void setup() {
     Serial.print(".");
   }
 
-  loadDeviceStates();
-
   wifi_set_sleep_type(LIGHT_SLEEP_T);
   digitalWrite(ledpin, LOW);
   // Turn off the led in 2s
@@ -700,6 +696,8 @@ void setup() {
           String device = server->arg("device");
           Serial.println("Device name detected " + device);
           int state = (server->hasArg("state")) ? server->arg("state").toInt() : 0;
+          DynamicJsonDocument deviceState(128);
+          loadDeviceStates(deviceState);
           if (deviceState.containsKey(device)) {
             Serial.println("Contains the key!");
             Serial.println(state);
@@ -722,7 +720,8 @@ void setup() {
             Serial.println("Setting device " + device + " to state " + state);
             deviceState[device] = state;
           }
-          saveDeviceStates();
+          saveDeviceStates(deviceState);
+          deviceState.clear();
         }
 
         if (simple) {
@@ -758,6 +757,8 @@ void setup() {
         String device = server->arg("device");
         Serial.println("Device name detected " + device);
         int state = (server->hasArg("state")) ? server->arg("state").toInt() : 0;
+        DynamicJsonDocument deviceState(128);
+        loadDeviceStates(deviceState);
         if (deviceState.containsKey(device)) {
           Serial.println("Contains the key!");
           Serial.println(state);
@@ -780,7 +781,8 @@ void setup() {
           Serial.println("Setting device " + device + " to state " + state);
           deviceState[device] = state;
         }
-        saveDeviceStates();
+        saveDeviceStates(deviceState);
+        deviceState.clear();
       }
 
       int len = server->arg("length").toInt();
@@ -851,8 +853,12 @@ void setup() {
       String data = server->arg("data");
       String ip = server->arg("ip");
 
+      DynamicJsonDocument deviceState(128);
+      loadDeviceStates(deviceState);
+
       if (server->hasArg("device")) {
         String device = server->arg("device");
+
         if (deviceState.containsKey(device)) {
           int currentState = deviceState[device];
           Serial.println("Current state for " + device + ": " + String(currentState));
@@ -870,6 +876,7 @@ void setup() {
         serializeJson(deviceState, Serial);
         server->send(200, "application/json", "{\"status\":\"OK\",\"states\"" + allstates + "}");
       }
+      deviceState.clear();
     }
   });
 
@@ -920,7 +927,6 @@ void setup() {
 }
 
 String processJson(DynamicJsonDocument& root, int out) {
-  bool needsSave = false;
   String message = "Code sent";
   for (size_t x = 0; x < root.size(); x++) {
     String type = root[x]["type"];
@@ -943,6 +949,8 @@ String processJson(DynamicJsonDocument& root, int out) {
     String device = root[x]["device"];
     if (device != "null") {
       int state = root[x]["state"];
+      DynamicJsonDocument deviceState(128);
+      loadDeviceStates(deviceState);
       if (deviceState.containsKey(device)) {
         int currentState = deviceState[device];
         if (state == currentState) {
@@ -950,14 +958,16 @@ String processJson(DynamicJsonDocument& root, int out) {
           message = "Code sent. Some components of the code were held because device was already in appropriate state";
           continue;
         } else {
-          Serial.println("Setting device " + device + " to state " + state);
+          Serial.println("Setting existing device " + device + " to state " + state);
+          deviceState.remove(device);
           deviceState[device] = state;
         }
       } else {
         Serial.println("Setting device " + device + " to state " + state);
         deviceState[device] = state;
       }
-      needsSave = true;
+      saveDeviceStates(deviceState);
+      deviceState.clear();
     }
 
     if (type == "delay") {
@@ -981,7 +991,6 @@ String processJson(DynamicJsonDocument& root, int out) {
       irblast(type, data, len, rdelay, pulse, repeat, address, pickIRsend(xout));
     }
   }
-  if (needsSave) saveDeviceStates();
   return message;
 }
 
@@ -990,7 +999,6 @@ String processJson(DynamicJsonDocument& root, int out) {
 // Reset Device States in LittleFS
 //
 void eraseDeviceStates() {
-  deviceState.clear();
   if (LittleFS.exists("/states.json")) LittleFS.remove("/states.json");
   Serial.println("States erased successfully");
 }
@@ -999,7 +1007,8 @@ void eraseDeviceStates() {
 //+=============================================================================
 // Save Device States to LittleFS
 //
-void saveDeviceStates() {
+void saveDeviceStates(DynamicJsonDocument& deviceState) {
+  if (LittleFS.begin()) {
     File statesFile = LittleFS.open("/states.json", "w");
     if (!statesFile) {
       Serial.println("Failed to open states file for writing");
@@ -1010,13 +1019,16 @@ void saveDeviceStates() {
     serializeJson(deviceState, statesFile);
     statesFile.close();
     Serial.println("States written successfully");
+  } else {
+    Serial.println("Failed to mount FS");
+  }
 }
 
 
 //+=============================================================================
 // Load Device States from LittleFS
 //
-void loadDeviceStates() {
+void loadDeviceStates(DynamicJsonDocument& deviceState) {
   if (LittleFS.begin()) {
     Serial.println("Mounted file system");
     if (LittleFS.exists("/states.json")) {
@@ -1036,7 +1048,11 @@ void loadDeviceStates() {
         } else {
           Serial.println("Failed to load json config");
         }
+        statesFile.close();
       }
+    } else {
+      deserializeJson(deviceState, "{}");
+      saveDeviceStates(deviceState);
     }
   } else {
     Serial.println("Failed to mount FS");
