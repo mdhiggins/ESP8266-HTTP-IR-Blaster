@@ -877,7 +877,7 @@ void setup() {
     if (securityCheck(server, user_id)) {
       eraseDeviceStates();
       sendCorsHeaders();
-      server->send(200, "application/plainttext", "States reset");
+      server->send(200, "text/plain", "States reset");
     }
   });
 
