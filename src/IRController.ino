@@ -63,7 +63,7 @@ const char *wifi_config_name = "IR Controller Configuration";
 const char serverName[] = "checkip.dyndns.org";
 int port = 80;
 int mqtt_port = 8883;
-char passcode[40] = "";
+char passcode[20] = "";
 char host_name[20] = "";
 char port_str[6] = "80";
 char user_id[60] = "";
@@ -436,7 +436,7 @@ bool setupWifi(bool resetConf) {
           Serial.println("\nparsed json");
 
           if (json.containsKey("hostname")) strncpy(host_name, json["hostname"], 20);
-          if (json.containsKey("passcode")) strncpy(passcode, json["passcode"], 40);
+          if (json.containsKey("passcode")) strncpy(passcode, json["passcode"], 20);
           if (json.containsKey("mqtt_host")) strncpy(mqtt_host, json["mqtt_host"], 100);
           if (json.containsKey("mqtt_port_str")) {
             strncpy(mqtt_port_str, json["mqtt_port_str"], 6);
@@ -465,7 +465,7 @@ bool setupWifi(bool resetConf) {
 
   WiFiManagerParameter custom_hostname("hostname", "Device name", host_name, 20);
   wifiManager.addParameter(&custom_hostname);
-  WiFiManagerParameter custom_passcode("passcode", "Passcode", passcode, 40);
+  WiFiManagerParameter custom_passcode("passcode", "Passcode", passcode, 20);
   wifiManager.addParameter(&custom_passcode);
   WiFiManagerParameter custom_mqtt_host("mqtt_host", "MQTT server", mqtt_host, 100);
   wifiManager.addParameter(&custom_mqtt_host);
@@ -511,7 +511,7 @@ bool setupWifi(bool resetConf) {
 
   // if you get here you have connected to the WiFi
   strncpy(host_name, custom_hostname.getValue(), 20);
-  strncpy(passcode, custom_passcode.getValue(), 40);
+  strncpy(passcode, custom_passcode.getValue(), 20);
   strncpy(mqtt_host, custom_mqtt_host.getValue(), 100);
   strncpy(mqtt_port_str, custom_mqtt_port.getValue(), 6);
   strncpy(mqtt_user, custom_mqtt_user.getValue(), 20);
