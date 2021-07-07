@@ -176,6 +176,21 @@ Sample URL using the same 3 button JSON sequence as above
 http://xxx.xxx.xxx.xxx:port/json?pass=yourpass&plain=[{"type":"nec","data":"FF827D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FFA25D","length":32,"repeat":3,"rdelay":800},{"type":"nec","data":"FF12ED","length":32,"rdelay":1000}]
 ```
 
+Determine Device State
+--------------
+
+To lookup and determine the state of the device, make an HTTP rest call to the `/state` endpoint.
+
+Sample URL
+```
+http://xxx.xxx.xxx.xxx:port/state?pass=yourpass&device=yourdevice
+```
+
+Example Response:
+```
+{"status":"OK","state":1}
+```
+
 Security
 ---------------
 Due to limitations imposed by the hardware in the ESP8266, there is not enough free memory to communicate over HTTPS/SSL. To protect your devices, during the WiFiManager setup process you can specify your Amazon user_id which will act as a secret key that allows SHA256 HMAC authentication to take place. Without this time sensitive signature no codes will be sent from the device. The user_id is a unique identifier tied to your account and my developer account, not shared across any other Amazon services. This unique ID can be found at the bottom of the tehpsyc.pythonanywhere.com page. The format is `amzn1.account.xxx`, **NOT your account email**. Enabling this feature will prevent sending commands via other means but greatly increases the security of the device. By default the option `bypassLocalAuth` is set to `true` which will allow requests made to the device coming from your local network (based on your local IP address and subnet) to be processed without the HMAC authentication.
