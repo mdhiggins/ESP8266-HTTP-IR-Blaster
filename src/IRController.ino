@@ -85,6 +85,8 @@ HTTPClient http;
 WiFiClient client;
 ESP8266WebServer *server = NULL;
 
+DynamicJsonDocument deviceState(128);
+
 long mqtt_lastReconnectAttempt = 0;
 
 bool shouldSaveConfig = false;                                 // Flag for saving data
@@ -661,6 +663,8 @@ void setup() {
     Serial.println("MDNS http service added. Hostname is set to " + String(host_name) + ".local:" + String(port));
   }
 
+  loadDeviceStates(deviceState);
+
   Serial.println("Starting UDP");
   ntpUDP.begin(localPort);
   Serial.print("Local port: ");
@@ -695,13 +699,11 @@ void setup() {
         if (server->hasArg("device")) {
           String device = server->arg("device");
           Serial.println("Device name detected " + device);
-          int state = (server->hasArg("state")) ? server->arg("state").toInt() : 0;
-          DynamicJsonDocument deviceState(128);
-          loadDeviceStates(deviceState);
+          String state = server->arg("state");
           if (deviceState.containsKey(device)) {
             Serial.println("Contains the key!");
             Serial.println(state);
-            int currentState = deviceState[device];
+            String currentState = deviceState[device];
             Serial.println(currentState);
             if (state == currentState) {
               if (simple) {
@@ -713,15 +715,15 @@ void setup() {
               Serial.println("Not sending command to " + device + ", already in state " + state);
               return;
             } else {
-              Serial.println("Setting device " + device + " to state " + state);
+              Serial.println("Setting existing device " + device + " to state " + state);
+              deviceState.remove(device);
               deviceState[device] = state;
             }
           } else {
             Serial.println("Setting device " + device + " to state " + state);
             deviceState[device] = state;
+            saveDeviceStates(deviceState);
           }
-          saveDeviceStates(deviceState);
-          deviceState.clear();
         }
 
         if (simple) {
@@ -756,13 +758,11 @@ void setup() {
       if (server->hasArg("device")) {
         String device = server->arg("device");
         Serial.println("Device name detected " + device);
-        int state = (server->hasArg("state")) ? server->arg("state").toInt() : 0;
-        DynamicJsonDocument deviceState(128);
-        loadDeviceStates(deviceState);
+        String state = server->arg("state");
         if (deviceState.containsKey(device)) {
           Serial.println("Contains the key!");
           Serial.println(state);
-          int currentState = deviceState[device];
+          String currentState = deviceState[device];
           Serial.println(currentState);
           if (state == currentState) {
             if (simple) {
@@ -774,15 +774,15 @@ void setup() {
             Serial.println("Not sending command to " + device + ", already in state " + state);
             return;
           } else {
-            Serial.println("Setting device " + device + " to state " + state);
+            Serial.println("Setting existing device " + device + " to state " + state);
+            deviceState.remove(device);
             deviceState[device] = state;
           }
         } else {
           Serial.println("Setting device " + device + " to state " + state);
           deviceState[device] = state;
+          saveDeviceStates(deviceState);
         }
-        saveDeviceStates(deviceState);
-        deviceState.clear();
       }
 
       int len = server->arg("length").toInt();
@@ -853,30 +853,26 @@ void setup() {
       String data = server->arg("data");
       String ip = server->arg("ip");
 
-      DynamicJsonDocument deviceState(128);
-      loadDeviceStates(deviceState);
-
       if (server->hasArg("device")) {
         String device = server->arg("device");
 
         if (deviceState.containsKey(device)) {
-          int currentState = deviceState[device];
-          Serial.println("Current state for " + device + ": " + String(currentState));
+          String currentState = deviceState[device];
+          Serial.println("Current state for " + device + ": " + currentState);
           sendCorsHeaders();
-          server->send(200, "application/json", "{\"status\":\"OK\",\"state\":" + String(currentState) + "}");
+          server->send(200, "application/json", "{\"status\":\"OK\",\"state\":" + currentState + "}");
         } else {
           Serial.println("Device " + device + " not found");
           sendCorsHeaders();
-          server->send(200, "application/json", "{\"status\":\"Not Found\",\"msg\":\"Device '" + device + "' state was not found. Returned default state off\",\"state\":0}");
+          server->send(200, "application/json", "{\"status\":\"Not Found\",\"msg\":\"Device '" + device + "' state was not found. Returned default state off\",\"state\":\"off\"}");
         }
       } else {
         String allstates;
         serializeJson(deviceState, allstates);
         Serial.println("Device states:");
         serializeJson(deviceState, Serial);
-        server->send(200, "application/json", "{\"status\":\"OK\",\"states\"" + allstates + "}");
+        server->send(200, "application/json", "{\"status\":\"OK\",\"states\":" + allstates + "}");
       }
-      deviceState.clear();
     }
   });
 
@@ -948,11 +944,9 @@ String processJson(DynamicJsonDocument& root, int out) {
     // Handle device state limitations on a per JSON object basis
     String device = root[x]["device"];
     if (device != "null") {
-      int state = root[x]["state"];
-      DynamicJsonDocument deviceState(128);
-      loadDeviceStates(deviceState);
+      String state = root[x]["state"];
       if (deviceState.containsKey(device)) {
-        int currentState = deviceState[device];
+        String currentState = deviceState[device];
         if (state == currentState) {
           Serial.println("Not sending command to " + device + ", already in state " + state);
           message = "Code sent. Some components of the code were held because device was already in appropriate state";
@@ -965,9 +959,8 @@ String processJson(DynamicJsonDocument& root, int out) {
       } else {
         Serial.println("Setting device " + device + " to state " + state);
         deviceState[device] = state;
+        saveDeviceStates(deviceState);
       }
-      saveDeviceStates(deviceState);
-      deviceState.clear();
     }
 
     if (type == "delay") {
