@@ -663,7 +663,7 @@ void setup() {
     Serial.println("MDNS http service added. Hostname is set to " + String(host_name) + ".local:" + String(port));
   }
 
-  loadDeviceStates(deviceState);
+  // loadDeviceStates(deviceState);
 
   Serial.println("Starting UDP");
   ntpUDP.begin(localPort);
