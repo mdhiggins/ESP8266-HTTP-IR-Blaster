@@ -36,7 +36,7 @@ const uint16_t  pins1 = D6;                                    // Transmitting p
 const uint16_t  configpin = D2;                                // Reset Pin (GPIO4)
 const uint16_t  pins2 = 5;                                     // Transmitting preset 2
 const uint16_t  pins3 = 12;                                    // Transmitting preset 3
-const uint16_t  pins4 = 13;                                    // Transmitting preset 4
+const uint16_t  pinp1 = 13;                                    // Transmitting preset 4
 #else
 const uint16_t  pinr1 = 14;                                    // Receiving pin
 const uint16_t  pins1 = 4;                                     // Transmitting preset 1
@@ -722,13 +722,12 @@ void setup() {
               return;
             } else {
               Serial.println("Setting existing device " + device + " to state " + state);
-              deviceState.remove(device);
               deviceState[device] = state;
             }
           } else {
             Serial.println("Setting device " + device + " to state " + state);
             deviceState[device] = state;
-            saveDeviceStates(deviceState);
+            // saveDeviceStates(deviceState);
           }
         }
 
@@ -782,13 +781,12 @@ void setup() {
             return;
           } else {
             Serial.println("Setting existing device " + device + " to state " + state);
-            deviceState.remove(device);
             deviceState[device] = state;
           }
         } else {
           Serial.println("Setting device " + device + " to state " + state);
           deviceState[device] = state;
-          saveDeviceStates(deviceState);
+          // saveDeviceStates(deviceState);
         }
       }
 
@@ -962,13 +960,12 @@ String processJson(DynamicJsonDocument& root, int out) {
           continue;
         } else {
           Serial.println("Setting existing device " + device + " to state " + state);
-          deviceState.remove(device);
           deviceState[device] = state;
         }
       } else {
         Serial.println("Setting device " + device + " to state " + state);
         deviceState[device] = state;
-        saveDeviceStates(deviceState);
+        // saveDeviceStates(deviceState);
       }
     }
 
@@ -1004,9 +1001,6 @@ void readState() {
   if (monitorState) {
     String readState;
     if (digitalRead(pinp1) == 1) { readState = "off"; } else { readState = "on"; }
-    if (deviceState.containsKey(stateKey)) {
-      deviceState.remove(stateKey);
-    }
     deviceState[stateKey] = readState;
   }
 }
