@@ -27,6 +27,9 @@ const bool toggleRC = true;                                    // Toggle RC sign
 const uint16 packetSize = 2048;                                // Size of the JSON array to decode incoming commands
 const unsigned int captureBufSize = 1024;                      // Size of the IR capture buffer.
 
+const bool monitorState = true;
+const char* stateKey = "state";
+
 #if defined(ARDUINO_ESP8266_WEMOS_D1R1) || defined(ARDUINO_ESP8266_WEMOS_D1MINI) || defined(ARDUINO_ESP8266_WEMOS_D1MINIPRO) || defined(ARDUINO_ESP8266_WEMOS_D1MINILITE)
 const uint16_t  pinr1 = D5;                                    // Receiving pin (GPIO14)
 const uint16_t  pins1 = D6;                                    // Transmitting preset 1 (GPIO12)
@@ -40,7 +43,7 @@ const uint16_t  pins1 = 4;                                     // Transmitting p
 const uint16_t  configpin = 10;                                // Reset Pin
 const uint16_t  pins2 = 5;                                     // Transmitting preset 2
 const uint16_t  pins3 = 12;                                    // Transmitting preset 3
-const uint16_t  pins4 = 13;                                    // Transmitting preset 4
+const uint16_t  pinp1 = 13;                                    // Transmitting preset 4
 #endif
 //+=============================================================================
 // User settings are above here
@@ -96,7 +99,6 @@ IRrecv irrecv(pinr1, captureBufSize, 35);
 IRsend irsend1(pins1);
 IRsend irsend2(pins2);
 IRsend irsend3(pins3);
-IRsend irsend4(pins4);
 
 const unsigned long resetfrequency = 259200000;                // 72 hours in milliseconds for external IP reset
 
@@ -576,6 +578,9 @@ void setup() {
   // set led pin as output
   pinMode(ledpin, OUTPUT);
 
+  // set state monitoring pin as input
+  pinMode(pinp1, INPUT_PULLUP);
+
   Serial.println("");
   Serial.println("ESP8266 IR Controller");
   pinMode(configpin, INPUT_PULLUP);
@@ -703,9 +708,10 @@ void setup() {
           if (deviceState.containsKey(device)) {
             Serial.println("Contains the key!");
             Serial.println(state);
+            readState();
             String currentState = deviceState[device];
             Serial.println(currentState);
-            if (state == currentState) {
+            if (state.equalsIgnoreCase(currentState)) {
               if (simple) {
                 sendCorsHeaders();
                 server->send(200, "text/plain", "Not sending command to " + device + ", already in state " + state);
@@ -762,9 +768,10 @@ void setup() {
         if (deviceState.containsKey(device)) {
           Serial.println("Contains the key!");
           Serial.println(state);
+          readState();
           String currentState = deviceState[device];
           Serial.println(currentState);
-          if (state == currentState) {
+          if (state.equalsIgnoreCase(currentState)) {
             if (simple) {
               sendCorsHeaders();
               server->send(200, "text/plain", "Not sending command to " + device + ", already in state " + state);
@@ -853,6 +860,8 @@ void setup() {
       String data = server->arg("data");
       String ip = server->arg("ip");
 
+      readState();
+
       if (server->hasArg("device")) {
         String device = server->arg("device");
 
@@ -917,7 +926,6 @@ void setup() {
   irsend1.begin();
   irsend2.begin();
   irsend3.begin();
-  irsend4.begin();
   irrecv.enableIRIn();
   Serial.println("IRRemoteESP8266 ready");
 }
@@ -946,8 +954,9 @@ String processJson(DynamicJsonDocument& root, int out) {
     if (device != "null") {
       String state = root[x]["state"];
       if (deviceState.containsKey(device)) {
+        readState();
         String currentState = deviceState[device];
-        if (state == currentState) {
+        if (state.equalsIgnoreCase(currentState)) {
           Serial.println("Not sending command to " + device + ", already in state " + state);
           message = "Code sent. Some components of the code were held because device was already in appropriate state";
           continue;
@@ -989,10 +998,26 @@ String processJson(DynamicJsonDocument& root, int out) {
 
 
 //+=============================================================================
+// Read device state
+//
+void readState() {
+  if (monitorState) {
+    String readState;
+    if (digitalRead(pinp1) == 1) { readState = "off"; } else { readState = "on"; }
+    if (deviceState.containsKey(stateKey)) {
+      deviceState.remove(stateKey);
+    }
+    deviceState[stateKey] = readState;
+  }
+}
+
+
+//+=============================================================================
 // Reset Device States in LittleFS
 //
 void eraseDeviceStates() {
   if (LittleFS.exists("/states.json")) LittleFS.remove("/states.json");
+  deviceState.clear();
   Serial.println("States erased successfully");
 }
 
@@ -1207,6 +1232,7 @@ void sendHeader() {
 }
 
 void sendHeader(int httpcode) {
+  readState();
   server->setContentLength(CONTENT_LENGTH_UNKNOWN);
   server->send(httpcode, "text/html; charset=utf-8", "");
   server->sendContent_P("<!DOCTYPE html PUBLIC '-//W3C//DTD XHTML 1.0 Strict//EN' 'http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd'>\n");
@@ -1243,6 +1269,11 @@ void sendHeader(int httpcode) {
   server->sendContent_P(("              <a href='http://" + externalIP() + ":" + String(port) + "'>External <span class='badge'>" + externalIP() + ":" + String(port) + "</span></a></li>\n").c_str());
   server->sendContent_P("            <li class='active'>\n");
   server->sendContent_P(("              <a>MAC <span class='badge'>" + String(WiFi.macAddress()) + "</span></a></li>\n").c_str());
+  if (deviceState.containsKey(stateKey)) {
+    server->sendContent_P("            <li class='active'>\n");
+    String currentState = deviceState[stateKey];
+    server->sendContent_P(("              <a>Power State <span class='badge'>" + currentState + "</span></a></li>\n").c_str());
+  }
   server->sendContent_P("          </ul>\n");
   server->sendContent_P("        </div>\n");
   server->sendContent_P("      </div><hr />\n");
@@ -1360,7 +1391,7 @@ void sendHomePage(String message, String header, int type, int httpcode) {
   server->sendContent_P(("            <li><span class='badge'>GPIO " + String(pins1) + "</span> Transmitter 1 </li>\n").c_str());
   server->sendContent_P(("            <li><span class='badge'>GPIO " + String(pins2) + "</span> Transmitter 2 </li>\n").c_str());
   server->sendContent_P(("            <li><span class='badge'>GPIO " + String(pins3) + "</span> Transmitter 3 </li>\n").c_str());
-  server->sendContent_P(("            <li><span class='badge'>GPIO " + String(pins4) + "</span> Transmitter 4 </li></ul>\n").c_str());
+  server->sendContent_P(("            <li><span class='badge'>GPIO " + String(pinp1) + "</span> State </li></ul>\n").c_str());
   server->sendContent_P("        </div>\n");
   server->sendContent_P("      </div>\n");
   sendFooter();
@@ -1525,7 +1556,6 @@ IRsend pickIRsend (int out) {
     case 1: return irsend1;
     case 2: return irsend2;
     case 3: return irsend3;
-    case 4: return irsend4;
     default: return irsend1;
   }
 }
