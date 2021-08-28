@@ -27,8 +27,10 @@ const bool toggleRC = true;                                    // Toggle RC sign
 const uint16 packetSize = 2048;                                // Size of the JSON array to decode incoming commands
 const unsigned int captureBufSize = 1024;                      // Size of the IR capture buffer.
 
-const bool monitorState = true;
-const char* stateKey = "state";
+const bool monitorState = true;                                // Monitor device state using external USB power detection
+const char* stateKey = "state";                                // Key to use for state power reporting
+
+const bool mqtt_publish = false;                               // Publish MQTT device states, only use for private MQTT servers, not the public Alexa server
 
 #if defined(ARDUINO_ESP8266_WEMOS_D1R1) || defined(ARDUINO_ESP8266_WEMOS_D1MINI) || defined(ARDUINO_ESP8266_WEMOS_D1MINIPRO) || defined(ARDUINO_ESP8266_WEMOS_D1MINILITE)
 const uint16_t  pinr1 = D5;                                    // Receiving pin (GPIO14)
@@ -64,6 +66,8 @@ WiFiUDP ntpUDP;
 const int ledpin = LED_BUILTIN;                                // Built in LED defined for WEMOS people
 const char *wifi_config_name = "IR Controller Configuration";
 const char serverName[] = "checkip.dyndns.org";
+
+int lastState = LOW;
 int port = 80;
 int mqtt_port = 8883;
 char passcode[20] = "";
@@ -952,7 +956,7 @@ String processJson(DynamicJsonDocument& root, int out) {
     if (device != "null") {
       String state = root[x]["state"];
       if (deviceState.containsKey(device)) {
-        readState();
+        // readState();
         String currentState = deviceState[device];
         if (state.equalsIgnoreCase(currentState)) {
           Serial.println("Not sending command to " + device + ", already in state " + state);
@@ -1002,6 +1006,20 @@ void readState() {
     String readState;
     if (digitalRead(pinp1) == 1) { readState = "off"; } else { readState = "on"; }
     deviceState[stateKey] = readState;
+  }
+}
+
+
+//+=============================================================================
+// Publish state
+//
+void publishState() {
+  if (mqtt_enabled() && mqtt_client.connected() && mqtt_publish) {
+    String pub = String(user_id) + "." + String(host_name) + ".state";
+    String state;
+    serializeJson(deviceState, state);
+    bool result = mqtt_client.publish(pub.c_str(), state.c_str());
+    Serial.println("MQTT Publish returned " + result);
   }
 }
 
@@ -1115,6 +1133,7 @@ boolean mqtt_connect() {
     Serial.println("MQTT connected");
     Serial.print("Subscribed to ");
     Serial.println(sub);
+    publishState();
   } else {
     Serial.print("Failed, rc=");
     Serial.println(mqtt_client.state());
@@ -1135,9 +1154,11 @@ void mqtt_callback(char* topic, byte * payload, unsigned int length) {
     Serial.println(error.c_str());
   } else {
     // serializeJson(root, Serial);
+    readState();
     processJson(root, 1);
     digitalWrite(ledpin, LOW);
     ticker.attach(0.5, disableLed);
+    publishState();
   }
   root.clear();
 }
@@ -1924,6 +1945,12 @@ void loop() {
     } else {
       // Client connected
       mqtt_client.loop();
+      if (digitalRead(pinp1) != lastState) {
+        Serial.println("State updated");
+        readState();
+        lastState = digitalRead(pinp1);
+        publishState();
+      }
     }
   }
 #else
