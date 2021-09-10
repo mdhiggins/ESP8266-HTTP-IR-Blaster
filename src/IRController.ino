@@ -1010,6 +1010,7 @@ void readState() {
 }
 
 
+#if enabledMQTT == 1
 //+=============================================================================
 // Publish state
 //
@@ -1022,6 +1023,7 @@ void publishState() {
     Serial.println("MQTT Publish returned " + result);
   }
 }
+#endif
 
 
 //+=============================================================================
