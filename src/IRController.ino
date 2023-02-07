@@ -30,7 +30,7 @@ const unsigned int captureBufSize = 1024;                      // Size of the IR
 const bool monitorState = true;                                // Monitor device state using external USB power detection
 const char* stateKey = "state";                                // Key to use for state power reporting
 
-const bool mqtt_publish = false;                               // Publish MQTT device states, only use for private MQTT servers, not the public Alexa server
+const bool mqtt_publish = false;                               // Publish MQTT device state
 
 #if defined(ARDUINO_ESP8266_WEMOS_D1R1) || defined(ARDUINO_ESP8266_WEMOS_D1MINI) || defined(ARDUINO_ESP8266_WEMOS_D1MINIPRO) || defined(ARDUINO_ESP8266_WEMOS_D1MINILITE)
 const uint16_t  pinr1 = D5;                                    // Receiving pin (GPIO14)
@@ -76,10 +76,10 @@ char port_str[6] = "80";
 char user_id[60] = "";
 
 // MQTT settings
-char mqtt_host[100] = "b-397770a4-fa3e-4e01-9951-cc3a556005aa-1.mq.us-east-1.amazonaws.com";
+char mqtt_host[100] = "";
 char mqtt_port_str[6] = "8883";
-char mqtt_user[20] = "public";
-char mqtt_pass[20] = "publicaccess";
+char mqtt_user[20] = "";
+char mqtt_pass[20] = "";
 
 // Static IP settings
 char static_ip[16];
